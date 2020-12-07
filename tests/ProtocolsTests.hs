@@ -9,3 +9,13 @@ tests =
   Tasty.testGroup
     "Protocols"
     []
+
+{- 
+serverProcessDiesBeforeClientCall = error "TODO"
+
+serverProcessDiesDuringClientCall = error "TODO"
+
+serverProcessDiesDuringClientCallNoMemLeak = error "TODO"
+
+clientProcessDiesWhileServerProcessesTheRequest = error "TODO"
+-}

@@ -9,3 +9,14 @@ tests =
   Tasty.testGroup
     "Protocols.MessageBox"
     []
+
+
+{- 
+
+manyReadersOneWriter = error "TODO"
+
+manyWriterOneReader = error "TODO"
+
+manyOneToOne = error "TODO"
+
+-}

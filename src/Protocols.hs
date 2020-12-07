@@ -22,19 +22,26 @@ module Protocols
     CallId (..),
     ReplyBox (),
     CallFailure (..),
+    cast,
+    call,
   )
 where
 
 import Control.Monad.Reader (MonadReader)
-import Data.Kind
-import Data.Text (Text)
-import Data.Word
-import Numeric.Natural (Natural)
+import Data.Kind (Type)
 import qualified Protocols.MessageBox as MessageBox
-import Protocols.UniqueCallIds
+import Protocols.Fresh
+  ( Fresh (..),
+    HasAtomicFreshCounter,
+    nextCallId,
+  )
 import System.Mem.Weak (Weak)
 import UnliftIO
-import UnliftIO.STM
+  ( MonadUnliftIO,
+    TMVar,
+    mkWeakTMVar,
+    newEmptyTMVarIO,
+  )
 
 -- | This family allows declaration of valid
 -- messages of a protocol defined by a user provided tag-type,
@@ -97,8 +104,8 @@ data Message protocol where
   -- A 'Call' contains a 'ReplyBox' that can be
   -- used to send the reply to the other process
   -- blocking on 'call'
-  Call ::
-    Pdu protocol ('Responding result) ->
+  Call :: forall result . 
+    Pdu protocol ( 'Responding result) ->
     ReplyBox result ->
     Message protocol
   -- | If the 'Pdu' has a 'ResponseKind' of 'NoResponse'
@@ -119,6 +126,7 @@ data ReplyBox a = MkReplyBox
     _replyBoxCallId :: CallId
   }
 
+
 -- | This is the reply to a 'Call' sent through the 'ReplyBox'.
 type InternalReply a = (CallId, Either CallFailure a)
 
@@ -137,33 +145,44 @@ data CallFailure where
 -- | Enqueue a 'Cast' 'Message' into an 'OutBox'.
 -- This is just for symetry to 'call', this is
 -- equivalent to: @\obox -> MessageBox.trySend obox . Cast@
+--
+-- The 
 cast ::
+  MonadUnliftIO m =>
   MessageBox.OutBox (Message protocol) ->
   Pdu protocol 'NoResponse ->
   m (Maybe MessageBox.OutBoxFailure)
-cast obox !msg = MessageBox.trySend obox (Cast msg)
+cast obox !msg =
+  MessageBox.trySend obox (Cast msg)
 
--- | Enqueue a 'Call' 'Message' into an 'OutBox' and wait for the 
+-- | Enqueue a 'Call' 'Message' into an 'OutBox' and wait for the
 -- response.
 --
 -- The receiving process must use 'replyTo'  with the 'ReplyBox'
 -- received along side the 'Pdu' in the 'Call'.
 call ::
-  (HasAtomicCallIdCounter env, MonadReader env m, MonadIO m) =>
+  ( HasAtomicCallIdCounter env,
+    MonadReader env m,
+    MonadUnliftIO m
+  ) =>
   MessageBox.OutBox (Message protocol) ->
-  Pdu protocol ('Responding result) ->
+  Pdu protocol ( 'Responding result) ->
   m (Either CallFailure result)
 call !obox !pdu = do
   !callId <- nextCallId
   !resultVar <- newEmptyTMVarIO
-  !sendResult <- do 
-    !weakResultVar <- mkWeakTMVar resultVar (pure ())    
+  !sendResult <- do
+    !weakResultVar <- mkWeakTMVar resultVar (pure ())
     let !rbox = MkReplyBox weakResultVar callId
     let !msg = Call pdu rbox
     MessageBox.trySend obox msg
   case sendResult of
-    Just !sendError -> 
+    Just !sendError ->
       return (Left (CouldNotDeliverCallMessage callId sendError))
-    Nothing -> do 
-      error "TODO"      
-      
+    Nothing -> do
+      error "TODO"
+
+-- | Receive a 'Cast' or a 'Call'.
+handleMessage :: 
+
+replyTo ::
