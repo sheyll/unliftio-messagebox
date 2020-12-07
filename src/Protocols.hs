@@ -1,42 +1,44 @@
 {-# LANGUAGE StrictData #-}
+
 -- | Define, handle and compose messages belonging to a /protocol/.
--- 
+--
 -- This module helps to build a safe, performant and convenient
 -- programs using concurrent processes, exchanging messages with
 -- each other.
 --
--- It provides some GADT based type level support for preventing 
--- simple bugs possible in programs incorporating synchronous and 
+-- It provides some GADT based type level support for preventing
+-- simple bugs possible in programs incorporating synchronous and
 -- asynchronous message passing, by making it a compile error
 -- to wait for a reply to a 'Call' 'Message' or to reply a wrong
 -- answer to a 'Cast' 'Message'.
 --
--- It is a thin layer on STM und unliftio. 
+-- It is a thin layer on STM und unliftio.
 --
 -- This is not a module to aid serialization of binary packets.
-module Protocols (
-    Message (),
+module Protocols
+  ( Message (),
     Pdu,
-    ResponseKind(..),
-    CallId(..),
-    ReplyBox(),    
-    CallFailure(..)
-    ) where
+    ResponseKind (..),
+    CallId (..),
+    ReplyBox (),
+    CallFailure (..),
+  )
+where
 
-
+import Control.Monad.Reader (MonadReader)
 import Data.Kind
 import Data.Text (Text)
 import Data.Word
 import Numeric.Natural (Natural)
+import qualified Protocols.MessageBox as MessageBox
+import Protocols.UniqueCallIds
 import System.Mem.Weak (Weak)
 import UnliftIO
 import UnliftIO.STM
-import qualified Protocols.MessageBox as MessageBox
-import Protocols.UniqueCallIds 
 
--- | This family allows declaration of valid 
--- messages of a protocol defined by a user provided tag-type, 
--- paired with a 'ResponseKind' that declares if and what 
+-- | This family allows declaration of valid
+-- messages of a protocol defined by a user provided tag-type,
+-- paired with a 'ResponseKind' that declares if and what
 -- response is valid for a message.
 --
 -- _PDU_ is the abbreviation of _P_rotocol _D_ata _U_nit,
@@ -48,7 +50,7 @@ import Protocols.UniqueCallIds
 -- protocol.
 --
 -- The second type parameter indicates if a message requires the
--- receiver to send a reply back to the blocked and waiting 
+-- receiver to send a reply back to the blocked and waiting
 -- sender, or if no reply is necessary.
 --
 -- Since 'Pdu' instances can be generalised algebraic data types
@@ -56,15 +58,15 @@ import Protocols.UniqueCallIds
 --
 -- Example:
 --
--- > 
+-- >
 -- > data LightControl
--- > 
+-- >
 -- > type LampId = Int
 -- >
 -- > data instance Pdu LightControl r where
 -- >   GetLamps :: Pdu LigthControl (Responding [LampId])
 -- >   SwitchOn :: LampId -> Pdu LigthControl NoResponse
--- > 
+-- >
 data family Pdu protocolTag :: ResponseKind -> Type
 
 -- | Indicates if a 'Pdu' requires the
@@ -72,20 +74,20 @@ data family Pdu protocolTag :: ResponseKind -> Type
 data ResponseKind where
   -- | Indicates that a 'Pdu' value is sent _one-way_.
   --
-  -- Values of a 'Pdu' instance with 'NoResponse' as second parameter 
+  -- Values of a 'Pdu' instance with 'NoResponse' as second parameter
   -- are received wrapped into a 'Message'.
   NoResponse :: ResponseKind
   -- | Indicates that a 'Pdu' value requires the receiver
   -- to send a reply of the given type.
   --
-  -- Values of a 'Pdu' instance with 'Responding' as second parameter 
+  -- Values of a 'Pdu' instance with 'Responding' as second parameter
   -- are received wrapped into a 'Call'.
   Responding :: Type -> ResponseKind
 
 -- | A message valid for some user defined @protocol@.
 --
--- The @protocol@ tag (phantom-) type defines the 
--- messages allowed here, declared by the instance of 
+-- The @protocol@ tag (phantom-) type defines the
+-- messages allowed here, declared by the instance of
 -- 'Pdu' for 'protocol'.
 data Message protocol where
   -- | Wraps a 'Pdu' with a 'ResponseKind' of 'Responding' @result@.
@@ -93,20 +95,19 @@ data Message protocol where
   -- Such a message can formed by using 'call'.
   --
   -- A 'Call' contains a 'ReplyBox' that can be
-  -- used to send the reply to the other process 
+  -- used to send the reply to the other process
   -- blocking on 'call'
-  --
   Call ::
-    Pdu protocol (Responding result) ->
+    Pdu protocol ('Responding result) ->
     ReplyBox result ->
     Message protocol
-  -- | If the 'Pdu' has a 'ResponseKind' of 'NoResponse' 
+  -- | If the 'Pdu' has a 'ResponseKind' of 'NoResponse'
   -- it has fire-and-forget semantics.
   --
   -- The smart constructor 'cast' can be used to
   -- this message.
   Cast ::
-    Pdu protocol NoResponse ->
+    Pdu protocol 'NoResponse ->
     Message protocol
 
 -- | This is like 'OutBox', it can be used
@@ -114,35 +115,55 @@ data Message protocol where
 -- to either send a reply using 'reply'
 -- or to fail/abort the request using 'sendRequestError'
 data ReplyBox a = MkReplyBox
-  { _replyBoxCallId :: CallId,
-    _replyBoxOutBox :: MessageBox.OutBox (CallId, Either CallFailure a)
+  { _replyBox :: Weak (TMVar (InternalReply a)),
+    _replyBoxCallId :: CallId
   }
+
+-- | This is the reply to a 'Call' sent through the 'ReplyBox'.
+type InternalReply a = (CallId, Either CallFailure a)
 
 -- | The failures that the receiver of a 'Responding' 'Pdu', i.e. a 'Call',
 -- can communicate to the /caller/, in order to indicate that
--- processing a request did not or will not lead to the result the 
+-- processing a request did not or will not lead to the result the
 -- caller is blocked waiting for.
 data CallFailure where
   -- | Failed to send the call to the corresponding 'MessageBox.OutBox'
-  CouldNotDeliverCallMessage :: MessageBox.OutBoxFailure -> CallFailure
+  CouldNotDeliverCallMessage :: CallId -> MessageBox.OutBoxFailure -> CallFailure
   -- | The request has failed /for reasons/.
-  CallFailed :: CallFailure
-
+  CallFailed :: CallId -> CallFailure
+  -- | Timeout waiting for the result.
+  CallTimedOut :: CallId -> CallFailure
 
 -- | Enqueue a 'Cast' 'Message' into an 'OutBox'.
--- This is just for symetry to 'call', this is 
+-- This is just for symetry to 'call', this is
 -- equivalent to: @\obox -> MessageBox.trySend obox . Cast@
-cast ::  
+cast ::
   MessageBox.OutBox (Message protocol) ->
-  Pdu protocol NoResponse ->
+  Pdu protocol 'NoResponse ->
   m (Maybe MessageBox.OutBoxFailure)
 cast obox !msg = MessageBox.trySend obox (Cast msg)
 
-
--- | Enqueue a 'Call' 'Message' into an 'OutBox'.
+-- | Enqueue a 'Call' 'Message' into an 'OutBox' and wait for the 
+-- response.
+--
+-- The receiving process must use 'replyTo'  with the 'ReplyBox'
+-- received along side the 'Pdu' in the 'Call'.
 call ::
+  (HasAtomicCallIdCounter env, MonadReader env m, MonadIO m) =>
   MessageBox.OutBox (Message protocol) ->
-  Pdu protocol (Responding result) ->
+  Pdu protocol ('Responding result) ->
   m (Either CallFailure result)
-call obox !pdu = do 
-    let !msg = Call pdu replybox
+call !obox !pdu = do
+  !callId <- nextCallId
+  !resultVar <- newEmptyTMVarIO
+  !sendResult <- do 
+    !weakResultVar <- mkWeakTMVar resultVar (pure ())    
+    let !rbox = MkReplyBox weakResultVar callId
+    let !msg = Call pdu rbox
+    MessageBox.trySend obox msg
+  case sendResult of
+    Just !sendError -> 
+      return (Left (CouldNotDeliverCallMessage callId sendError))
+    Nothing -> do 
+      error "TODO"      
+      
