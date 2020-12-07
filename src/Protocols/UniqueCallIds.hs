@@ -5,7 +5,10 @@
 -- to identify calls.
 --
 -- This is based on CAS. TODO benchmark, and test uniqueness.
-module Protocols.UniqueCallIds (nextCallId, CallId (..), newAtomicCallIdCounter, HasAtomicCallIdCounter(getAtomicCallIdCounter), AtomicCallIdCounter()) where
+module Protocols.UniqueCallIds 
+  (nextCallId, 
+  CallId (..), 
+  newAtomicCallIdCounter, HasAtomicCallIdCounter(getAtomicCallIdCounter), AtomicCallIdCounter()) where
 
 
 import Control.Monad.Reader ( asks, MonadReader )

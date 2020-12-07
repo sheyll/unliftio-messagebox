@@ -12,6 +12,8 @@ import UnliftIO
 import UnliftIO.STM
 import Protocols
 import qualified MessageBoxTests
+import qualified ProtocolsTests
+import qualified UniqueCallIdsTests
 
 main = Tasty.defaultMain tests
 
@@ -19,34 +21,11 @@ tests :: Tasty.TestTree
 tests =
   Tasty.testGroup
     "Tests"
-    [ MessageBoxTests.tests
-      apiDesignTests,
-      manyReadersOneWriter,
-      manyWriterOneReader,
-      manyOneToOne,
-      serverProcessDiesBeforeClientCall,
-      serverProcessDiesDuringClientCall,
-      serverProcessDiesDuringClientCallNoMemLeak,
-      clientProcessDiesWhileServerProcessesTheRequest,
-      slowServerProcessWithTooManyIncomingMessageFromASingleClient,
-      slowServerProcessWithTooManyIncomingMessageFromManyClients
+    [ MessageBoxTests.tests,
+      ProtocolsTests.tests,
+      UniqueCallIdsTests.tests,
+      GoodConcurrency.tests
     ]
-
-apiDesignTests = error "TODO"
-
-manyReadersOneWriter = error "TODO"
-
-manyWriterOneReader = error "TODO"
-
-manyOneToOne = error "TODO"
-
-serverProcessDiesBeforeClientCall = error "TODO"
-
-serverProcessDiesDuringClientCall = error "TODO"
-
-serverProcessDiesDuringClientCallNoMemLeak = error "TODO"
-
-clientProcessDiesWhileServerProcessesTheRequest = error "TODO"
 
 --
 
