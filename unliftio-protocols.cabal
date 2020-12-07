@@ -105,11 +105,11 @@ common deps
       base >= 4.14 && <5,
       containers >=0.5.8 && <0.7,
       data-default >= 0.7 && < 0.8,
-      microlens,
       mtl,
       QuickCheck,
       stm-chans >= 3 && < 4,
       text,
+      time,
       unliftio
 
 library
@@ -119,7 +119,8 @@ library
   build-depends:
   exposed-modules:
     Protocols,
-    Protocols.MessageBox
+    Protocols.MessageBox,
+    Protocols.UniqueCallIds
   other-modules:
 
 -- executable unliftio-protocols-example-1
@@ -140,7 +141,8 @@ test-suite unliftio-protocols-test
   hs-source-dirs: tests
   other-modules:
      MessageBoxTests,
-     ProtocolsTests
+     ProtocolsTests,
+     UniqueCallIdsTests
   ghc-options: -threaded -Wno-missing-signatures
   ghc-prof-options: -fprof-auto "-with-rtsopts=-T -xt -Pa -hc -L256"
   build-depends:
