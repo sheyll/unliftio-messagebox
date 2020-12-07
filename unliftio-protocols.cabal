@@ -1,0 +1,151 @@
+cabal-version:  3.0
+name:           unliftio-protocols
+version:        0.1.0
+description:    Please see the README on GitHub at <https://github.com/sheyll/unliftio-protocols#readme>
+synopsis:       Fork processes that receive and reply typed messages
+homepage:       https://github.com/sheyll/unliftio-protocols#readme
+bug-reports:    https://github.com/sheyll/unliftio-protocols/issues
+author:         Sven Heyll
+maintainer:     sven.heyll@gmail.com
+category:       Concurrency, Control, Effect
+tested-with:    GHC==8.10.2
+copyright:      Copyright Sven Heyll
+license:        BSD-3-Clause
+license-file:   LICENSE
+build-type:     Simple
+
+extra-source-files:
+    nix/sources.json
+    nix/sources.nix
+    nix/pkgs.nix
+    nix/overlay.nix
+    default.nix
+    shell.nix
+    ChangeLog.md
+    README.md
+    .travis.yml
+
+source-repository head
+  type: git
+  location: https://github.com/sheyll/unliftio-protocols
+
+common compiler-flags
+  ghc-options:
+    -Wall
+    -Wcompat
+    -Widentities
+    -Wincomplete-uni-patterns
+    -Wincomplete-record-updates
+    -Wredundant-constraints
+    -Wmissing-export-lists
+    -Wpartial-fields
+    -Wmissing-deriving-strategies
+    -Werror
+  default-extensions:
+     AllowAmbiguousTypes,
+     BangPatterns,
+     BinaryLiterals,
+     ConstraintKinds,
+     DataKinds,
+     DefaultSignatures,
+     DeriveFoldable,
+     DeriveFunctor,
+     DeriveGeneric,
+     DeriveTraversable,
+     -- DoIfThenElse,
+     ExistentialQuantification,
+     FlexibleContexts,
+     FlexibleInstances,
+     FunctionalDependencies,
+     GADTs,
+     GeneralizedNewtypeDeriving,
+     InstanceSigs,
+     LambdaCase,
+     MultiParamTypeClasses,
+     MultiWayIf,
+     NamedFieldPuns,     
+     NumericUnderscores,
+     OverloadedStrings,
+     -- PartialTypeSignature,
+     PatternGuards,
+     PolyKinds,
+     RankNTypes,
+     RecordWildCards,
+     ScopedTypeVariables,
+     StandaloneDeriving,
+     TupleSections,
+     TypeApplications,
+     TypeFamilies,
+     TypeInType,
+     TypeOperators,
+     TypeSynonymInstances,
+     ViewPatterns
+  other-extensions:
+    CPP,
+    DeriveAnyClass,
+    DeriveLift,
+    ForeignFunctionInterface,
+    ImplicitParams,
+    MagicHash,
+    PackageImports,
+    QuasiQuotes,
+    StaticPointers,
+    StrictData,
+    Strict,
+    TemplateHaskell,
+    TypeOperators,
+    UnboxedTuples,
+    UndecidableInstances,
+    UnliftedFFITypes
+  default-language: Haskell2010
+
+common deps
+  build-depends:
+      atomic-primops,
+      base >= 4.14 && <5,
+      containers >=0.5.8 && <0.7,
+      data-default >= 0.7 && < 0.8,
+      microlens,
+      mtl,
+      QuickCheck,
+      stm-chans >= 3 && < 4,
+      text,
+      unliftio
+
+library
+  import: deps, compiler-flags
+  hs-source-dirs:
+      src
+  build-depends:
+  exposed-modules:
+    Protocols,
+    Protocols.MessageBox
+  other-modules:
+
+-- executable unliftio-protocols-example-1
+--   import: deps, compiler-flags
+--   main-is: Main.hs
+--   hs-source-dirs: examples/example-1
+--   build-depends: unliftio-protocols
+--   ghc-options: -threaded
+--   ghc-prof-options: -fprof-auto "-with-rtsopts=-T -xt -Pa -hc -L256"
+--   default-extensions:
+--     OverloadedStrings
+-- 
+
+test-suite unliftio-protocols-test
+  import: deps, compiler-flags
+  type: exitcode-stdio-1.0
+  main-is: Test.hs
+  hs-source-dirs: tests
+  other-modules:
+     MessageBoxTests,
+     ProtocolsTests
+  ghc-options: -threaded -Wno-missing-signatures
+  ghc-prof-options: -fprof-auto "-with-rtsopts=-T -xt -Pa -hc -L256"
+  build-depends:
+      tasty,
+      unliftio-protocols,      
+      HUnit
+                
+              
