@@ -166,6 +166,7 @@ test-suite unliftio-protocols-test
   main-is: Test.hs
   hs-source-dirs: tests
   other-modules:
+     GoodConcurrencyTests,
      MessageBoxTests,
      ProtocolsTests,
      FreshTests
