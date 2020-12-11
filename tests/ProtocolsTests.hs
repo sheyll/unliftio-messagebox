@@ -1,6 +1,6 @@
 module ProtocolsTests where
 
-import Protocols.MessageBox
+import Protocol.MessageBox
 import qualified Test.Tasty as Tasty
 import UnliftIO
 
@@ -11,6 +11,7 @@ tests =
     []
 
 {- 
+
 serverProcessDiesBeforeClientCall = error "TODO"
 
 serverProcessDiesDuringClientCall = error "TODO"

@@ -1,4 +1,4 @@
-{ pkgs ? (import nix/pkgs.nix { })
+{ pkgs ? (import nix/pkgs.nix)
 , withProfiling ? false
 }:
 pkgs.haskell-nix.project {
@@ -21,6 +21,7 @@ pkgs.haskell-nix.project {
         packages.unliftio-protocols.components.library.enableLibraryProfiling = true;
         packages.unliftio-protocols.components.exes.unliftio-protocols-example-1.enableExecutableProfiling = true;
         packages.unliftio-protocols.components.tests.unliftio-protocols-test.enableExecutableProfiling = true;
+        packages.unliftio-protocols.components.benchmarks.unliftio-protocols-bench.enableExecutableProfiling = true;
       }] else [ ]);
 
 }

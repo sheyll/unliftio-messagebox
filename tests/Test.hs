@@ -10,7 +10,7 @@ import System.Mem.Weak (Weak)
 import qualified Test.Tasty as Tasty
 import UnliftIO
 import UnliftIO.STM
-import Protocols
+import Protocol
 import qualified MessageBoxTests
 import qualified ProtocolsTests
 import qualified UniqueCallIdsTests
@@ -27,14 +27,7 @@ tests =
       GoodConcurrency.tests
     ]
 
---
-
-
-
-
 -- Simple server loop
-
--- todo make unagi bounded queue
 
 data ServerState protocol model = MkServerState
   { state :: model,
@@ -42,6 +35,7 @@ data ServerState protocol model = MkServerState
   }
 
 data ServerLoopResult model where
+  Continue :: ServerLoopResult model
   ContinueWith :: model -> ServerLoopResult model
   StopServerLoop :: ServerLoopResult model
 

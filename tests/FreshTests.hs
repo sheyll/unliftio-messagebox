@@ -1,10 +1,12 @@
-module UniqeCallIdsTests where
+module FreshTests where
 
 import UnliftIO
-import Protocols.UniqeCallIds
+import Protocol.Fresh
 import qualified Test.Tasty as Tasty
 
 tests :: Tasty.TestTree
 tests =
   Tasty.testGroup
-    "Protocols.UniqeCallIds" []
+    "Protocols.Fresh" [
+
+    ]

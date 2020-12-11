@@ -10,7 +10,7 @@ maintainer:     sven.heyll@gmail.com
 category:       Concurrency, Control, Effect
 tested-with:    GHC==8.10.2
 copyright:      Copyright Sven Heyll
-license:        BSD-3-Clause
+license:        BSD-2-Clause
 license-file:   LICENSE
 build-type:     Simple
 
@@ -29,6 +29,26 @@ source-repository head
   type: git
   location: https://github.com/sheyll/unliftio-protocols
 
+common compiler-flags-executables
+  ghc-options:
+    -Wall
+    -Wcompat
+    -Widentities
+    -Wincomplete-uni-patterns
+    -Wincomplete-record-updates
+    -Wredundant-constraints
+    -Wmissing-export-lists
+    -Wpartial-fields
+    -Wmissing-deriving-strategies
+    -funbox-strict-fields
+    -threaded
+    -Wno-missing-signatures 
+    "-with-rtsopts=-T -N -qa"
+    -- -Werror
+  ghc-prof-options: 
+    -fprof-auto 
+    "-with-rtsopts=-T -xt -Pa -hc -L256"
+  
 common compiler-flags
   ghc-options:
     -Wall
@@ -40,6 +60,7 @@ common compiler-flags
     -Wmissing-export-lists
     -Wpartial-fields
     -Wmissing-deriving-strategies
+    -funbox-strict-fields
     -- -Werror
   default-extensions:
      AllowAmbiguousTypes,
@@ -52,6 +73,7 @@ common compiler-flags
      DeriveFunctor,
      DeriveGeneric,
      DeriveTraversable,
+     DerivingStrategies,
      -- DoIfThenElse,
      ExistentialQuantification,
      FlexibleContexts,
@@ -73,6 +95,7 @@ common compiler-flags
      RecordWildCards,
      ScopedTypeVariables,
      StandaloneDeriving,
+     StrictData,
      TupleSections,
      TypeApplications,
      TypeFamilies,
@@ -105,11 +128,12 @@ common deps
       base >= 4.14 && <5,
       containers >=0.5.8 && <0.7,
       data-default >= 0.7 && < 0.8,
+      hashable,
       mtl,
       QuickCheck,
-      stm-chans >= 3 && < 4,
       text,
       time,
+      unagi-chan,
       unliftio
 
 library
@@ -118,9 +142,11 @@ library
       src
   build-depends:
   exposed-modules:
-    Protocols,
-    Protocols.MessageBox,
-    Protocols.Fresh
+    -- Protocol,
+    Protocol.Command,
+    Protocol.MessageBox,
+    Protocol.WeakThreadId,
+    Protocol.Fresh
   other-modules:
 
 -- executable unliftio-protocols-example-1
@@ -135,19 +161,30 @@ library
 -- 
 
 test-suite unliftio-protocols-test
-  import: deps, compiler-flags
+  import: deps, compiler-flags-executables
   type: exitcode-stdio-1.0
   main-is: Test.hs
   hs-source-dirs: tests
   other-modules:
      MessageBoxTests,
      ProtocolsTests,
-     UniqueCallIdsTests
-  ghc-options: -threaded -Wno-missing-signatures
+     FreshTests
+  ghc-options: -threaded -Wno-missing-signatures "-with-rtsopts=-T -N -qa"
   ghc-prof-options: -fprof-auto "-with-rtsopts=-T -xt -Pa -hc -L256"
   build-depends:
+      base,
       tasty,
       unliftio-protocols,      
       HUnit
-                
+
               
+benchmark unliftio-protocols-bench
+  import: deps, compiler-flags-executables
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  hs-source-dirs: benchmarks
+  ghc-options: -threaded -O2 -Wno-missing-signatures "-with-rtsopts=-T -N -qa"
+  ghc-prof-options: -fprof-auto -threaded "-with-rtsopts=-T -xc -xt -Pa -hc -L256"
+  build-depends:
+    unliftio-protocols,
+    criterion
