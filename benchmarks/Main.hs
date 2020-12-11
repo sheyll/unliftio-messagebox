@@ -1,31 +1,39 @@
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StrictData #-}
 
 module Main (main) where
 
 import Control.Monad (replicateM)
-import Criterion.Main (bench, bgroup, defaultMain, nfAppIO)
+import Criterion.Main (defaultMain)
 import Data.Foldable (foldrM)
 import Data.Semigroup (All (All), Semigroup (stimes))
 import Protocol.MessageBox
-  (trySendAndWait, OutBoxSuccess, OutBoxFailure,  InBox,
+  ( InBox,
     OutBox,
+    OutBoxFailure,
+    OutBoxSuccess,
     createInBox,
     createOutBoxForInbox,
     receive,
     trySend,
+    trySendAndWait,
   )
 import UnliftIO (Conc, MonadUnliftIO, conc, runConc)
+import Criterion.Types
+    ( bench, bgroup, nfAppIO )
 
 main =
   defaultMain
     [ bgroup
         "MessageBox"
-        [ 
-          bgroup
+        [ bgroup
             "using trySend"
             [ bench
+                "1 src/1 msgs/1 dests"
+                ( nfAppIO senderSendsMessagesToReceiversAndAwaitsDeath (1, 1, 1)
+                ),
+              bench
                 "1 src/1000 msgs/100 dests"
                 ( nfAppIO senderSendsMessagesToReceiversAndAwaitsDeath (1, 1000, 100)
                 ),
@@ -62,12 +70,10 @@ main =
                 "100000 src/1 msgs/1 dests"
                 ( nfAppIO senderSendsMessagesToReceiversAndAwaitsDeath (100000, 1, 1)
                 )
-            ]
-         ,
+            ],
           bgroup
             "using trySendAndWait"
-            [ 
-              bench
+            [ bench
                 "1 src/1000 msgs/100 dests"
                 ( nfAppIO senderSendsMessagesToReceiversAndAwaitsDeathWithWaiting (1, 1000, 100)
                 ),
@@ -115,12 +121,12 @@ senderSendsMessagesToReceivers ::
 senderSendsMessagesToReceivers trySendImpl (!nSenders, !nMsgs, !nReceivers) = do
   allThreads <-
     do
-      (receiverThreads, receiverOutBoxes) <- startReceivers (nMsgs * nSenders) nReceivers
+      (receiverThreads, receiverOutBoxes) <- startReceivers nSenders nMsgs nReceivers
       let !senderThreads = stimes nSenders (conc (senderLoop trySendImpl receiverOutBoxes))
       return (senderThreads <> receiverThreads)
   runConc allThreads
 
-type TrySendFun f = (forall x. OutBox x -> x -> f (Either OutBoxFailure OutBoxSuccess) )
+type TrySendFun f = (forall x. OutBox x -> x -> f (Either OutBoxFailure OutBoxSuccess))
 
 senderLoop :: MonadUnliftIO f => TrySendFun f -> [OutBox TestMsg] -> f All
 senderLoop _ [] = pure (All True)
@@ -138,10 +144,11 @@ startReceivers ::
   MonadUnliftIO m =>
   Int ->
   Int ->
+  Int ->
   m (Conc m All, [OutBox TestMsg])
-startReceivers nMsgs nReceivers = do
-  inBoxes <- replicateM nReceivers (createInBox 10)
-  let receivers = foldMap (conc . receiverLoop nMsgs) inBoxes
+startReceivers nSenders nMsgs nReceivers = do
+  inBoxes <- replicateM nReceivers (createInBox 1024)
+  let receivers = foldMap (conc . receiverLoop (nSenders * nMsgs)) inBoxes
   outBoxes <- traverse createOutBoxForInbox inBoxes
   return (receivers, outBoxes)
 

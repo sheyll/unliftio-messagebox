@@ -43,11 +43,12 @@ common compiler-flags-executables
     -funbox-strict-fields
     -threaded
     -Wno-missing-signatures 
+    -O2
     "-with-rtsopts=-T -N -qa"
     -- -Werror
   ghc-prof-options: 
     -fprof-auto 
-    "-with-rtsopts=-T -xt -Pa -hc -L256"
+    "-with-rtsopts=-T -xc -xt -Pa -hc -L256"
   
 common compiler-flags
   ghc-options:
@@ -148,7 +149,7 @@ library
     Protocol.WeakThreadId,
     Protocol.Fresh
   other-modules:
-
+  
 -- executable unliftio-protocols-example-1
 --   import: deps, compiler-flags
 --   main-is: Main.hs
@@ -170,8 +171,7 @@ test-suite unliftio-protocols-test
      MessageBoxTests,
      ProtocolsTests,
      FreshTests
-  ghc-options: -threaded -Wno-missing-signatures "-with-rtsopts=-T -N -qa"
-  ghc-prof-options: -fprof-auto "-with-rtsopts=-T -xt -Pa -hc -L256"
+  ghc-options:  -Wno-missing-signatures 
   build-depends:
       base,
       tasty,
@@ -184,8 +184,8 @@ benchmark unliftio-protocols-bench
   type: exitcode-stdio-1.0
   main-is: Main.hs
   hs-source-dirs: benchmarks
-  ghc-options: -threaded -O2 -Wno-missing-signatures "-with-rtsopts=-T -N -qa"
-  ghc-prof-options: -fprof-auto -threaded "-with-rtsopts=-T -xc -xt -Pa -hc -L256"
+  ghc-options:  -Wno-missing-signatures 
+  build-depends:
   build-depends:
     unliftio-protocols,
     criterion

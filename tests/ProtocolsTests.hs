@@ -1,8 +1,6 @@
-module ProtocolsTests where
+module ProtocolsTests(tests) where
 
-import Protocol.MessageBox
 import qualified Test.Tasty as Tasty
-import UnliftIO
 
 tests :: Tasty.TestTree
 tests =

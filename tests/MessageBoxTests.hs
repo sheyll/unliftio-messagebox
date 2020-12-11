@@ -2,13 +2,16 @@ module MessageBoxTests where
 
 import Protocol.MessageBox
 import qualified Test.Tasty as Tasty
+import qualified Test.Tasty.HUnit as Tasty
 import UnliftIO
 
 tests :: Tasty.TestTree
 tests =
   Tasty.testGroup
     "Protocols.MessageBox"
-    []
+    [
+      
+    ]
 
 
 {- 
