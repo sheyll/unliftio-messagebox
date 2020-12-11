@@ -121,7 +121,7 @@ senderSendsMessagesToReceivers ::
 senderSendsMessagesToReceivers trySendImpl (!nSenders, !nMsgs, !nReceivers) = do
   allThreads <-
     do
-      (receiverThreads, receiverOutBoxes) <- startReceivers nSenders nMsgs nReceivers
+      (receiverThreads, receiverOutBoxes) <- startReceivers nMsgs nReceivers
       let !senderThreads = stimes nSenders (conc (senderLoop trySendImpl receiverOutBoxes))
       return (senderThreads <> receiverThreads)
   runConc allThreads
@@ -144,11 +144,10 @@ startReceivers ::
   MonadUnliftIO m =>
   Int ->
   Int ->
-  Int ->
   m (Conc m All, [OutBox TestMsg])
-startReceivers nSenders nMsgs nReceivers = do
+startReceivers nMsgs nReceivers = do
   inBoxes <- replicateM nReceivers (createInBox 1024)
-  let receivers = foldMap (conc . receiverLoop (nSenders * nMsgs)) inBoxes
+  let receivers = foldMap (conc . receiverLoop nMsgs) inBoxes
   outBoxes <- traverse createOutBoxForInbox inBoxes
   return (receivers, outBoxes)
 
@@ -159,3 +158,4 @@ receiverLoop workLeft inBox
     !msg <- receive inBox
     case msg of
       _ -> receiverLoop (workLeft - 1) inBox
+

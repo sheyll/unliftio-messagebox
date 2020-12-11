@@ -171,10 +171,12 @@ test-suite unliftio-protocols-test
      MessageBoxTests,
      ProtocolsTests,
      FreshTests
-  ghc-options:  -Wno-missing-signatures 
+  ghc-options:  -Wno-missing-signatures -Wmissing-export-lists
   build-depends:
       base,
       tasty,
+      tasty-hunit,
+      tasty-quickcheck,
       unliftio-protocols,      
       HUnit
 

@@ -28,7 +28,7 @@ import UnliftIO
 --
 -- Messages can be received by 'receive' or 'tryReceive'.
 data InBox a = MkInBox
-  { _inBoxSink :: Unagi.InChan a,
+  { _inBoxSink :: MVar (Unagi.InChan a),
     _inBoxSource :: Unagi.OutChan a,
     _inBoxLimit :: Int
   }
@@ -46,9 +46,10 @@ data InBox a = MkInBox
 createInBox :: MonadUnliftIO m => Int -> m (InBox a)
 createInBox !limit = do
   (!inChan, !outChan) <- liftIO (Unagi.newChan limit)
+  inChanVar <- newMVar inChan
   return
     MkInBox
-      { _inBoxSink = inChan,
+      { _inBoxSink = inChanVar,
         _inBoxSource = outChan,
         _inBoxLimit = limit
       }
@@ -71,7 +72,7 @@ tryReceive MkInBox {_inBoxSource} = liftIO $ do
 --
 --   The 'OutBox' is the counter part of an 'InBox'.
 data OutBox a = MkOutBox
-  { _outBoxSink :: Unagi.InChan a,
+  { _outBoxSink :: MVar (Unagi.InChan a),
     _outBoxLimit :: Int
   }
 
@@ -94,31 +95,21 @@ trySend ::
   m (Either OutBoxFailure OutBoxSuccess)
 trySend MkOutBox {_outBoxSink, _outBoxLimit} !a =
   liftIO
-    ( do
-        didWrite <- Unagi.tryWriteChan _outBoxSink a
-        if didWrite
-          then do
-            s <- Unagi.estimatedLength _outBoxSink
-            if 2 * s < _outBoxLimit
-              then return (Right OutBoxOk)
-              else return (Right OutBoxHalfFull)
-          else return (Left OutBoxClosed)
+    ( tryReadMVar _outBoxSink
+        >>= maybe
+          (return (Left OutBoxClosed))
+          ( \sink -> do
+              didWrite <- Unagi.tryWriteChan sink a
+              if didWrite
+                then do
+                  s <- Unagi.estimatedLength sink
+                  return . Right $
+                    if 2 * s < _outBoxLimit
+                      then OutBoxOk
+                      else OutBoxCriticallyFull
+                else return (Left OutBoxClosed)
+          )
     )
-
--- ( tryReadMVar _outBoxSink
---     >>= maybe
---       (return (Left OutBoxClosed))
---       ( \sink -> do
---           didWrite <- Unagi.tryWriteChan sink a
---           if didWrite
---             then do
---               s <- Unagi.estimatedLength sink
---               if 2 * s < _outBoxLimit
---                 then return (Right OutBoxOk)
---                 else return (Right OutBoxHalfFull)
---             else return (Left OutBoxClosed)
---       )
--- )
 
 -- | Send a message by putting it into the 'OutBox'
 -- of an 'InBox', such that the process
@@ -144,7 +135,7 @@ data OutBoxFailure
   = OutBoxFull
   | OutBoxClosed
   | OutBoxTimeout
-  deriving stock (Show)
+  deriving stock (Show, Eq)
 
 -- | Result of a 'trySend' that succeeded.
 data OutBoxSuccess
@@ -152,27 +143,5 @@ data OutBoxSuccess
     OutBoxOk
   | -- | Although the item was enqueue, the queue has filled up to more than half of the limit
     --   given to
-    OutBoxHalfFull
-  deriving stock (Show)
-
-class CanDeRef ref where
-  deRef :: MonadUnliftIO m => ref a -> m (Maybe a)
-  mkRef :: MonadUnliftIO m => a -> m (ref a)
-  killRef :: MonadUnliftIO m => ref a -> m ()
-
-instance CanDeRef MVar where
-  deRef = tryReadMVar
-  mkRef = newMVar
-  killRef = void . takeMVar
-
-instance CanDeRef TMVar where
-  deRef = atomically . tryReadTMVar
-  mkRef = newTMVarIO
-  killRef = void . atomically . tryTakeTMVar
-
-newtype MIORef a = MIORef {fromMIORef :: IORef (Maybe a)}
-
-instance CanDeRef MIORef where
-  deRef = readIORef . fromMIORef
-  mkRef !a = MIORef <$> newIORef (Just a)
-  killRef (MIORef !r) = atomicModifyIORef' r (const (Nothing, ()))
+    OutBoxCriticallyFull
+  deriving stock (Show, Eq)
