@@ -1,7 +1,9 @@
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StrictData #-}
 {-# LANGUAGE TypeApplications #-}
 
 module MessageBoxTests (tests) where
@@ -10,7 +12,7 @@ import Control.Monad (forM, forever, replicateM, void)
 import Data.Either (isLeft, isRight)
 import Data.Function (fix)
 import Data.List (sort)
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import Data.Maybe ()
 import Data.Semigroup ()
 import Protocol.MessageBox as MessageBox
@@ -28,26 +30,16 @@ import Protocol.MessageBox as MessageBox
   )
 import System.Mem (performGC)
 import Test.QuickCheck
-  ( NonEmptyList (NonEmpty),
-    Positive (Positive),
-    Small (Small),
-    cover,
-    ioProperty,
-    label,
-    (.&&.),
-    (===),
-    (==>),
-  )
 import Test.Tasty as Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit as Tasty
   ( assertBool,
     assertEqual,
-    assertFailure,
     testCase,
     (@?=),
   )
 import Test.Tasty.QuickCheck as Tasty (testProperty)
 import Text.Printf (printf)
+import UnliftIO
 import UnliftIO
   ( MonadIO (liftIO),
     SomeException,
@@ -203,31 +195,34 @@ tests =
                     -- no messages are sent, the receiver process is delayed by a random amount,
                     -- then exists and closes the InBox, trySend eventually returns
                     -- an error
-                    \(Positive (Small delay)) -> ioProperty $ do
-                      outBox <- do
-                        !i <- createInBox 100
-                        !o <- createOutBoxForInbox i
-                        void $
-                          forkFinally
-                            (threadDelay delay)
-                            (const $ closeInBox i)
-                        return o
-                      res <-
-                        fix
-                          ( \next !maxRounds -> do
-                              r <- trySend outBox "Stop the climate crisis"
-                              case r of
-                                Left e ->
-                                  return (Just e)
-                                _ ->
-                                  if maxRounds <= 0
-                                    then return Nothing
-                                    else do
-                                      threadDelay delay
-                                      next (maxRounds - 1)
-                          )
-                          10000
-                      return (res === Just OutBoxClosed),
+                    \(Positive (Small delay)) -> withMaxSuccess 10 $
+                      ioProperty $ do
+                        sync <- newEmptyMVar
+                        outBox <- do
+                          !i <- createInBox 100
+                          !o <- createOutBoxForInbox i
+                          void $
+                            forkFinally
+                              (threadDelay delay)
+                              (const (closeInBox i >> putMVar sync ()))
+                          return o
+                        () <- takeMVar sync
+                        res <-
+                          fix
+                            ( \next !maxRounds -> do
+                                r <- trySend outBox "Stop the climate crisis"
+                                case r of
+                                  Left e ->
+                                    return (Just e)
+                                  _ ->
+                                    if maxRounds <= 0
+                                      then return Nothing
+                                      else do
+                                        threadDelay delay
+                                        next (maxRounds - 1)
+                            )
+                            10000
+                        return (res === Just OutBoxClosed),
                   Tasty.testCase "004" $
                     -- messages are sent until trySend returns OutBoxFull,
                     -- then a process is forked that delays a bit and closes the InBox,
@@ -236,6 +231,7 @@ tests =
                     -- Even though the forked process closes the InBox, the blocking
                     -- trySendAndWaitForever invokation should not return or throw an exception.
                     do
+                      let delay = 4500
                       outBox <- do
                         i <- createInBox 16
                         outBox <- createOutBoxForInbox i
@@ -246,16 +242,19 @@ tests =
                             Right !_ -> next
                         void $
                           forkFinally
-                            (threadDelay 1000)
+                            (threadDelay delay)
                             (const (closeInBox i))
                         return outBox
-                      void (forkIO (threadDelay 5000 >> liftIO performGC))
-                      r <- timeout 500000 (try (trySendAndWaitForever outBox "Stop the climate crisis"))
-                      assertBool "No exception expected" $ case r of
+                      void (forkIO (threadDelay (5 * delay) >> liftIO performGC))
+                      r <-
+                        timeout
+                          (10 * delay)
+                          (try (trySendAndWaitForever outBox "Stop the climate crisis"))
+                      assertBool "Timout expected" $ case r of
                         Just (Left (_ :: SomeException)) -> False
                         Just (Right _) -> False
                         Nothing -> True,
-                  Tasty.testCase "005" $
+                  Tasty.testProperty "005" $
                     -- messages are sent until trySend returns OutBoxFull,
                     -- then a process is forked that delays a bit and closes the InBox,
                     -- in the mean time the test process uses trySendAndWait, to
@@ -263,23 +262,26 @@ tests =
                     -- After the forked process closes the InBox, the blocking
                     -- trySendAndWaitForever invokation should eventually return
                     -- 'Left OutBoxClosed'.
-                    do
-                      outBox <- do
-                        i <- createInBox 16
-                        outBox <- createOutBoxForInbox i
-                        fix $ \next ->
-                          trySend outBox "Stop the climate crisis" >>= \case
-                            Left OutBoxFull -> return ()
-                            Left e -> error (show e)
-                            Right !_ -> next
-                        void $
-                          forkFinally
-                            (threadDelay 1_000)
-                            (const (closeInBox i))
-                        return outBox
-                      void (forkIO (threadDelay 2_000 >> liftIO performGC))
-                      r <- trySendAndWait 100_000 outBox "Stop the climate crisis"
-                      r @?= Left OutBoxClosed
+                    \(Positive (Small delay')) (Positive (Small queueSize)) ->
+                      withMaxSuccess 10 $
+                        ioProperty $ do
+                          let delay = (1 + (delay' `rem` 13)) * 500
+                          outBox <- do
+                            i <- createInBox queueSize
+                            outBox <- createOutBoxForInbox i
+                            fix $ \next ->
+                              trySend outBox "Stop the climate crisis" >>= \case
+                                Left OutBoxFull -> return ()
+                                Left e -> error (show e)
+                                Right !_ -> next
+                            void $
+                              forkFinally
+                                (threadDelay delay)
+                                (const (closeInBox i))
+                            return outBox
+                          void (forkIO (threadDelay (2 * delay) >> liftIO performGC))
+                          r <- trySendAndWait (100 * delay) outBox "Stop the climate crisis"
+                          return (r === Left OutBoxClosed)
                 ]
             ],
           Tasty.testGroup
@@ -390,42 +392,34 @@ tests =
                 $ \(Positive (Small queueSize)) -> ioProperty $
                   do
                     let nGood = 256
-                        tSend = 20
+                        tSend = 200
                         tRecv = 5 * tSend
+                        sendTimeout = tRecv * nGood + tSend
 
                     receiverIn <- createInBox queueSize
                     receiverOut <- createOutBoxForInbox receiverIn
                     let doReceive =
                           fix $ \continue -> do
-                            m <- try @_ @SomeException $
-                              do
-                                threadDelay tRecv
-                                receive receiverIn
-                            either
-                              (return . Just . show)
-                              ( maybe
-                                  (return Nothing)
-                                  (const continue)
-                              )
-                              m
+                            threadDelay tRecv
+                            receive receiverIn
+                              >>= maybe
+                                (return ())
+                                (const continue)
 
                     let ms = replicate nGood (Just "Test-Message")
-
                     let doSend = do
                           res <- forM ms $ \m -> do
                             threadDelay tSend
-                            trySendAndWait 100_000 receiverOut m
+                            trySendAndWait sendTimeout receiverOut m
                           threadDelay tSend
-                          lr <- trySendAndWait 100_000 receiverOut Nothing
+                          lr <- trySendAndWait sendTimeout receiverOut Nothing
                           return (lr : res)
 
                     concurrently
                       doReceive
                       doSend
                       >>= \case
-                        (Just err, _) ->
-                          assertFailure err
-                        (Nothing, result) -> do
+                        (_, result) -> do
                           let expected =
                                 Right OutBoxOk :
                                 replicate (nGood + 1 - 1) (Right OutBoxOk)
@@ -439,45 +433,41 @@ tests =
                   let queueSize = 100
                       nMsgs = 100
                       nSenders = 1000 :: Int
-                  receiverIn <- createInBox queueSize
-                  receiverOut <- createOutBoxForInbox receiverIn
-                  let doReceive = flip fix Map.empty $ \continue resultMap ->
+                  !receiverIn <- createInBox queueSize
+                  !receiverOut <- createOutBoxForInbox receiverIn
+                  let doReceive = flip fix Map.empty $ \continue !resultMap ->
                         if nSenders == Map.size resultMap
                           && all (== nMsgs) (length <$> Map.elems resultMap)
                           then return resultMap
                           else do
-                            (senderId, msg) <- receive receiverIn
-                            let nextResultMap =
+                            (!senderId, !msg) <- receive receiverIn
+                            let !nextResultMap =
                                   Map.alter
                                     (maybe (Just [msg]) (Just . (msg :)))
                                     senderId
                                     resultMap
                             continue nextResultMap
 
-                  let ms senderId =
-                        [ (senderId, printf "[%i] Test-Message: %i" senderId mId :: String)
-                          | mId <- [0 .. nMsgs - 1]
+                  let mkMsgs !senderId =
+                        [ (senderId, printf "%i" mId :: String)
+                          | !mId <- [0 .. nMsgs - 1]
                         ]
 
-                  let mkSender senderId = do
-                        forM (ms senderId) $ \m -> do
+                  let mkSender !senderId = do
+                        forM (mkMsgs senderId) $ \ !m -> do
                           trySendAndWaitForever receiverOut m
 
                   (receiverResult, _senderResults) <-
                     concurrently
                       doReceive
                       (mapConcurrently mkSender [0 .. nSenders - 1])
-                  assertEqual "Messages from all senders are received" nSenders (Map.size receiverResult)
+                  assertEqual "expect that messages from all senders are received" nSenders (Map.size receiverResult)
                   mapM_
-                    ( \(senderId, msgs) ->
+                    ( \(!senderId,!msgs) ->
                         assertEqual
-                          ("message receiving for sender " ++ show senderId ++ " succeeded")
-                          ( sort
-                              [ printf "[%i]Test-Message: %i" senderId mId
-                                | mId <- [0 .. nMsgs - 1]
-                              ]
-                          )
-                          (sort msgs)
+                          ("expect that message receiving for sender " ++ show senderId ++ " succeeded")
+                          (sort (mkMsgs senderId))
+                          (sort ((senderId,) <$> msgs))
                     )
                     (Map.toList receiverResult)
             ]
