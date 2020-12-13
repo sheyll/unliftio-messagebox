@@ -4,8 +4,6 @@
 {-# LANGUAGE DataKinds #-}
 module GoodConcurrencyTests (tests) where
 
-import Protocol.Command
-    ( ReturnType(Return, FireAndForget), Command )
 import qualified Test.Tasty as Tasty
 
 tests :: Tasty.TestTree
@@ -42,9 +40,9 @@ tests =
 --   m (Either initError (OutBox protocol))
 -- forkServer = undefined
 
-data Counter
+-- data Counter
 
-data instance Command Counter t where
-  Incr :: Command Counter FireAndForget
-  Set :: Int -> Command Counter FireAndForget
-  Get :: Command Counter (Return Int)
+-- data instance Command Counter t where
+--   Incr :: Command Counter FireAndForget
+--   Set :: Int -> Command Counter FireAndForget
+--   Get :: Command Counter (Return Int)

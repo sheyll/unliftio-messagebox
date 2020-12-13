@@ -1,3 +1,4 @@
+{-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RankNTypes #-}
@@ -5,7 +6,7 @@
 
 module Main (main) where
 
-import Control.Monad
+import Control.Monad ( replicateM, void )
 import Criterion.Main (defaultMain)
 import Criterion.Types
   ( bench,
@@ -19,76 +20,70 @@ import Protocol.MessageBox
     createInBox,
     createOutBoxForInbox,
     receive,
-    trySendAndWait,
   )
-import UnliftIO
+import UnliftIO ( conc, runConc, Conc, MonadUnliftIO )
 
 main =
   defaultMain
     [ bgroup
         "MessageBox: n -> m"
-        [ bgroup
-            "using trySend"
+        [let 
+            noMessages = 10_000
+          in
+          bgroup
+            ("sending " ++ show noMessages ++ " messages")
             [ bench
-                "1 src/1 msgs/1 dests"
-                ( nfAppIO nToM (1, 1, 1)
+                "1 sender -> 1 receiver"
+                ( nfAppIO nToM (1, noMessages, 1)
                 ),
               bench
-                "1 src/1000 msgs/100 dests"
-                ( nfAppIO nToM (1, 1000, 100)
+                "1 sender -> 100 receivers"
+                ( nfAppIO nToM (1, noMessages, 100)
                 ),
               bench
-                "1 src/100 msgs/1000 dests"
-                ( nfAppIO nToM (1, 100, 1000)
+                "1 sender -> 1000 receivers"
+                ( nfAppIO nToM (1, noMessages, 1000)
                 ),
               bench
-                "1 src/10 msgs/10000 dests"
-                ( nfAppIO nToM (1, 10, 10000)
+                "1 sender -> 10000 receivers"
+                ( nfAppIO nToM (1, noMessages, 10000)
                 ),
               bench
-                "1 src/1 msgs/100000 dests"
-                ( nfAppIO nToM (1, 1, 100000)
-                ),
-              bench
-                "1 src/100000 msgs/1 dests"
-                ( nfAppIO nToM (1, 100000, 1)
+                "1 sender -> 1 receiver"
+                ( nfAppIO nToM (1, noMessages, 1)
                 ),
               -- multiple senders
               bench
-                "10 src/100 msgs/100 dests"
-                ( nfAppIO nToM (10, 100, 100)
+                "10 senders -> 100 receivers"
+                ( nfAppIO nToM (10, noMessages, 100)
                 ),
               bench
-                "100 src/100 msgs/10 dests"
-                ( nfAppIO nToM (100, 100, 100)
+                "100 senders -> 10 receivers"
+                ( nfAppIO nToM (100, noMessages, 100)
                 ),
               bench
-                "1000 src/100 msgs/1 dests"
-                ( nfAppIO nToM (1000, 100, 1)
+                "1000 senders -> 1 receiver"
+                ( nfAppIO nToM (1000, noMessages, 1)
                 ),
               bench
-                "100000 src/1 msgs/1 dests"
-                ( nfAppIO nToM (100000, 1, 1)
+                "10000 senders -> 1 receiver"
+                ( nfAppIO nToM (10000, noMessages, 1)
                 )
             ]
         ]
     ]
 
 send :: MonadUnliftIO m => OutBox a -> a -> m ()
-send !o =
-  trySendAndWaitForever o
-    >=> ( \case
-            Nothing -> void (error "OutBoxClosed")
-            _ -> return ()
-        )
+send !o = void . trySendAndWaitForever o
+    
 
-sendWithTimeout :: MonadUnliftIO m => Int -> OutBox a -> a -> m ()
-sendWithTimeout !to !o =
-  trySendAndWait to o
-    >=> ( \case
-            Left e -> void (error (show e))
-            _ -> return ()
-        )
+-- sendWithTimeout :: MonadUnliftIO m => Int -> OutBox a -> a -> m ()
+-- sendWithTimeout !to !o =
+--   trySendAndWait to o
+--     >=> ( \case
+--             Left e -> void (error (show e))
+--             _ -> return ()
+--         )
 
 nToM ::
   MonadUnliftIO m => (Int, Int, Int) -> m ()
@@ -97,11 +92,13 @@ nToM =
 
 senderSendsMessagesToReceivers ::
   MonadUnliftIO m => TrySendFun m -> (Int, Int, Int) -> m ()
-senderSendsMessagesToReceivers trySendImpl (!nSenders, !nMsgs, !nReceivers) = do
+senderSendsMessagesToReceivers trySendImpl (!nSenders, !nMsgsTotal, !nReceivers) = do
   allThreads <-
     do
-      (receiverThreads, receiverOutBoxes) <- startReceivers nMsgs nReceivers
-      let !senderThreads = stimes nSenders (conc (senderLoop trySendImpl receiverOutBoxes nMsgs))
+      let nMsgsPerReceiver = nMsgsTotal `div` nReceivers
+      (receiverThreads, receiverOutBoxes) <- startReceivers nMsgsPerReceiver nReceivers
+      let nMsgsPerSender = nMsgsPerReceiver `div` nSenders
+      let !senderThreads = stimes nSenders (conc (senderLoop trySendImpl receiverOutBoxes nMsgsPerSender))
       return (senderThreads <> receiverThreads)
   runConc allThreads
 
@@ -121,7 +118,7 @@ startReceivers ::
   Int ->
   m (Conc m (), [OutBox TestMsg])
 startReceivers nMsgs nReceivers = do
-  inBoxes <- replicateM nReceivers (createInBox 1024)
+  inBoxes <- replicateM nReceivers (createInBox 128)
   let receivers = foldMap (conc . receiverLoop nMsgs) inBoxes
   outBoxes <- traverse createOutBoxForInbox inBoxes
   return (receivers, outBoxes)

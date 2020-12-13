@@ -1,0 +1,63 @@
+benchmarking MessageBox: n -> m/sending 10000 messages/1 sender -> 1 receiver
+time                 4.248 ms   (4.110 ms .. 4.394 ms)
+                     0.990 R²   (0.983 R² .. 0.995 R²)
+mean                 4.058 ms   (3.948 ms .. 4.195 ms)
+std dev              341.8 μs   (266.5 μs .. 469.4 μs)
+variance introduced by outliers: 55% (severely inflated)
+
+benchmarking MessageBox: n -> m/sending 10000 messages/1 sender -> 100 receivers
+time                 5.678 ms   (5.145 ms .. 6.309 ms)
+                     0.943 R²   (0.901 R² .. 0.973 R²)
+mean                 6.345 ms   (6.045 ms .. 6.923 ms)
+std dev              1.206 ms   (790.0 μs .. 1.856 ms)
+variance introduced by outliers: 86% (severely inflated)
+
+benchmarking MessageBox: n -> m/sending 10000 messages/1 sender -> 1000 receivers
+time                 17.31 ms   (16.44 ms .. 18.15 ms)
+                     0.982 R²   (0.965 R² .. 0.991 R²)
+mean                 17.92 ms   (16.93 ms .. 18.67 ms)
+std dev              1.998 ms   (1.566 ms .. 2.659 ms)
+variance introduced by outliers: 55% (severely inflated)
+
+benchmarking MessageBox: n -> m/sending 10000 messages/1 sender -> 10000 receivers
+time                 246.6 ms   (223.2 ms .. 274.6 ms)
+                     0.996 R²   (0.990 R² .. 1.000 R²)
+mean                 241.3 ms   (223.4 ms .. 249.4 ms)
+std dev              15.01 ms   (4.692 ms .. 21.19 ms)
+variance introduced by outliers: 17% (moderately inflated)
+
+benchmarking MessageBox: n -> m/sending 10000 messages/1 sender -> 1 receiver
+time                 4.242 ms   (3.948 ms .. 4.736 ms)
+                     0.946 R²   (0.895 R² .. 0.981 R²)
+mean                 4.309 ms   (4.141 ms .. 4.519 ms)
+std dev              607.6 μs   (441.9 μs .. 807.2 μs)
+variance introduced by outliers: 78% (severely inflated)
+
+benchmarking MessageBox: n -> m/sending 10000 messages/10 senders -> 100 receivers
+time                 5.049 ms   (4.704 ms .. 5.412 ms)
+                     0.964 R²   (0.942 R² .. 0.982 R²)
+mean                 5.018 ms   (4.840 ms .. 5.284 ms)
+std dev              683.8 μs   (482.4 μs .. 1.047 ms)
+variance introduced by outliers: 74% (severely inflated)
+
+benchmarking MessageBox: n -> m/sending 10000 messages/100 senders -> 10 receivers
+time                 5.504 ms   (5.061 ms .. 6.043 ms)
+                     0.961 R²   (0.934 R² .. 0.989 R²)
+mean                 5.628 ms   (5.424 ms .. 5.849 ms)
+std dev              648.7 μs   (497.5 μs .. 880.8 μs)
+variance introduced by outliers: 68% (severely inflated)
+
+benchmarking MessageBox: n -> m/sending 10000 messages/1000 senders -> 1 receiver
+time                 37.41 ms   (35.70 ms .. 39.48 ms)
+                     0.991 R²   (0.976 R² .. 0.998 R²)
+mean                 37.43 ms   (36.18 ms .. 39.14 ms)
+std dev              2.620 ms   (1.780 ms .. 3.903 ms)
+variance introduced by outliers: 25% (moderately inflated)
+
+benchmarking MessageBox: n -> m/sending 10000 messages/10000 senders -> 1 receiver
+time                 153.8 ms   (144.3 ms .. 162.2 ms)
+                     0.998 R²   (0.996 R² .. 1.000 R²)
+mean                 154.9 ms   (149.6 ms .. 158.4 ms)
+std dev              6.132 ms   (2.405 ms .. 9.149 ms)
+variance introduced by outliers: 12% (moderately inflated)
+

@@ -10,6 +10,7 @@ module Protocol.MessageBox
     OutBox (..),
     createOutBoxForInbox,
     trySend,
+    closeInBox,
     trySendAndWait,
     trySendAndWaitForever,
     OutBoxFailure (..),
@@ -18,15 +19,17 @@ module Protocol.MessageBox
 where
 
 import qualified Control.Concurrent.Chan.Unagi.Bounded as Unagi
-import Data.Maybe (fromMaybe)
+import Control.Monad ( void )
 import UnliftIO
-  ( MVar,
-    MonadIO (liftIO),
-    MonadUnliftIO,
-    newMVar,
-    timeout,
-    tryReadMVar,
-  )
+    ( MonadIO(liftIO),
+      isEmptyMVar,
+      newMVar,
+      readMVar,
+      takeMVar,
+      tryReadMVar,
+      timeout,
+      MVar,
+      MonadUnliftIO )
 
 -- | A message queue out of which messages can by 'receive'd.
 --
@@ -73,6 +76,12 @@ tryReceive MkInBox {_inBoxSource} = liftIO $ do
   (!promise, _) <- Unagi.tryReadChan _inBoxSource
   Unagi.tryRead promise
 
+-- | Read all contents of the 'InBox' at once and atomically
+-- set the 'InBox' to the closed state.
+closeInBox :: MonadUnliftIO m => InBox a -> m ()
+closeInBox MkInBox {_inBoxSink} = do
+  void (takeMVar _inBoxSink)  
+
 -- | A message queue into which messages can be enqued by,
 --   e.g. 'trySend'.
 --   Messages can be received from an 'InBox`.
@@ -101,22 +110,29 @@ trySend ::
   a ->
   m (Either OutBoxFailure OutBoxSuccess)
 trySend MkOutBox {_outBoxSink, _outBoxLimit} !a =
-  liftIO
-    ( tryReadMVar _outBoxSink
-        >>= maybe
-          (return (Left OutBoxClosed))
-          ( \sink -> do
-              didWrite <- Unagi.tryWriteChan sink a
-              if didWrite
-                then do
-                  s <- Unagi.estimatedLength sink
-                  return . Right $
-                    if 2 * s < _outBoxLimit
-                      then OutBoxOk
-                      else OutBoxCriticallyFull
-                else return (Left OutBoxClosed) -- TODO BUG write test first
-          )
-    )
+  tryReadMVar _outBoxSink
+    >>= maybe
+      (return (Left OutBoxClosed))
+      ( \ !sink ->
+          do
+            !didWrite <- liftIO $ Unagi.tryWriteChan sink a
+            if didWrite
+              then do
+                !s <- liftIO $ Unagi.estimatedLength sink
+                return . Right $
+                  if 2 * s < _outBoxLimit
+                    then OutBoxOk
+                    else OutBoxCriticallyFull
+              else do
+                !closed <- isEmptyMVar _outBoxSink
+                return
+                  ( Left
+                      ( if closed
+                          then OutBoxClosed
+                          else OutBoxFull
+                      )
+                  )
+      )
 
 -- | Send a message by putting it into the 'OutBox'
 -- of an 'InBox', such that the process
@@ -133,23 +149,20 @@ trySendAndWait ::
   OutBox a ->
   a ->
   m (Either OutBoxFailure OutBoxSuccess)
-trySendAndWait !t MkOutBox {_outBoxSink, _outBoxLimit} !a =
-  fromMaybe (Left OutBoxTimeout) <$> timeout t go
-  where
-    go =
-      liftIO
-        ( tryReadMVar _outBoxSink
-            >>= maybe
-              (return (Left OutBoxClosed))
-              ( \sink -> do
-                  Unagi.writeChan sink a
-                  s <- Unagi.estimatedLength sink
-                  return . Right $
-                    if 2 * s < _outBoxLimit
-                      then OutBoxOk
-                      else OutBoxCriticallyFull
-              )
-        )
+trySendAndWait !t o@MkOutBox {_outBoxSink} !a =
+  timeout t (trySendAndWaitForever o a)
+    >>= maybe
+      ( do
+          !closed <- isEmptyMVar _outBoxSink
+          return
+            ( Left
+                ( if closed
+                    then OutBoxClosed
+                    else OutBoxTimeout
+                )
+            )
+      )
+      (return . Right)
 
 -- | Send a message by putting it into the 'OutBox'
 -- of an 'InBox', such that the process
@@ -157,34 +170,27 @@ trySendAndWait !t MkOutBox {_outBoxSink, _outBoxLimit} !a =
 --
 -- This might block forever.
 --
--- Return @Left@ 'OutBoxClosed' if the
--- 'InBox' has been 'closed'.
+-- Return @Nothing@ if the 'InBox' has been 'closed'.
 trySendAndWaitForever ::
   MonadUnliftIO m =>
   OutBox a ->
   a ->
-  m (Maybe OutBoxSuccess)
+  m OutBoxSuccess
 trySendAndWaitForever MkOutBox {_outBoxSink, _outBoxLimit} !a =
-  liftIO
-    ( tryReadMVar _outBoxSink
-        >>= maybe
-          (return Nothing)
-          ( \sink -> do
-              Unagi.writeChan sink a
-              s <- Unagi.estimatedLength sink
-              return . Just $
-                if 2 * s < _outBoxLimit
-                  then OutBoxOk
-                  else OutBoxCriticallyFull
-          )
-    )
+  readMVar _outBoxSink >>= \ !sink -> liftIO $ do
+    Unagi.writeChan sink a
+    s <- Unagi.estimatedLength sink
+    return $
+      if 2 * s < _outBoxLimit
+        then OutBoxOk
+        else OutBoxCriticallyFull
 
 -- | Different ways in that 'trySend' did not succeed
 -- in sending a message to the 'OutBox'.
 data OutBoxFailure
   = OutBoxFull
-  | OutBoxClosed
   | OutBoxTimeout
+  | OutBoxClosed
   deriving stock (Show, Eq)
 
 -- | Result of a 'trySend' that succeeded.

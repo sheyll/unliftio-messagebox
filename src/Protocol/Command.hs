@@ -182,6 +182,8 @@ call !obox !pdu = do
 -- Block until the reBlockingply is received.
 -- If for the given time, no answer was
 -- received, return 'BlockingCommandTimedOut'.
+handleMessage :: ()
 handleMessage = error "TODO"
 
+replyTo :: ()
 replyTo = error "TODO"
