@@ -1,142 +1,117 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StrictData #-}
 
 module Main (main) where
 
-import Control.Monad (replicateM)
+import Control.Monad
 import Criterion.Main (defaultMain)
-import Data.Foldable (foldrM)
-import Data.Semigroup (All (All), Semigroup (stimes))
+import Criterion.Types
+  ( bench,
+    bgroup,
+    nfAppIO,
+  )
+import Data.Semigroup (Semigroup (stimes))
 import Protocol.MessageBox
-  ( InBox,
+  (trySendAndWaitForever,  InBox,
     OutBox,
-    OutBoxFailure,
-    OutBoxSuccess,
     createInBox,
     createOutBoxForInbox,
     receive,
-    trySend,
     trySendAndWait,
   )
-import UnliftIO (Conc, MonadUnliftIO, conc, runConc)
-import Criterion.Types
-    ( bench, bgroup, nfAppIO )
+import UnliftIO
 
 main =
   defaultMain
     [ bgroup
-        "MessageBox"
+        "MessageBox: n -> m"
         [ bgroup
             "using trySend"
             [ bench
                 "1 src/1 msgs/1 dests"
-                ( nfAppIO senderSendsMessagesToReceiversAndAwaitsDeath (1, 1, 1)
+                ( nfAppIO nToM (1, 1, 1)
                 ),
               bench
                 "1 src/1000 msgs/100 dests"
-                ( nfAppIO senderSendsMessagesToReceiversAndAwaitsDeath (1, 1000, 100)
+                ( nfAppIO nToM (1, 1000, 100)
                 ),
               bench
                 "1 src/100 msgs/1000 dests"
-                ( nfAppIO senderSendsMessagesToReceiversAndAwaitsDeath (1, 100, 1000)
+                ( nfAppIO nToM (1, 100, 1000)
                 ),
               bench
                 "1 src/10 msgs/10000 dests"
-                ( nfAppIO senderSendsMessagesToReceiversAndAwaitsDeath (1, 10, 10000)
+                ( nfAppIO nToM (1, 10, 10000)
                 ),
               bench
                 "1 src/1 msgs/100000 dests"
-                ( nfAppIO senderSendsMessagesToReceiversAndAwaitsDeath (1, 1, 100000)
+                ( nfAppIO nToM (1, 1, 100000)
                 ),
               bench
                 "1 src/100000 msgs/1 dests"
-                ( nfAppIO senderSendsMessagesToReceiversAndAwaitsDeath (1, 100000, 1)
+                ( nfAppIO nToM (1, 100000, 1)
                 ),
               -- multiple senders
               bench
                 "10 src/100 msgs/100 dests"
-                ( nfAppIO senderSendsMessagesToReceiversAndAwaitsDeath (10, 100, 100)
+                ( nfAppIO nToM (10, 100, 100)
                 ),
               bench
                 "100 src/100 msgs/10 dests"
-                ( nfAppIO senderSendsMessagesToReceiversAndAwaitsDeath (100, 100, 100)
+                ( nfAppIO nToM (100, 100, 100)
                 ),
               bench
                 "1000 src/100 msgs/1 dests"
-                ( nfAppIO senderSendsMessagesToReceiversAndAwaitsDeath (1000, 100, 1)
+                ( nfAppIO nToM (1000, 100, 1)
                 ),
               bench
                 "100000 src/1 msgs/1 dests"
-                ( nfAppIO senderSendsMessagesToReceiversAndAwaitsDeath (100000, 1, 1)
-                )
-            ],
-          bgroup
-            "using trySendAndWait"
-            [ bench
-                "1 src/1000 msgs/100 dests"
-                ( nfAppIO senderSendsMessagesToReceiversAndAwaitsDeathWithWaiting (1, 1000, 100)
-                ),
-              bench
-                "1 src/100 msgs/1000 dests"
-                ( nfAppIO senderSendsMessagesToReceiversAndAwaitsDeathWithWaiting (1, 100, 1000)
-                ),
-              bench
-                "1 src/10 msgs/10000 dests"
-                ( nfAppIO senderSendsMessagesToReceiversAndAwaitsDeathWithWaiting (1, 10, 10000)
-                ),
-              -- multiple senders
-              bench
-                "10 src/100 msgs/100 dests"
-                ( nfAppIO senderSendsMessagesToReceiversAndAwaitsDeathWithWaiting (10, 100, 100)
-                ),
-              bench
-                "100 src/100 msgs/10 dests"
-                ( nfAppIO senderSendsMessagesToReceiversAndAwaitsDeathWithWaiting (100, 100, 10)
-                ),
-              bench
-                "10 src/10 msgs/1000 dests"
-                ( nfAppIO senderSendsMessagesToReceiversAndAwaitsDeathWithWaiting (10, 10, 1000)
-                ),
-              bench
-                "1000 src/10 msgs/10 dests"
-                ( nfAppIO senderSendsMessagesToReceiversAndAwaitsDeathWithWaiting (1000, 10, 10)
+                ( nfAppIO nToM (100000, 1, 1)
                 )
             ]
         ]
     ]
 
-senderSendsMessagesToReceiversAndAwaitsDeathWithWaiting ::
-  MonadUnliftIO m => (Int, Int, Int) -> m All
-senderSendsMessagesToReceiversAndAwaitsDeathWithWaiting =
-  senderSendsMessagesToReceivers (trySendAndWait 1000)
+send :: MonadUnliftIO m => OutBox a -> a -> m ()
+send !o =
+  trySendAndWaitForever o
+    >=> ( \case
+            Nothing -> void (error "OutBoxClosed")
+            _ -> return ()
+        )
 
-senderSendsMessagesToReceiversAndAwaitsDeath ::
-  MonadUnliftIO m => (Int, Int, Int) -> m All
-senderSendsMessagesToReceiversAndAwaitsDeath =
-  senderSendsMessagesToReceivers trySend
+sendWithTimeout :: MonadUnliftIO m => Int -> OutBox a -> a -> m ()
+sendWithTimeout !to !o =
+  trySendAndWait to o
+    >=> ( \case
+            Left e -> void (error (show e))
+            _ -> return ()
+        )
+
+nToM ::
+  MonadUnliftIO m => (Int, Int, Int) -> m ()
+nToM =
+  senderSendsMessagesToReceivers send --(sendWithTimeout 1000000000)
 
 senderSendsMessagesToReceivers ::
-  MonadUnliftIO m => TrySendFun m -> (Int, Int, Int) -> m All
+  MonadUnliftIO m => TrySendFun m -> (Int, Int, Int) -> m ()
 senderSendsMessagesToReceivers trySendImpl (!nSenders, !nMsgs, !nReceivers) = do
   allThreads <-
     do
       (receiverThreads, receiverOutBoxes) <- startReceivers nMsgs nReceivers
-      let !senderThreads = stimes nSenders (conc (senderLoop trySendImpl receiverOutBoxes))
+      let !senderThreads = stimes nSenders (conc (senderLoop trySendImpl receiverOutBoxes nMsgs))
       return (senderThreads <> receiverThreads)
   runConc allThreads
 
-type TrySendFun f = (forall x. OutBox x -> x -> f (Either OutBoxFailure OutBoxSuccess))
+type TrySendFun f = (forall x. OutBox x -> x -> f ())
 
-senderLoop :: MonadUnliftIO f => TrySendFun f -> [OutBox TestMsg] -> f All
-senderLoop _ [] = pure (All True)
-senderLoop trySendImpl !rs = foldrM go [] rs >>= senderLoop trySendImpl
-  where
-    go !outBox !outBoxesAcc = do
-      !result <- trySendImpl outBox (MkTestMsg False)
-      case result of
-        Left _ -> return outBoxesAcc
-        Right _ -> return (outBox : outBoxesAcc)
+senderLoop :: MonadUnliftIO f => TrySendFun f -> [OutBox TestMsg] -> Int -> f ()
+senderLoop trySendImpl !rs !noMsgs =
+  mapM_
+    (uncurry trySendImpl)
+    ((,) <$> rs <*> replicate noMsgs (MkTestMsg False))
 
 newtype TestMsg = MkTestMsg {_poison :: Bool}
 
@@ -144,18 +119,16 @@ startReceivers ::
   MonadUnliftIO m =>
   Int ->
   Int ->
-  m (Conc m All, [OutBox TestMsg])
+  m (Conc m (), [OutBox TestMsg])
 startReceivers nMsgs nReceivers = do
   inBoxes <- replicateM nReceivers (createInBox 1024)
   let receivers = foldMap (conc . receiverLoop nMsgs) inBoxes
   outBoxes <- traverse createOutBoxForInbox inBoxes
   return (receivers, outBoxes)
 
-receiverLoop :: MonadUnliftIO m => Int -> InBox TestMsg -> m All
+receiverLoop :: MonadUnliftIO m => Int -> InBox TestMsg -> m ()
 receiverLoop workLeft inBox
-  | workLeft < 1 = pure (All True)
-  | otherwise = do
-    !msg <- receive inBox
-    case msg of
-      _ -> receiverLoop (workLeft - 1) inBox
-
+  | workLeft < 1 = pure ()
+  | otherwise = do 
+      _ <- receive inBox 
+      receiverLoop (workLeft - 1) inBox
