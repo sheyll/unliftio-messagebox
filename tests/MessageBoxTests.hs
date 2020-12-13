@@ -9,14 +9,18 @@ module MessageBoxTests (tests) where
 import Control.Monad
 import Data.Either
 import Data.Function
+import qualified Data.Map as Map
 import Data.Semigroup
 import Protocol.MessageBox as MessageBox
 import Test.QuickCheck
 import Test.Tasty as Tasty
 import Test.Tasty.HUnit as Tasty
 import Test.Tasty.QuickCheck as Tasty
+import Text.Printf (printf)
 import UnliftIO
 import UnliftIO.Concurrent
+import Data.List
+import Data.Maybe
 
 tests :: Tasty.TestTree
 tests =
@@ -272,7 +276,53 @@ tests =
                                 replicate (noTestMessagesGood + 1 - 1) (Right OutBoxOk)
                               actual =
                                 map (either Left (const (Right OutBoxOk))) result
-                          assertEqual "messages succeed" expected actual
+                          assertEqual "messages succeed" expected actual,
+              Tasty.testCase
+                "when 1000 senders send 100 messages to 1 receiver using trySendAndWaitForever, all messages will be received"
+                $ do
+                  let queueSize = 100
+                      noMessages = 100
+                      noSenders = 1000 :: Int
+                  receiverInBox <- createInBox queueSize
+                  receiverOutBox <- createOutBoxForInbox receiverInBox
+                  let receiverAction = flip fix Map.empty $ \continue resultMap ->
+                        if noSenders == Map.size resultMap &&
+                           all (== noMessages) (length <$> Map.elems resultMap)
+                          then return resultMap
+                          else do
+                            (senderId, msg) <- receive receiverInBox
+                            let nextResultMap =
+                                  Map.alter
+                                    (maybe (Just [msg]) (Just . (msg :)))
+                                    senderId
+                                    resultMap
+                            continue nextResultMap
+
+                  let testMessages senderId =
+                        [ (senderId, printf "[%i]Test-Message: %i" senderId mId :: String)
+                          | mId <- [0 .. noMessages - 1]
+                        ]
+
+                  let mkSender senderId = do
+                        forM (testMessages senderId) $ \m -> do
+                          trySendAndWaitForever receiverOutBox m
+
+                  (receiverResult, senderResults) <-
+                    concurrently
+                      receiverAction
+                      (mapConcurrently mkSender [0 .. noSenders - 1])
+                  assertEqual "Messages from all senders are received" noSenders (Map.size receiverResult)
+                  mapM_
+                    ( \(senderId, msgs) ->
+                        assertEqual
+                          ("message receiving for sender " ++ show senderId ++ " succeeded")
+                          (sort [ printf "[%i]Test-Message: %i" senderId mId
+                            | mId <- [0 .. noMessages - 1]
+                          ])
+                          (sort msgs)
+                    )
+                    (Map.toList receiverResult)
+                  assertBool "message sending succeeded" (all (all isJust) senderResults)
             ]
         ]
         -- [0 -> 2, 1 -> 3, 2 -> 4, 2 -> 5, 3 -> 5]
