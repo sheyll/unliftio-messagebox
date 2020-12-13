@@ -112,7 +112,7 @@ trySend MkOutBox {_outBoxSink, _outBoxLimit} !a =
                     if 2 * s < _outBoxLimit
                       then OutBoxOk
                       else OutBoxCriticallyFull
-                else return (Left OutBoxClosed)
+                else return (Left OutBoxClosed) -- TODO BUG write test first
           )
     )
 
@@ -131,8 +131,24 @@ trySendAndWait ::
   OutBox a ->
   a ->
   m (Either OutBoxFailure OutBoxSuccess)
-trySendAndWait !t !o !a =
-  fromMaybe (Left OutBoxTimeout) <$> timeout t (trySend o a)
+trySendAndWait !t MkOutBox { _outBoxSink, _outBoxLimit} !a =  
+  fromMaybe (Left OutBoxTimeout) <$> timeout t go 
+  where 
+    go = 
+        liftIO
+          ( tryReadMVar _outBoxSink
+              >>= maybe
+                (return (Left OutBoxClosed))
+                ( \sink -> do
+                    Unagi.writeChan sink a
+                    s <- Unagi.estimatedLength sink
+                    return . Right $
+                      if 2 * s < _outBoxLimit
+                        then OutBoxOk
+                        else OutBoxCriticallyFull
+                )
+          )
+
 
 -- | Different ways in that 'trySend' did not succeed
 -- in sending a message to the 'OutBox'.
