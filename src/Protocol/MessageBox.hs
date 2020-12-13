@@ -17,9 +17,14 @@ module Protocol.MessageBox
 where
 
 import qualified Control.Concurrent.Chan.Unagi.Bounded as Unagi
-import Control.Monad
 import Data.Maybe (fromMaybe)
 import UnliftIO
+    ( MonadIO(liftIO),
+      newMVar,
+      tryReadMVar,
+      timeout,
+      MVar,
+      MonadUnliftIO )
 
 -- | A message queue out of which messages can by 'receive'd.
 --
@@ -63,7 +68,7 @@ receive MkInBox {_inBoxSource} =
 -- return @Nothing@ if the queue is empty.
 tryReceive :: MonadUnliftIO m => InBox a -> m (Maybe a)
 tryReceive MkInBox {_inBoxSource} = liftIO $ do
-  (promise, _) <- Unagi.tryReadChan _inBoxSource
+  (!promise, _) <- Unagi.tryReadChan _inBoxSource
   Unagi.tryRead promise
 
 -- | A message queue into which messages can be enqued by,

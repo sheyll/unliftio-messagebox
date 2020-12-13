@@ -1,17 +1,20 @@
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module MessageBoxTests where
+module MessageBoxTests (tests) where
 
 import Control.Monad
 import Data.Either
+import Data.Function
 import Data.Semigroup
 import Protocol.MessageBox as MessageBox
 import Test.QuickCheck
-import qualified Test.Tasty as Tasty
-import Test.Tasty.HUnit ((@?=))
-import qualified Test.Tasty.HUnit as Tasty
-import Test.Tasty.QuickCheck
+import Test.Tasty as Tasty
+import Test.Tasty.HUnit as Tasty
+import Test.Tasty.QuickCheck as Tasty
 import UnliftIO
+import UnliftIO.Concurrent
 
 tests :: Tasty.TestTree
 tests =
@@ -140,42 +143,43 @@ tests =
           --    trySend reader-5 => is subject to starvation
           --
           --
-          Tasty.testCase "1 Writer 5 Reader 10 messages, all messages get delivered" $ do
-            (resultAggregatorOutBox, resultAggregator) <- do
-              ib <- createInBox 16
-              ob <- createOutBoxForInbox ib
-              pure
-                ( ob,
-                  conc $ replicateM 4 receive
-                )
-            resultAggregator <- createOutBoxForInbox ib
-            outBoxesAndReaders <- forM [1 .. 5] $ \readerIndex -> do
-              ib <- createInBox 16
-              ob <- createOutBoxForInbox ib
-              pure
-                ( ob,
-                  conc $ do
-                    _msg <- receive ib
-                    if readerIndex == 3
-                      then error "Test-User-Error"
-                      else do
-                        trySend resultAggregatorOutBox readerIndex
-                )
-            mconcat $ forM outBoxesAndReaders $ \(readerInbox, reader) -> do
-              reader
-              trySend () readerInbox
-              pure reader
+          Tasty.testProperty "1 Writer x receivers y messages, all messages get delivered" $
+            \(Positive (Small noTestMessages')) (Positive (Small noReceivers')) ->
+              ioProperty $ do
+                let noTestMessages = noTestMessages' `rem` 100
+                let noReceivers = noReceivers' `rem` 100
+                !outBoxesAndReaders <- replicateM noReceivers $ do
+                  !ib <- createInBox 128
+                  !ob <- createOutBoxForInbox ib
+                  pure
+                    ( ob,
+                      fix
+                        ( \ !next !noMsgs ->
+                                receive ib
+                                  >>=
+                                    ( \case
+                                        (!_testMsg, Just _) -> next (noMsgs + 1)
+                                        (!_testMsg, Nothing) -> return noMsgs
+                                    )
+                        )
+                        0
+                    )
 
-            
+                let (!outBoxes, !receivers) = unzip outBoxesAndReaders
+                let testMessages = [("Test-Message", Just n) | n <- [1 .. noTestMessages :: Int]] ++ [("Stop-Message", Nothing)]
+                let sendTestMessages = traverse (fmap isRight . uncurry trySend) ((,) <$> outBoxes <*> testMessages)
 
-            (outBoxWriter, writerAction) <- do
-              ib <- createInBox 16
-              ob <- createOutBoxForInbox ib
-              let action = do
+                result <-
+                  concurrently
+                    (forConcurrently receivers id)
+                    sendTestMessages
 
-              return (ob, conc action)
-            runConc
-              ()
+                return
+                  ( result
+                      === ( replicate noReceivers noTestMessages,
+                            replicate ((noTestMessages + 1) * noReceivers) True
+                          )
+                  )
         ]
         -- [0 -> 2, 1 -> 3, 2 -> 4, 2 -> 5, 3 -> 5]
         -- y = mx + b

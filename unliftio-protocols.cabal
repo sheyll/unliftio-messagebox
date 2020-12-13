@@ -171,7 +171,7 @@ test-suite unliftio-protocols-test
      MessageBoxTests,
      ProtocolsTests,
      FreshTests
-  ghc-options:  -Wno-missing-signatures -Wmissing-export-lists
+  ghc-options:  -Wno-missing-signatures -Wno-missing-export-lists -Wno-type-defaults  "-with-rtsopts=-N"
   build-depends:
       base,
       tasty,

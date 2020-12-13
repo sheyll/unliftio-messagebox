@@ -1,7 +1,8 @@
+{ withProfiling ? false }:
 let
   pkgs = import nix/pkgs.nix;
 in
-(import ./default.nix { inherit pkgs; }).shellFor {
+(import ./default.nix { inherit pkgs withProfiling; }).shellFor {
   packages = p: [ p.unliftio-protocols ];
   withHoogle = true;
   tools = {
