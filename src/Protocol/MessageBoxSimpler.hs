@@ -16,8 +16,8 @@ module Protocol.MessageBoxSimpler
     trySend,
     trySendAndWait,
     blockingSend,
-    InBox (_inBoxLimit, _inBoxSource),
-    OutBox (..),
+    InBox (),
+    OutBox (),
   )
 where
 
@@ -43,23 +43,19 @@ import UnliftIO
 createInBox :: MonadUnliftIO m => Int -> m (InBox a)
 createInBox !limit = do
   (!inChan, !outChan) <- liftIO (Unagi.newChan limit)
-  return
-    MkInBox
-      { _inBoxSink = inChan,
-        _inBoxSource = outChan,
-        _inBoxLimit = limit
-      }
+  return $! MkInBox inChan outChan limit
 
 -- | Wait for and receive a message from an 'InBox'.
 {-# INLINE receive #-}
 receive :: MonadUnliftIO m => InBox a -> m a
-receive MkInBox {_inBoxSource = !s} =
+receive (MkInBox _ !s _) =
   liftIO (Unagi.readChan s)
 
 -- | Try to receive a message from an 'InBox',
 -- return @Nothing@ if the queue is empty.
+{-# INLINE tryReceive #-}
 tryReceive :: MonadUnliftIO m => InBox a -> m (Maybe a)
-tryReceive MkInBox {_inBoxSource = !s} = liftIO $ do
+tryReceive (MkInBox _ !s _) = liftIO $ do
   (!promise, _) <- Unagi.tryReadChan s
   Unagi.tryRead promise
 
@@ -67,8 +63,7 @@ tryReceive MkInBox {_inBoxSource = !s} = liftIO $ do
 -- that the given 'InBox' receives.
 {-# INLINE createOutBoxForInbox #-}
 createOutBoxForInbox :: MonadUnliftIO m => InBox a -> m (OutBox a)
-createOutBoxForInbox MkInBox {_inBoxSink = !s, _inBoxLimit = !l} = do
-  return MkOutBox {_outBoxSink = s, _outBoxLimit = l}
+createOutBoxForInbox (MkInBox !s _ !l) = return $! MkOutBox s l
 
 -- | Try to put a message into the 'OutBox'
 -- of an 'InBox', such that the process
@@ -81,7 +76,7 @@ trySend ::
   OutBox a ->
   a ->
   m Bool
-trySend MkOutBox {_outBoxSink = !s} !a =
+trySend (MkOutBox !s _) !a =
   liftIO $ Unagi.tryWriteChan s a
 
 -- | Send a message by putting it into the 'OutBox'
@@ -109,21 +104,22 @@ trySendAndWait !t !o !a =
 -- messages.
 --
 -- Messages can be received by 'receive' or 'tryReceive'.
-data InBox a = MkInBox
-  { _inBoxSink :: Unagi.InChan a,
-    _inBoxSource :: Unagi.OutChan a,
-    _inBoxLimit :: Int
-  }
+data InBox a
+  = MkInBox
+      !(Unagi.InChan a)
+      !(Unagi.OutChan a)
+      !Int
 
 -- | A message queue into which messages can be enqued by,
 --   e.g. 'trySend'.
 --   Messages can be received from an 'InBox`.
 --
 --   The 'OutBox' is the counter part of an 'InBox'.
-data OutBox a = MkOutBox
-  { _outBoxSink :: Unagi.InChan a,
-    _outBoxLimit :: Int
-  }
+data OutBox a
+  = MkOutBox
+      !(Unagi.InChan a)
+      !Int
+
 -- internal functions
 
 {-# INLINE blockingSend #-}
@@ -132,7 +128,7 @@ blockingSend ::
   OutBox a ->
   a ->
   m Bool
-blockingSend MkOutBox {_outBoxSink = !s} !a =
+blockingSend (MkOutBox !s _) !a =
   do
     liftIO $ Unagi.writeChan s a
     return True

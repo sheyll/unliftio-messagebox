@@ -8,7 +8,7 @@
 
 module BoundedMessageBoxTest (test) where
 
-import Control.Monad (replicateM_, forM, forever, replicateM, void)
+import Control.Monad (forM, forever, replicateM, void)
 import Data.Either (isLeft, isRight)
 import Data.Function (fix)
 import Data.List (sort)
@@ -16,7 +16,7 @@ import qualified Data.Map.Strict as Map
 import Data.Maybe ()
 import Data.Semigroup ()
 import Protocol.BoundedMessageBox as MessageBox
-  (blockingSend,  InBox,
+  (InBox,
     OutBoxFailure (OutBoxClosed, OutBoxFull),
     OutBoxSuccess (OutBoxCriticallyFull, OutBoxOk),
     closeInBox,
@@ -39,16 +39,6 @@ import Test.Tasty.HUnit as Tasty
 import Test.Tasty.QuickCheck as Tasty (testProperty)
 import Text.Printf (printf)
 import UnliftIO
-import UnliftIO
-  ( MonadIO (liftIO),
-    SomeException,
-    concurrently,
-    forConcurrently,
-    mapConcurrently,
-    race,
-    timeout,
-    try,
-  )
 import UnliftIO.Concurrent (forkFinally, forkIO, threadDelay)
 
 test :: Tasty.TestTree

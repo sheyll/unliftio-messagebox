@@ -124,7 +124,16 @@ test =
                     r1 <- trySendAndWait 1 o "Messge 1"
                     r1 @?= True
                     r2 <- trySendAndWait 1 o "Messge 2"
-                    r2 @?= True
+                    r2 @?= True,
+                  Tasty.testCase "when writing into a full OutBox trySend returns False after the timeout" $ do
+                    i <- createInBox 16
+                    o <- createOutBoxForInbox i
+                    fix $ \next ->
+                      trySend o "Stop the climate crisis" >>= \case
+                        False -> return ()
+                        True -> next
+                    trySendAndWait 123 o "foo bar"
+                      >>= assertBool "expect trySendAndWait to return False (timeout)" . not
                 ]
             ],
           Tasty.testGroup

@@ -89,7 +89,7 @@ nToM_M1 (!nSenders, !nMsgsTotal, !nReceivers) = do
     sendM1 (!o, !a) = 
       M1.trySendAndWait 5_000_000 o a >>= 
         \case
-          Left e -> error (show e)
+          Left e -> error ("M1.trySendAndWait failed: " ++ show e)
           Right _ -> return ()
 
     senderLoop !rs !noMsgs =
@@ -126,8 +126,8 @@ nToM_M2 (!nSenders, !nMsgsTotal, !nReceivers) = do
     sendM2 (!o, !a) = 
       M2.trySendAndWait 5_000_000 o a >>= 
         \case
-          Left e -> error (show e)
-          Right _ -> return ()
+          False -> error (show "M2.trySendAndWait timed out")
+          True -> return ()
 
     senderLoop !rs !noMsgs =
       mapM_
