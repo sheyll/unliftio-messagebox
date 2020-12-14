@@ -2,8 +2,7 @@ module Main(main) where
 
 import qualified Test.Tasty as Tasty
 import qualified GoodConcurrencyTest
-import qualified ClosableMessageBoxTest
-import qualified SimplerMessageBoxTest
+import qualified MessageBoxTest
 import qualified ProtocolsTest
 import qualified FreshTest
 
@@ -13,8 +12,7 @@ test :: Tasty.TestTree
 test =
   Tasty.testGroup
     "Tests"
-    [ SimplerMessageBoxTest.test,
-      ClosableMessageBoxTest.test,
+    [ MessageBoxTest.test,
       ProtocolsTest.test,
       FreshTest.test,
       GoodConcurrencyTest.test

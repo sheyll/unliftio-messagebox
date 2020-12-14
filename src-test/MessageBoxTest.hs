@@ -6,16 +6,24 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 
-module ClosableMessageBoxTest (test) where
+module MessageBoxTest (test) where
 
-import Control.Monad (forM, forever, replicateM, void)
+import Control.Monad (replicateM_, forM, forever, replicateM, void)
 import Data.Either (isLeft, isRight)
 import Data.Function (fix)
 import Data.List (sort)
 import qualified Data.Map.Strict as Map
 import Data.Maybe ()
 import Data.Semigroup ()
-import Protocol.ClosableMessageBox as MessageBox
+import Protocol.MessageBox as MessageBox
+  (blockingSend,  InBox,
+    createInBox,
+    createOutBoxForInbox,
+    receive,
+    tryReceive,
+    trySend,
+    trySendAndWait,
+  )
 import System.Mem (performGC)
 import Test.QuickCheck
 import Test.Tasty as Tasty (TestTree, testGroup)
@@ -28,26 +36,33 @@ import Test.Tasty.HUnit as Tasty
 import Test.Tasty.QuickCheck as Tasty (testProperty)
 import Text.Printf (printf)
 import UnliftIO
+import UnliftIO
+  ( MonadIO (liftIO),
+    SomeException,
+    concurrently,
+    forConcurrently,
+    mapConcurrently,
+    race,
+    timeout,
+    try,
+  )
 import UnliftIO.Concurrent (forkFinally, forkIO, threadDelay)
 
 test :: Tasty.TestTree
 test =
   Tasty.testGroup
-    "Protocols.ClosableMessageBox"
+    "Protocols.MessageBoxSimpler"
     [ Tasty.testGroup
         "single threaded"
         [ Tasty.testGroup
             "createInBox and createOutBoxForInbox"
             [ testProperty "when createBox is applied to a limit > 0, then limit messages can be enqueued" $ \limit ->
                 limit > 0 && limit <= 100
-                  ==> ioProperty
-                  $ do
+                  ==> ioProperty $ do
                     i <- MessageBox.createInBox limit :: IO (InBox String)
                     o <- MessageBox.createOutBoxForInbox i
                     results <- replicateM limit (trySend o "test message")
-                    return $ case last results of
-                      Right _ -> True
-                      Left _ -> False,
+                    pure $ last results,
               testProperty "when createBox is applied to a limit <= 0, then no messages can be enqueued" $ \limit ->
                 limit <= 0
                   ==> ioProperty
@@ -55,7 +70,7 @@ test =
                     i <- MessageBox.createInBox limit :: IO (InBox String)
                     o <- MessageBox.createOutBoxForInbox i
                     results <- replicateM limit (trySend o "test message")
-                    return $ isLeft `all` results,
+                    return $ and results,
               testProperty "when the message box is 'full' not more then one more messages can be enqueued" $
                 \(Positive (Small noOfMessagesThatCanBeWritten)) (Positive (Small x)) ->
                   ioProperty $ do
@@ -69,8 +84,8 @@ test =
                     let expectSomeFailures = noOfMessagesAttemptedToWrite > 2 * noOfMessagesThatCanBeWritten
 
                     return
-                      ( label "all isRight expectedSuccesses" (all isRight expectedSuccesses)
-                          .&&. label "all isLeft expectedSuccesses" (all isLeft expectedFailures)
+                      ( label "all isRight expectedSuccesses" (and expectedSuccesses)
+                          .&&. label "all isLeft expectedSuccesses" (not $ or expectedFailures)
                           .&&. cover
                             100.0
                             expectSomeFailures
@@ -82,48 +97,43 @@ test =
             "create and send messages without receiving"
             [ Tasty.testGroup
                 "trySend"
-                [ Tasty.testCase "When the message limit is 2, two messages can be enqueued,and after the first insertion the caller is warned that the queue is almost full" $ do
+                [ Tasty.testCase "When the message limit is 2, two messages can be enqueued" $ do
                     i <- MessageBox.createInBox 2
                     o <- MessageBox.createOutBoxForInbox i
                     r1 <- trySend o "Messge 1"
-                    r1 @?= Right OutBoxCriticallyFull
+                    r1 @?= True
                     r2 <- trySend o "Messge 2"
-                    r2 @?= Right OutBoxCriticallyFull,
-                  Tasty.testCase "when writing into an empty OutBox, OutBoxOk is returned" $ do
+                    r2 @?= True,
+                  Tasty.testCase "when writing into an empty OutBox, True is returned" $ do
                     i <- createInBox 16
                     o <- createOutBoxForInbox i
-                    trySend o "Stop the climate crisis" >>= (@?= Right OutBoxOk),
-                  Tasty.testCase "when writing into a full OutBox trySend returns Left OutBoxFull" $ do
+                    trySend o "Stop the climate crisis" >>= (@?= True),
+                  Tasty.testCase "when writing into a full OutBox trySend returns False" $ do
                     i <- createInBox 16
                     o <- createOutBoxForInbox i
                     fix $ \next ->
                       trySend o "Stop the climate crisis" >>= \case
-                        Left e -> e @?= OutBoxFull
-                        Right !_ -> next,
-                  Tasty.testCase "when writing into a closed OutBox, Left OutBoxClosed is returned" $ do
-                    i <- createInBox 16
-                    o <- createOutBoxForInbox i
-                    closeInBox i
-                    trySend o "Stop the climate crisis" >>= (@?= Left OutBoxClosed)
+                        False -> assertBool "expected 'False' when the queue is full" True
+                        True -> next
                 ],
               Tasty.testGroup
                 "trySendAndWait"
-                [ Tasty.testCase "When the message limit is 2, two messages can be enqueued,and after the first insertion the caller is warned that the queue is almost full" $ do
+                [ Tasty.testCase "When the message limit is 2, two messages can be enqueued" $ do
                     i <- MessageBox.createInBox 2
                     o <- MessageBox.createOutBoxForInbox i
                     r1 <- trySendAndWait 1 o "Messge 1"
-                    r1 @?= Right OutBoxCriticallyFull
+                    r1 @?= True
                     r2 <- trySendAndWait 1 o "Messge 2"
-                    r2 @?= Right OutBoxCriticallyFull,
-                  Tasty.testCase "when writing into an empty OutBox, Left OutBoxOk is returned" $ do
+                    r2 @?= True,
+                  Tasty.testCase "when writing into a full OutBox trySend returns False after the timeout" $ do
                     i <- createInBox 16
                     o <- createOutBoxForInbox i
-                    trySendAndWait 1 o "Stop the climate crisis" >>= (@?= Right OutBoxOk),
-                  Tasty.testCase "when writing into a closed OutBox, Left OutBoxClosed is returned" $ do
-                    i <- createInBox 16
-                    o <- createOutBoxForInbox i
-                    closeInBox i
-                    trySendAndWait 1 o "Stop the climate crisis" >>= (@?= Left OutBoxClosed)
+                    fix $ \next ->
+                      trySend o "Stop the climate crisis" >>= \case
+                        False -> return ()
+                        True -> next
+                    trySendAndWait 123 o "foo bar"
+                      >>= assertBool "expect trySendAndWait to return False (timeout)" . not
                 ]
             ],
           Tasty.testGroup
@@ -137,7 +147,7 @@ test =
                       allFine <- forM ms $ \message -> do
                         response <- trySend o message
                         receiveResult <- tryReceive i
-                        return (isRight response && receiveResult == Just message)
+                        return (response && receiveResult == Just message)
                       return (and allFine),
               testProperty
                 "At least 'queueSize' messages can be written before without loosing\
@@ -155,14 +165,14 @@ test =
                         -- write queueSize messages
                         let (messages1, ~valueGenerator1) = splitAt queueSize valueGenerator
                         results1 <- traverse (trySend o) messages1
-                        let sendSuccessfully1 = isRight `all` results1
+                        let sendSuccessfully1 = and results1
                         -- read n messages
                         receivedMessages1 <- replicateM n (tryReceive i)
 
                         -- write n messages
                         let (messages2, ~_valueGenerator2) = splitAt n valueGenerator1
                         results2 <- traverse (trySend o) messages2
-                        let sendSuccessfully2 = isRight `all` results2
+                        let sendSuccessfully2 = and results2
                         -- read queueSize messages
                         receivedMessages2 <- replicateM queueSize (tryReceive i)
 
@@ -179,94 +189,7 @@ test =
         ],
       Tasty.testGroup
         "multi threaded"
-        [ Tasty.testGroup
-            "sending into outBoxes with closed inBoxes"
-            [ Tasty.testCase "001" $
-                -- no messages are sent, no receiver is started, the closeInBox is immediately called after createInBox
-                do
-                  o <- do
-                    i <- createInBox 100
-                    closeInBox i
-                    createOutBoxForInbox i
-                  r <- trySend o "Stop the climate crisis"
-                  r @?= Left OutBoxClosed,
-              Tasty.testCase "002" $
-                -- no messages are sent, no receiver is started, the closeInBox is called after createOutBoxFromInBox
-                do
-                  o <- do
-                    i <- createInBox 100
-                    o <- createOutBoxForInbox i
-                    closeInBox i
-                    return o
-                  r <- trySend o "Stop the climate crisis"
-                  r @?= Left OutBoxClosed,
-              Tasty.testProperty "003" $
-                -- no messages are sent, the receiver process is delayed by a random amount,
-                -- then exists and closes the InBox, trySend eventually returns
-                -- an error
-                \(Positive (Small delay)) -> withMaxSuccess 10 $
-                  ioProperty $ do
-                    sync <- newEmptyMVar
-                    o <- do
-                      !i <- createInBox 100
-                      !o <- createOutBoxForInbox i
-                      void $
-                        forkFinally
-                          (threadDelay delay)
-                          (const (closeInBox i >> putMVar sync ()))
-                      return o
-                    () <- takeMVar sync
-                    res <-
-                      fix
-                        ( \next !maxRounds -> do
-                            r <- trySend o "Stop the climate crisis"
-                            case r of
-                              Left e ->
-                                return (Just e)
-                              _ ->
-                                if maxRounds <= 0
-                                  then return Nothing
-                                  else do
-                                    threadDelay delay
-                                    next (maxRounds - 1)
-                        )
-                        10000
-                    return (res === Just OutBoxClosed),              
-              Tasty.testProperty "004" $
-                -- messages are sent until trySend returns OutBoxFull,
-                -- then a process is forked that delays a bit and closes the InBox,
-                -- in the mean time the test process uses trySendAndWait, to
-                -- enqueue a message. It should be blocked by Unagi.writeChan.
-                -- After the forked process has closed the InBox, the blocking
-                -- trySendAndWait invokation should eventually return
-                -- 'Left OutBoxClosed'.
-                \(Positive (Small delay')) (Positive (Small queueSize)) ->
-                  withMaxSuccess 20 $
-                    ioProperty $ do
-                      startSendingSoon <- newEmptyMVar
-                      doGC <- newEmptyMVar
-                      let delay = (4 + (delay' `rem` 13)) * 500
-                      o <- do
-                        i <- createInBox queueSize
-                        o <- createOutBoxForInbox i
-                        fix $ \next ->
-                          trySend o "Stop the climate crisis" >>= \case
-                            Left OutBoxFull -> return ()
-                            Left e -> error (show e)
-                            Right !_ -> next
-                        void $
-                          forkFinally
-                            (putMVar startSendingSoon () >> threadDelay delay)
-                            (const (closeInBox i >> putMVar doGC ()))
-                        return o
-                      void (forkIO (takeMVar doGC >> liftIO performGC))
-                      takeMVar startSendingSoon                      
-                      r <- trySendAndWait (100 * delay) o "Stop the climate crisis"
-                      return (
-                              cover 50 (r == Left OutBoxClosed) "OutBoxClosed" (r === Left OutBoxClosed) 
-                        .||.  cover 1 (r == Left OutBoxFull) "OutBoxFull" (r === Left OutBoxFull) 
-                        )
-            ],
+        [ 
           Tasty.testGroup
             "1 Writer x receivers y messages"
             [ Tasty.testProperty
@@ -295,7 +218,7 @@ test =
 
                       let (!outBoxes, !receivers) = unzip outBoxesAndReaders
                       let ms = [("Test-Message", Just n) | n <- [1 .. nMsgs :: Int]] ++ [("Stop-Message", Nothing)]
-                      let doSend = traverse (fmap isRight . uncurry trySend) ((,) <$> outBoxes <*> ms)
+                      let doSend = traverse (uncurry trySend) ((,) <$> outBoxes <*> ms)
 
                       result <-
                         concurrently
@@ -324,9 +247,9 @@ test =
                       bad = [("Test-Message Base", Just n) | n <- [1 .. nBad :: Int]]
 
                   let doSend =
-                        traverse (fmap isRight . trySend receiverOut) good
+                        traverse (trySend receiverOut) good
                           <> traverse (fmap (const True) . trySend receiverOut) ambigous
-                          <> traverse (fmap isRight . trySend receiverOut) bad
+                          <> traverse (trySend receiverOut) bad
                   result <-
                     race
                       doReceive
@@ -352,35 +275,32 @@ test =
                   receiverOut <- createOutBoxForInbox receiverIn
                   let doReceive = void (forever (tryReceive receiverIn >> threadDelay tRecv))
 
-                  let good = [("Test-Message GOOD", Just n) | n <- [1 .. nGood :: Int]]
-                      ambigous = [("Test-Message ambigous", Just n) | n <- [1 .. nAmbigous :: Int]]
-                      bad = [("Test-Message Base", Just n) | n <- [1 .. nBad :: Int]]
+                  let !good = [("Test-Message GOOD", Just n) | !n <- [1 .. nGood :: Int]]
+                      !ambigous = [("Test-Message ambigous", Just n) | !n <- [1 .. nAmbigous :: Int]]
+                      !bad = [("Test-Message Base", Just n) | !n <- [1 .. nBad :: Int]]
 
                   let doSend =
-                        traverse (\m -> threadDelay tSend >> isRight <$> trySend receiverOut m) good
-                          <> traverse (\m -> threadDelay tSend >> trySend receiverOut m >> return True) ambigous
-                          <> traverse (\m -> threadDelay tSend >> isRight <$> trySend receiverOut m) bad
+                        traverse (\ !m -> threadDelay tSend >> trySend receiverOut m) good
+                          <> traverse (\ !m -> threadDelay tSend >> trySend receiverOut m >> return True) ambigous
+                          <> traverse (\ !m -> threadDelay tSend >> trySend receiverOut m) bad
                   Right result <-
                     race
                       doReceive
                       doSend
-                  let resultGoodPart = take nGood result
-                      resultBad = drop (nGood + nAmbigous) result
+                  let !resultGoodPart = take nGood result
+                      !resultBad = drop (nGood + nAmbigous) result
 
-                  assertBool "first messages succeed" (all (== True) resultGoodPart)
-                  assertBool "last messages fail" (False `elem` resultBad),
+                  assertBool "first messages succeed" (and resultGoodPart)
+                  assertBool "last messages fail" (not $ and  resultBad),
               Tasty.testProperty
-                "when sending faster than receiving using trySendAndWait\
+                "when sending faster than receiving using blockingSend\
                 \ with a very high timeout will succeed\
                 \ to send all messages, irrespective of the queue size"
                 $ \(Positive (Small queueSize)) ->  withMaxSuccess 20 $ ioProperty $
                   do
                     let nGood = 256
                         tSend = 200
-                        tRecv = 5 * tSend
-                        sendTimeout = extraSlack * (tRecv * nGood + tSend)
-                          where
-                            extraSlack = 32
+                        tRecv = 5 * tSend                        
 
                     receiverIn <- createInBox queueSize
                     receiverOut <- createOutBoxForInbox receiverIn
@@ -396,21 +316,19 @@ test =
                     let doSend = do
                           res <- forM ms $ \m -> do
                             threadDelay tSend
-                            trySendAndWait sendTimeout receiverOut m
+                            blockingSend receiverOut m
                           threadDelay tSend
-                          lr <- trySendAndWait sendTimeout receiverOut Nothing
+                          lr <- blockingSend receiverOut Nothing
                           return (lr : res)
 
                     concurrently
                       doReceive
                       doSend
                       >>= \case
-                        (_, result) -> do
+                        (_, actual) -> do
                           let expected =
-                                Right OutBoxOk :
-                                replicate (nGood + 1 - 1) (Right OutBoxOk)
-                              actual =
-                                map (either Left (const (Right OutBoxOk))) result
+                                True :
+                                replicate (nGood + 1 - 1) True
                           assertEqual "messages succeed" expected actual,
               Tasty.testCase
                 "when 1000 senders send 100 messages to 1 receiver using \
@@ -441,7 +359,7 @@ test =
 
                   let mkSender !senderId = do
                         forM (mkMsgs senderId) $ \ !m -> do
-                          trySendAndWait 5_000_000 receiverOut m
+                          blockingSend receiverOut m
 
                   (!receiverResult, !_senderResults) <-
                     concurrently

@@ -146,11 +146,10 @@ library
   exposed-modules:
     -- Protocol,
     Protocol.Command,
-    Protocol.BoundedMessageBox,
-    Protocol.ClosableMessageBox,
-    Protocol.MessageBoxSimpler,
-    Protocol.WeakThreadId,
-    Protocol.Fresh
+    Protocol.Fresh,
+    Protocol.MessageBox,
+    Protocol.UnboundedMessageBox,
+    Protocol.WeakThreadId
   other-modules:
   
 -- executable unliftio-protocols-example-1
@@ -170,12 +169,10 @@ test-suite unliftio-protocols-test
   main-is: Main.hs
   hs-source-dirs: src-test
   other-modules:
+    FreshTest,
     GoodConcurrencyTest,
-    BoundedMessageBoxTest,
-    ClosableMessageBoxTest,
-    SimplerMessageBoxTest,
-    ProtocolsTest,
-    FreshTest
+    MessageBoxTest,
+    ProtocolsTest
   ghc-options: 
     -Wno-missing-signatures
     -Wno-missing-export-lists
