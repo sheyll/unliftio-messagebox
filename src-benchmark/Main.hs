@@ -6,7 +6,7 @@
 
 module Main (main) where
 
-import Control.Monad ( replicateM, void )
+import Control.Monad ( replicateM )
 import Criterion.Main (defaultMain)
 import Criterion.Types
   ( bench,
@@ -14,19 +14,14 @@ import Criterion.Types
     nfAppIO,
   )
 import Data.Semigroup (Semigroup (stimes))
-import Protocol.MessageBox
-  (trySendAndWait,  InBox,
-    OutBox,
-    createInBox,
-    createOutBoxForInbox,
-    receive,
-  )
-import UnliftIO ( conc, runConc, Conc, MonadUnliftIO )
+import qualified Protocol.BoundedMessageBox as M1
+import qualified Protocol.MessageBoxSimpler as M2
+import UnliftIO ( conc, runConc, MonadUnliftIO )
 
 main =
   defaultMain
     [ bgroup
-        "MessageBox: n -> m"
+        title
         [let 
             noMessages = 10_000
           in
@@ -34,56 +29,53 @@ main =
             ("sending " ++ show noMessages ++ " messages")
             [ bench
                 "1 sender -> 1 receiver"
-                ( nfAppIO nToM (1, noMessages, 1)
+                ( nfAppIO impl (1, noMessages, 1)
                 ),
               bench
                 "1 sender -> 100 receivers"
-                ( nfAppIO nToM (1, noMessages, 100)
+                ( nfAppIO impl (1, noMessages, 100)
                 ),
               bench
                 "1 sender -> 1000 receivers"
-                ( nfAppIO nToM (1, noMessages, 1000)
+                ( nfAppIO impl (1, noMessages, 1000)
                 ),
               bench
                 "1 sender -> 10000 receivers"
-                ( nfAppIO nToM (1, noMessages, 10000)
+                ( nfAppIO impl (1, noMessages, 10000)
                 ),
               bench
                 "1 sender -> 1 receiver"
-                ( nfAppIO nToM (1, noMessages, 1)
+                ( nfAppIO impl (1, noMessages, 1)
                 ),
               -- multiple senders
               bench
                 "10 senders -> 100 receivers"
-                ( nfAppIO nToM (10, noMessages, 100)
+                ( nfAppIO impl (10, noMessages, 100)
                 ),
               bench
                 "100 senders -> 10 receivers"
-                ( nfAppIO nToM (100, noMessages, 100)
+                ( nfAppIO impl (100, noMessages, 100)
                 ),
               bench
                 "1000 senders -> 1 receiver"
-                ( nfAppIO nToM (1000, noMessages, 1)
+                ( nfAppIO impl (1000, noMessages, 1)
                 ),
               bench
                 "10000 senders -> 1 receiver"
-                ( nfAppIO nToM (10000, noMessages, 1)
+                ( nfAppIO impl (10000, noMessages, 1)
                 )
             ]
         ]
-    ]
+    | (title,impl) <- [("MessageBox Full Featured", nToM_M1), ("Simple Message Box", nToM_M2)]]
 
-{-# INLINE send #-}
-send :: MonadUnliftIO m => (OutBox a, a) -> m ()
-send (!o, !a) = 
-  trySendAndWait 5_000_000 o a >>= 
-    \case
-      Left e -> error (show e)
-      Right _ -> return ()
+
+
+newtype TestMsg = MkTestMsg {_someFlag :: Bool}
+
     
-nToM ::
+nToM_M1 ::
   MonadUnliftIO m => (Int, Int, Int) -> m ()
-nToM (!nSenders, !nMsgsTotal, !nReceivers) = do
+nToM_M1 (!nSenders, !nMsgsTotal, !nReceivers) = do
   allThreads <-
     do
       let nMsgsPerReceiver = nMsgsTotal `div` nReceivers
@@ -92,29 +84,64 @@ nToM (!nSenders, !nMsgsTotal, !nReceivers) = do
       let !senderThreads = stimes nSenders (conc (senderLoop receiverOutBoxes nMsgsPerSender))
       return (senderThreads <> receiverThreads)
   runConc allThreads
+  where
+    {-# INLINE sendM1 #-}
+    sendM1 (!o, !a) = 
+      M1.trySendAndWait 5_000_000 o a >>= 
+        \case
+          Left e -> error (show e)
+          Right _ -> return ()
 
-senderLoop :: MonadUnliftIO f => [OutBox TestMsg] -> Int -> f ()
-senderLoop trySendImpl !rs !noMsgs =
-  mapM_
-    send
-    ((,) <$> rs <*> replicate noMsgs (MkTestMsg False))
+    senderLoop !rs !noMsgs =
+      mapM_
+        sendM1
+        ((,) <$> rs <*> replicate noMsgs (MkTestMsg False))
 
-newtype TestMsg = MkTestMsg {_poison :: Bool}
+    startReceivers nMsgs' nReceivers' = do
+      inBoxes <- replicateM nReceivers' (M1.createInBox 128)
+      let receivers = foldMap (conc . receiverLoop nMsgs') inBoxes
+      outBoxes <- traverse M1.createOutBoxForInbox inBoxes
+      return (receivers, outBoxes)
 
-startReceivers ::
-  MonadUnliftIO m =>
-  Int ->
-  Int ->
-  m (Conc m (), [OutBox TestMsg])
-startReceivers nMsgs nReceivers = do
-  inBoxes <- replicateM nReceivers (createInBox 128)
-  let receivers = foldMap (conc . receiverLoop nMsgs) inBoxes
-  outBoxes <- traverse createOutBoxForInbox inBoxes
-  return (receivers, outBoxes)
+    receiverLoop workLeft inBox
+      | workLeft < 1 = pure ()
+      | otherwise = do 
+          _ <- M1.receive inBox 
+          receiverLoop (workLeft - 1) inBox
 
-receiverLoop :: MonadUnliftIO m => Int -> InBox TestMsg -> m ()
-receiverLoop workLeft inBox
-  | workLeft < 1 = pure ()
-  | otherwise = do 
-      _ <- receive inBox 
-      receiverLoop (workLeft - 1) inBox
+    
+nToM_M2 ::
+  MonadUnliftIO m => (Int, Int, Int) -> m ()
+nToM_M2 (!nSenders, !nMsgsTotal, !nReceivers) = do
+  allThreads <-
+    do
+      let nMsgsPerReceiver = nMsgsTotal `div` nReceivers
+      (receiverThreads, receiverOutBoxes) <- startReceivers nMsgsPerReceiver nReceivers
+      let nMsgsPerSender = nMsgsPerReceiver `div` nSenders
+      let !senderThreads = stimes nSenders (conc (senderLoop receiverOutBoxes nMsgsPerSender))
+      return (senderThreads <> receiverThreads)
+  runConc allThreads
+  where
+    {-# INLINE sendM2 #-}
+    sendM2 (!o, !a) = 
+      M2.trySendAndWait 5_000_000 o a >>= 
+        \case
+          Left e -> error (show e)
+          Right _ -> return ()
+
+    senderLoop !rs !noMsgs =
+      mapM_
+        sendM2
+        ((,) <$> rs <*> replicate noMsgs (MkTestMsg False))
+
+    startReceivers nMsgs' nReceivers' = do
+      inBoxes <- replicateM nReceivers' (M2.createInBox 128)
+      let receivers = foldMap (conc . receiverLoop nMsgs') inBoxes
+      outBoxes <- traverse M2.createOutBoxForInbox inBoxes
+      return (receivers, outBoxes)
+
+    receiverLoop workLeft inBox
+      | workLeft < 1 = pure ()
+      | otherwise = do 
+          _ <- M2.receive inBox 
+          receiverLoop (workLeft - 1) inBox

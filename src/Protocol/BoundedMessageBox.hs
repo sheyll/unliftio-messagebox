@@ -8,7 +8,7 @@
 -- For example, when many processes produce log messages and send
 -- then to the 'MessageBox' of a process that formats and forwards
 -- them to @syslogd@ over the network.
-module Protocol.MessageBoxClosable
+module Protocol.BoundedMessageBox
   ( createInBox,   
     receive,
     tryReceive,    

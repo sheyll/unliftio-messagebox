@@ -146,8 +146,8 @@ library
   exposed-modules:
     -- Protocol,
     Protocol.Command,
-    Protocol.MessageBox,
-    Protocol.MessageBoxClosable,
+    Protocol.BoundedMessageBox,
+    Protocol.ClosableMessageBox,
     Protocol.MessageBoxSimpler,
     Protocol.WeakThreadId,
     Protocol.Fresh
@@ -171,7 +171,9 @@ test-suite unliftio-protocols-test
   hs-source-dirs: src-test
   other-modules:
     GoodConcurrencyTest,
-    MessageBoxTest,
+    BoundedMessageBoxTest,
+    ClosableMessageBoxTest,
+    SimplerMessageBoxTest,
     ProtocolsTest,
     FreshTest
   ghc-options: 

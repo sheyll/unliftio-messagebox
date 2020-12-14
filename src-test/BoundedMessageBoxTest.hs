@@ -6,7 +6,7 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 
-module MessageBoxTest (test) where
+module BoundedMessageBoxTest (test) where
 
 import Control.Monad (replicateM_, forM, forever, replicateM, void)
 import Data.Either (isLeft, isRight)
@@ -15,7 +15,7 @@ import Data.List (sort)
 import qualified Data.Map.Strict as Map
 import Data.Maybe ()
 import Data.Semigroup ()
-import Protocol.MessageBox as MessageBox
+import Protocol.BoundedMessageBox as MessageBox
   (blockingSend,  InBox,
     OutBoxFailure (OutBoxClosed, OutBoxFull),
     OutBoxSuccess (OutBoxCriticallyFull, OutBoxOk),
@@ -54,7 +54,7 @@ import UnliftIO.Concurrent (forkFinally, forkIO, threadDelay)
 test :: Tasty.TestTree
 test =
   Tasty.testGroup
-    "Protocols.MessageBox"
+    "Protocols.BoundedMessageBox"
     [ Tasty.testGroup
         "single threaded"
         [ Tasty.testGroup
