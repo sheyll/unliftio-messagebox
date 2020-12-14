@@ -147,6 +147,8 @@ library
     -- Protocol,
     Protocol.Command,
     Protocol.MessageBox,
+    Protocol.MessageBoxClosable,
+    Protocol.MessageBoxSimpler,
     Protocol.WeakThreadId,
     Protocol.Fresh
   other-modules:
