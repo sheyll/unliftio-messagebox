@@ -2,12 +2,12 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE EmptyDataDecls #-}
 {-# LANGUAGE DataKinds #-}
-module GoodConcurrencyTests (tests) where
+module GoodConcurrencyTest (test) where
 
 import qualified Test.Tasty as Tasty
 
-tests :: Tasty.TestTree
-tests =
+test :: Tasty.TestTree
+test =
   Tasty.testGroup
     "Integration.GoodConcurrency"
     []

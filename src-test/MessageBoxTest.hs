@@ -6,7 +6,7 @@
 {-# LANGUAGE StrictData #-}
 {-# LANGUAGE TypeApplications #-}
 
-module MessageBoxTests (tests) where
+module MessageBoxTest (test) where
 
 import Control.Monad (forM, forever, replicateM, void)
 import Data.Either (isLeft, isRight)
@@ -52,8 +52,8 @@ import UnliftIO
   )
 import UnliftIO.Concurrent (forkFinally, forkIO, threadDelay)
 
-tests :: Tasty.TestTree
-tests =
+test :: Tasty.TestTree
+test =
   Tasty.testGroup
     "Protocols.MessageBox"
     [ Tasty.testGroup

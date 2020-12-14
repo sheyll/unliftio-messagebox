@@ -1,9 +1,9 @@
-module FreshTests where
+module FreshTest where
 
 import qualified Test.Tasty as Tasty
 
-tests :: Tasty.TestTree
-tests =
+test :: Tasty.TestTree
+test =
   Tasty.testGroup
     "Protocols.Fresh" [
 

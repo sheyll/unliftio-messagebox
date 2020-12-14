@@ -164,21 +164,25 @@ library
 test-suite unliftio-protocols-test
   import: deps, compiler-flags-executables
   type: exitcode-stdio-1.0
-  main-is: Test.hs
+  main-is: Main.hs
   hs-source-dirs: src-test
   other-modules:
-     GoodConcurrencyTests,
-     MessageBoxTests,
-     ProtocolsTests,
-     FreshTests
-  ghc-options:  -Wno-missing-signatures -Wno-missing-export-lists -Wno-type-defaults  "-with-rtsopts=-N"
+    GoodConcurrencyTest,
+    MessageBoxTest,
+    ProtocolsTest,
+    FreshTest
+  ghc-options: 
+    -Wno-missing-signatures
+    -Wno-missing-export-lists
+    -Wno-type-defaults
+    "-with-rtsopts=-N"
   build-depends:
-      base,
-      tasty,
-      tasty-hunit,
-      tasty-quickcheck,
-      unliftio-protocols,      
-      HUnit
+    base,
+    tasty,
+    tasty-hunit,
+    tasty-quickcheck,
+    unliftio-protocols,      
+    HUnit
 
               
 benchmark unliftio-protocols-bench
