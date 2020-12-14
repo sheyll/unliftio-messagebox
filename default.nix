@@ -1,5 +1,6 @@
 { pkgs ? (import nix/pkgs.nix)
 , withProfiling ? false
+, withCoverage ? false
 }:
 pkgs.haskell-nix.project {
   src = pkgs.haskell-nix.haskellLib.cleanGit {
@@ -8,12 +9,11 @@ pkgs.haskell-nix.project {
   };
   projectFileName = "cabal.project";
   compiler-nix-name = "ghc8102";
-  # compiler-nix-name = "ghc865";
-  pkg-def-extras = [ ];
   modules =
     [
       {
-        packages.unliftio-protocols.components.library.doCoverage = false;
+        packages.unliftio-protocols.components.library.doCoverage = withCoverage;
+        packages.unliftio-protocols.components.tests.unliftio-protocols-test.doCoverage = withCoverage;
       }
     ] ++
     (if withProfiling then

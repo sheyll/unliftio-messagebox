@@ -15,7 +15,7 @@ import Criterion.Types
   )
 import Data.Semigroup (Semigroup (stimes))
 import Protocol.MessageBox
-  (trySendAndWaitForever,  InBox,
+  (trySendAndWait,  InBox,
     OutBox,
     createInBox,
     createOutBoxForInbox,
@@ -73,41 +73,30 @@ main =
         ]
     ]
 
-send :: MonadUnliftIO m => OutBox a -> a -> m ()
-send !o = void . trySendAndWaitForever o
+{-# INLINE send #-}
+send :: MonadUnliftIO m => (OutBox a, a) -> m ()
+send (!o, !a) = 
+  trySendAndWait 5_000_000 o a >>= 
+    \case
+      Left e -> error (show e)
+      Right _ -> return ()
     
-
--- sendWithTimeout :: MonadUnliftIO m => Int -> OutBox a -> a -> m ()
--- sendWithTimeout !to !o =
---   trySendAndWait to o
---     >=> ( \case
---             Left e -> void (error (show e))
---             _ -> return ()
---         )
-
 nToM ::
   MonadUnliftIO m => (Int, Int, Int) -> m ()
-nToM =
-  senderSendsMessagesToReceivers send --(sendWithTimeout 1000000000)
-
-senderSendsMessagesToReceivers ::
-  MonadUnliftIO m => TrySendFun m -> (Int, Int, Int) -> m ()
-senderSendsMessagesToReceivers trySendImpl (!nSenders, !nMsgsTotal, !nReceivers) = do
+nToM (!nSenders, !nMsgsTotal, !nReceivers) = do
   allThreads <-
     do
       let nMsgsPerReceiver = nMsgsTotal `div` nReceivers
       (receiverThreads, receiverOutBoxes) <- startReceivers nMsgsPerReceiver nReceivers
       let nMsgsPerSender = nMsgsPerReceiver `div` nSenders
-      let !senderThreads = stimes nSenders (conc (senderLoop trySendImpl receiverOutBoxes nMsgsPerSender))
+      let !senderThreads = stimes nSenders (conc (senderLoop receiverOutBoxes nMsgsPerSender))
       return (senderThreads <> receiverThreads)
   runConc allThreads
 
-type TrySendFun f = (forall x. OutBox x -> x -> f ())
-
-senderLoop :: MonadUnliftIO f => TrySendFun f -> [OutBox TestMsg] -> Int -> f ()
+senderLoop :: MonadUnliftIO f => [OutBox TestMsg] -> Int -> f ()
 senderLoop trySendImpl !rs !noMsgs =
   mapM_
-    (uncurry trySendImpl)
+    send
     ((,) <$> rs <*> replicate noMsgs (MkTestMsg False))
 
 newtype TestMsg = MkTestMsg {_poison :: Bool}
