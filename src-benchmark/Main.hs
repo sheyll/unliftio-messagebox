@@ -1,8 +1,19 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NumericUnderscores #-}
+{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StrictData #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Main (main) where
 
@@ -14,46 +25,47 @@ import Criterion.Types
     nfAppIO,
   )
 import Data.Semigroup (Semigroup (stimes))
-import qualified Protocol.MessageBox as M2
+import qualified Protocol.MessageBox as Bounded
 import qualified Protocol.UnboundedMessageBox as Unbounded
 import UnliftIO (MonadUnliftIO, conc, runConc)
 
 main =
   defaultMain
     [ bgroup
-        title
-        [ let noMessages = 10_000
-           in bgroup
-                ("n=" <> show noMessages)
-                [ bench
-                    (show senderNo <> " -> " <> show receiverNo)
-                    (nfAppIO impl (senderNo, noMessages, receiverNo))
-                ]
+        "unidirectionalMessagePassing"
+        [ bench
+            ( show mboxImplTitle <> " "
+                <> show noMessages
+                <> " "
+                <> show senderNo
+                <> "->"
+                <> show receiverNo
+            )
+            ( nfAppIO
+                impl
+                (senderNo, noMessages, receiverNo)
+            )
+          | noMessages <- [1_000_00],
+            (mboxImplTitle, impl) <-
+              [ let x = B 16 in (show x, unidirectionalMessagePassing mkTestMessage x),
+                let x = U in (show x, unidirectionalMessagePassing mkTestMessage x),
+                let x = B 4096 in (show x, unidirectionalMessagePassing mkTestMessage x)
+              ],
+            (senderNo, receiverNo) <-
+              [  (1, 1000),
+                --(10, 100),
+                --(1, 2),
+                 (1, 1),
+                --(2, 1),
+                -- (100, 10),
+                (1000, 1)
+              ]
         ]
-      | (senderNo, receiverNo) <-
-          [ (1, 1000),
-            (10, 100),
-            --(1, 2),
-            (1, 1),
-            --(2, 1),
-            (100, 10),
-            (1000, 1)
-          ],
-        (title, impl) <-
-          [ ("XL qs=4096 ",   nToM_M2 4096 mkBigMessage),
-          ("XL qs=4096 U",   nToM_Unbounded 4096 mkBigMessage),
-            ("XL qs=16 ",   nToM_M2 16 mkBigMessage),
-            ("XL qs=16 U",   nToM_Unbounded 16 mkBigMessage),
-            ("S qs=4096 ",   nToM_M2 4096 mkSmallMessage),
-            ("S qs=4096 U",   nToM_Unbounded 4096 mkSmallMessage),
-            ("S qs=16 ",   nToM_M2 16 mkSmallMessage)
-            ("S qs=16 U",   nToM_Unbounded 16 mkSmallMessage)
-          ]
     ]
 
-mkBigMessage :: Int -> BigMessage
-mkBigMessage !i =
-  MkBigMessage
+mkTestMessage :: Int -> TestMessage
+mkTestMessage !i =
+  MkTestMessage
     ( "The not so very very very very very very very very very very very very very very very very very very very very very very very very " ++ show i,
       "large",
       "meeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeessssssssssssssssssssssssssssssssss" ++ show i,
@@ -64,88 +76,69 @@ mkBigMessage !i =
       )
     )
 
-newtype BigMessage = MkBigMessage ([Char], [Char], [Char], ([Char], [Char], Bool, Integer))
+newtype TestMessage = MkTestMessage ([Char], [Char], [Char], ([Char], [Char], Bool, Integer)) 
+  deriving newtype Show
 
-mkSmallMessage :: Int -> SmallMessage
-mkSmallMessage !i =
-  MkSmallMessage
-    (show i)
+class MBox inbox outbox | inbox -> outbox, outbox -> inbox where
+  data MBoxArg inbox
+  
+  newIBox :: MonadUnliftIO m => MBoxArg inbox -> m (inbox a)
+  newOBox :: MonadUnliftIO m => inbox a -> m (outbox a)
+  deliver :: MonadUnliftIO m => outbox a -> a -> m ()
+  receive :: MonadUnliftIO m => inbox a -> m a
 
-newtype SmallMessage = MkSmallMessage [Char]
+instance MBox Unbounded.InBox Unbounded.OutBox where
+  data MBoxArg Unbounded.InBox = U
+    deriving stock Show
+  {-# INLINE newIBox #-}  
+  newIBox _ = Unbounded.createInBox
+  {-# INLINE newOBox #-}
+  newOBox = Unbounded.createOutBoxForInbox
+  {-# INLINE deliver #-}
+  deliver !o !m = Unbounded.deliver o m
+  {-# INLINE receive #-}
+  receive = Unbounded.receive
 
+instance MBox Bounded.InBox Bounded.OutBox where
+  data MBoxArg Bounded.InBox = B Int
+    deriving stock Show
+  {-# INLINE newIBox #-}    
+  newIBox (B !limit) = Bounded.createInBox limit
+  {-# INLINE newOBox #-}
+  newOBox = Bounded.createOutBoxForInbox
+  {-# INLINE deliver #-}
+  deliver !o !a = Bounded.deliver o a
+  {-# INLINE receive #-}
+  receive = Bounded.receive
 
-nToM_M2 ::
-  MonadUnliftIO m =>  Int -> (Int -> a) -> (Int, Int, Int) -> m ()
-nToM_M2 !queueSize msgGen (!nSenders, !nMsgsTotal, !nReceivers) = do
-  (receiverThreads, receiverOutBoxes) <- startReceivers
-  let senderThreads = startSenders receiverOutBoxes
+unidirectionalMessagePassing ::
+  (MonadUnliftIO m, MBox inbox outbox) =>
+  (Int -> TestMessage) ->
+  MBoxArg inbox ->
+  (Int, Int, Int) ->
+  m ()
+unidirectionalMessagePassing !msgGen !impl (!nSenders, !nMsgsTotal, !nReceivers) = do
+  (receiverThreads, receiverOutBoxes) <- mkReceivers
+  let senderThreads = mkSenders receiverOutBoxes
   runConc (senderThreads <> receiverThreads)
   where
     nMsgsPerReceiver = nMsgsTotal `div` nReceivers
     nMsgsPerSender = nMsgsPerReceiver `div` nSenders
-    startSenders !receiverOutBoxes =
+    mkSenders !receiverOutBoxes =
       stimes nSenders (conc senderLoop)
       where
         senderLoop =
           mapM_
-            sendM2
-            ((,) <$> receiverOutBoxes <*> (msgGen <$> [0 .. nMsgsPerSender - 1]))
-
-
-        {-# INLINE sendM2 #-}
-        sendM2 (!o, !a) =
-          M2.trySendAndWait 5_000_000 o a
-            >>= \case
-              False -> error (show "M2.trySendAndWait timed out")
-              True -> return ()
-
-    startReceivers = do
-      inBoxes <- replicateM nReceivers (M2.createInBox queueSize)
+            (uncurry (flip deliver))
+            ((,) <$> (msgGen <$> [0 .. nMsgsPerSender - 1]) <*> receiverOutBoxes)
+    mkReceivers = do
+      inBoxes <- replicateM nReceivers (newIBox impl)
       let receivers = foldMap (conc . receiverLoop nMsgsPerReceiver) inBoxes
-      outBoxes <- traverse M2.createOutBoxForInbox inBoxes
+      outBoxes <- traverse newOBox inBoxes
       return (receivers, outBoxes)
       where
         receiverLoop workLeft inBox
           | workLeft < 1 = pure ()
           | otherwise = do
-            !_msg <- M2.receive inBox
-            receiverLoop (workLeft - 1) inBox
-
-
-
-UnbToM_Unbounded ::
-  MonadUnliftIO m =>  Int -> (Int -> a) -> (Int, Int, Int) -> m ()
-UnbToM_Bounded !queueSize msgGen (!nSenders, !nMsgsTotal, !nReceivers) = do
-  (receiverThreads, receiverOutBoxes) <- startReceivers
-  let senderThreads = startSenders receiverOutBoxes
-  runConc (senderThreads <> receiverThreads)
-  where
-    nMsgsPerReceiver = nMsgsTotal `div` nReceivers
-    nMsgsPerSender = nMsgsPerReceiver `div` nSenders
-    startSenders !receiverOutBoxes =
-      stimes nSenders (conc senderLoop)
-      where
-        senderLoop =
-          mapM_
-            UnbendBounded
-            ((,) <$> receiverOutBoxes <*> (msgGen <$> [0 .. nMsgsPerSender - 1]))
-
-
-        {-# INLINE UnbendBounded #-}
-        UnbendBounded (!o, !a) =
-          Unbounded.trySendAndWait 5_000_000 o a
-            >>= \case
-              False -> error (show "Unbounded.trySendAndWait timed out")
-              True -> return ()
-
-    startReceivers = do
-      inBoxes <- replicateM nReceivers (Unbounded.createInBox queueSize)
-      let receivers = foldMap (conc . receiverLoop nMsgsPerReceiver) inBoxes
-      outBoxes <- traverse Unbounded.createOutBoxForInbox inBoxes
-      return (receivers, outBoxes)
-      where
-        receiverLoop workLeft inBox
-          | workLeft < 1 = pure ()
-          | otherwise = do
-            !_msg <- Unbounded.receive inBox
+            !_msg <- receive inBox
             receiverLoop (workLeft - 1) inBox

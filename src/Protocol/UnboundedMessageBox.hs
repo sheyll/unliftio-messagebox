@@ -3,19 +3,19 @@
 --
 -- This message box is __UNBOUNDED__.
 --
--- Use this module if the producer(s) outperform the consumer.
+-- Good single producer/single consumer performance
 --
--- For example, when many processes produce log messages and send
--- then to the 'MessageBox' of a process that formats and forwards
--- them to @syslogd@ over the network.
+-- If you are sure that the producer(s) send messages at a lower rate 
+-- than the rate at which the consumer consumes messages, use this 
+-- module.
+--
+-- Otherwise use the more conservative "Protocol.MessageBox" module.
 module Protocol.UnboundedMessageBox
   ( createInBox,
     receive,
     tryReceive,
     createOutBoxForInbox,
-    trySend,
-    trySendAndWait,
-    blockingSend,
+    deliver,
     InBox (),
     OutBox (),
   )
@@ -28,19 +28,14 @@ import UnliftIO
   )
 import qualified Control.Concurrent as IO
 
--- | Create an 'InBox' with an underlying
--- message queue with a given message limit.
+-- | Create an 'InBox'.
 --
 -- From an 'InBox' a corresponding 'OutBox' can
 -- be made, that can be passed to some potential
 -- communication partners.
---
--- The 'OutBox' contains an 'MVar' containing the
---  'Unagi.OutChan'. When a 'closeInBox' is called upon the
--- 'InBox' write to the 'OutBox' will fail.
 {-# INLINE createInBox #-}
-createInBox :: MonadUnliftIO m => Int -> m (InBox a)
-createInBox _limit = do
+createInBox :: MonadUnliftIO m => m (InBox a)
+createInBox = do
   (!inChan, !outChan) <- liftIO Unagi.newChan
   return $! MkInBox inChan outChan
 
@@ -64,40 +59,13 @@ tryReceive (MkInBox _ !s) = liftIO $ do
 createOutBoxForInbox :: MonadUnliftIO m => InBox a -> m (OutBox a)
 createOutBoxForInbox (MkInBox !s _) = return $! MkOutBox s
 
--- | Try to put a message into the 'OutBox'
+-- | Put a message into the 'OutBox'
 -- of an 'InBox', such that the process
 -- reading the 'InBox' receives the message.
---
--- If the 'InBox' is full return False.
-{-# INLINE trySend #-}
-trySend ::
-  MonadUnliftIO m =>
-  OutBox a ->
-  a ->
-  m Bool
-trySend (MkOutBox !s) !a =
+{-# INLINE deliver #-}
+deliver :: MonadUnliftIO m => OutBox a -> a -> m ()
+deliver (MkOutBox !s) !a =
   liftIO $ Unagi.writeChan s a
-  >> return True
-
--- | Send a message by putting it into the 'OutBox'
--- of an 'InBox', such that the process
--- reading the 'InBox' receives the message.
---
--- Return False if the
--- 'InBox' has been closed or is full.
---
--- This assumes that the queue is like empty, and
--- before wasting any cycles entering 'timeout' it
--- tries 'trySend' first.
-{-# INLINE trySendAndWait #-}
-trySendAndWait ::
-  MonadUnliftIO m =>
-  Int ->
-  OutBox a ->
-  a ->
-  m Bool
-trySendAndWait !_t !o !a =
-  trySend o a
 
 -- | A message queue out of which messages can by 'receive'd.
 --
@@ -111,21 +79,8 @@ data InBox a
       !(Unagi.OutChan a)
 
 -- | A message queue into which messages can be enqued by,
---   e.g. 'trySend'.
+--   e.g. 'deliver'.
 --   Messages can be received from an 'InBox`.
 --
 --   The 'OutBox' is the counter part of an 'InBox'.
 newtype OutBox a = MkOutBox (Unagi.InChan a)
-
--- internal functions
-
-{-# INLINE blockingSend #-}
-blockingSend ::
-  MonadUnliftIO m =>
-  OutBox a ->
-  a ->
-  m Bool
-blockingSend (MkOutBox !s) !a =
-  do
-    liftIO $ Unagi.writeChan s a
-    return True

@@ -3,19 +3,21 @@
 --
 -- This message box is __BOUNDED__.
 --
--- Use this module if the producer(s) outperform the consumer.
+-- Use this module if the producer(s) outperform the consumer,
+-- but you want the extra safety that the queue blocks the
+-- 'OutBox' after a certain message limit is reached.
 --
--- For example, when many processes produce log messages and send
--- then to the 'MessageBox' of a process that formats and forwards
--- them to @syslogd@ over the network.
+-- If you are sure that the producers fire at a slower rate
+-- then the rate at which the consumer consumes messages, use this
+-- module.
 module Protocol.MessageBox
   ( createInBox,
     receive,
     tryReceive,
     createOutBoxForInbox,
-    trySend,
-    trySendAndWait,
-    blockingSend,
+    tryToDeliver,
+    tryToDeliverAndWait,
+    deliver,
     InBox (),
     OutBox (),
   )
@@ -28,6 +30,7 @@ import UnliftIO
     MonadUnliftIO,
     timeout,
   )
+import Data.Functor
 
 -- | Create an 'InBox' with an underlying
 -- message queue with a given message limit.
@@ -35,27 +38,23 @@ import UnliftIO
 -- From an 'InBox' a corresponding 'OutBox' can
 -- be made, that can be passed to some potential
 -- communication partners.
---
--- The 'OutBox' contains an 'MVar' containing the
---  'Unagi.OutChan'. When a 'closeInBox' is called upon the
--- 'InBox' write to the 'OutBox' will fail.
 {-# INLINE createInBox #-}
 createInBox :: MonadUnliftIO m => Int -> m (InBox a)
 createInBox !limit = do
   (!inChan, !outChan) <- liftIO (Unagi.newChan limit)
-  return $! MkInBox inChan outChan limit
+  return $! MkInBox inChan outChan
 
 -- | Wait for and receive a message from an 'InBox'.
 {-# INLINE receive #-}
 receive :: MonadUnliftIO m => InBox a -> m a
-receive (MkInBox _ !s _) =
+receive (MkInBox _ !s) =
   liftIO (Unagi.readChan s)
 
 -- | Try to receive a message from an 'InBox',
 -- return @Nothing@ if the queue is empty.
 {-# INLINE tryReceive #-}
 tryReceive :: MonadUnliftIO m => InBox a -> m (Maybe a)
-tryReceive (MkInBox _ !s _) = liftIO $ do
+tryReceive (MkInBox _ !s) = liftIO $ do
   (!promise, _) <- Unagi.tryReadChan s
   Unagi.tryRead promise
 
@@ -63,20 +62,28 @@ tryReceive (MkInBox _ !s _) = liftIO $ do
 -- that the given 'InBox' receives.
 {-# INLINE createOutBoxForInbox #-}
 createOutBoxForInbox :: MonadUnliftIO m => InBox a -> m (OutBox a)
-createOutBoxForInbox (MkInBox !s _ !l) = return $! MkOutBox s l
+createOutBoxForInbox (MkInBox !s _) = return $! MkOutBox s
+
+
+-- | Put a message into the 'OutBox'
+-- of an 'InBox', such that the process
+-- reading the 'InBox' receives the message.
+--
+-- If the 'InBox' is full, wait until the end of time
+-- or that the message box is not full anymore.
+{-# INLINE deliver #-}
+deliver :: MonadUnliftIO m => OutBox a -> a ->  m ()
+deliver (MkOutBox !s) !a =
+   liftIO $ Unagi.writeChan s a
 
 -- | Try to put a message into the 'OutBox'
 -- of an 'InBox', such that the process
 -- reading the 'InBox' receives the message.
 --
 -- If the 'InBox' is full return False.
-{-# INLINE trySend #-}
-trySend ::
-  MonadUnliftIO m =>
-  OutBox a ->
-  a ->
-  m Bool
-trySend (MkOutBox !s _) !a =
+{-# INLINE tryToDeliver #-}
+tryToDeliver :: MonadUnliftIO m => OutBox a -> a -> m Bool
+tryToDeliver (MkOutBox !s) !a =
   liftIO $ Unagi.tryWriteChan s a
 
 -- | Send a message by putting it into the 'OutBox'
@@ -86,33 +93,33 @@ trySend (MkOutBox !s _) !a =
 -- Return False if the
 -- 'InBox' has been closed or is full.
 --
--- This assumes that the queue is like empty, and
--- before wasting any cycles entering 'timeout' it
--- tries 'trySend' first.
-trySendAndWait ::
+-- This assumes that the queue is likely empty, and
+-- tries 'tryToDeliver' first before wasting any 
+-- precious cpu cycles entering 'timeout'.
+tryToDeliverAndWait ::
   MonadUnliftIO m =>
   Int ->
   OutBox a ->
   a ->
   m Bool
-trySendAndWait !t !o !a =
-  -- Benchmarks have shown great improvements 
-  -- when calling trySend once before doing
-  -- blockingSend in a System.Timeout.timeout;
+tryToDeliverAndWait !t !o !a =
+  -- Benchmarks have shown great improvements
+  -- when calling tryToDeliver once before doing
+  -- deliver in a System.Timeout.timeout;
   --
-  -- We even tried calling 'trySend' more than once,
+  -- We even tried calling 'tryToDeliver' more than once,
   -- but that did not lead to convinving improvements.
   --
   -- Benachmarks have also shown, that sending pessimistically
-  -- (i.e. avoiding `trySend`) does not improve performance, 
+  -- (i.e. avoiding `tryToDeliver`) does not improve performance,
   -- even when the message queue is congested
   --
-  -- See benchmark results: 
-  -- `benchmark-results/optimistic-vs-pessimistic.html` 
-  trySend o a >>= \case
-      True -> return True
-      False ->
-        fromMaybe False <$> timeout t (blockingSend o a)
+  -- See benchmark results:
+  -- `benchmark-results/optimistic-vs-pessimistic.html`
+  tryToDeliver o a >>= \case
+    True -> return True
+    False ->
+      fromMaybe False <$> timeout t (deliver o a $> True)
 
 -- | A message queue out of which messages can by 'receive'd.
 --
@@ -124,27 +131,10 @@ data InBox a
   = MkInBox
       !(Unagi.InChan a)
       !(Unagi.OutChan a)
-      !Int
 
 -- | A message queue into which messages can be enqued by,
---   e.g. 'trySend'.
+--   e.g. 'tryToDeliver'.
 --   Messages can be received from an 'InBox`.
 --
 --   The 'OutBox' is the counter part of an 'InBox'.
-data OutBox a
-  = MkOutBox
-      !(Unagi.InChan a)
-      !Int
-
--- internal functions
-
-{-# INLINE blockingSend #-}
-blockingSend ::
-  MonadUnliftIO m =>
-  OutBox a ->
-  a ->
-  m Bool
-blockingSend (MkOutBox !s _) !a =
-  do
-    liftIO $ Unagi.writeChan s a
-    return True
+newtype OutBox a = MkOutBox (Unagi.InChan a)

@@ -26,7 +26,7 @@ import Protocol.Fresh
   ( HasCounterVar,
     fresh,
   )
-import qualified Protocol.BoundedMessageBox as MessageBox
+import qualified Protocol.MessageBox as MessageBox
 import System.Mem.Weak (Weak)
 import UnliftIO
   ( MonadUnliftIO,
@@ -126,9 +126,9 @@ type InternalReply a = (CallId, Either CommandError a)
 -- processing a request did not or will not lead to the result the
 -- caller is blocked waiting for.
 data CommandError where
-  -- | Failed to enqueue a 'Blocking' 'Command' 'Message' into the corresponding 
+  -- | Failed to enqueue a 'Blocking' 'Command' 'Message' into the corresponding
   -- 'MessageBox.OutBox'
-  CouldNotEnqueueCommand :: CallId -> MessageBox.OutBoxFailure -> CommandError
+  CouldNotEnqueueCommand :: CallId -> CommandError
   -- | The request has failed /for reasons/.
   BlockingCommandFailure :: CallId -> CommandError
   -- | Timeout waiting for the result.
@@ -140,16 +140,16 @@ newtype CallId = MkCallId Int
 
 -- | Enqueue a 'NonBlocking' 'Message' into an 'OutBox'.
 -- This is just for symetry to 'call', this is
--- equivalent to: @\obox -> MessageBox.trySend obox . NonBlocking@
+-- equivalent to: @\obox -> MessageBox.tryToDeliver obox . NonBlocking@
 --
 -- The
 cast ::
   MonadUnliftIO m =>
   MessageBox.OutBox (Message api) ->
   Command api 'FireAndForget ->
-  m (Either MessageBox.OutBoxFailure MessageBox.OutBoxSuccess)
+  m Bool
 cast obox !msg =
-  MessageBox.trySend obox (NonBlocking msg)
+  MessageBox.tryToDeliver obox (NonBlocking msg)
 
 -- | Enqueue a 'Blocking' 'Message' into an 'OutBox' and wait for the
 -- response.
@@ -167,15 +167,14 @@ call ::
 call !obox !pdu = do
   !callId <- fresh
   !resultVar <- newEmptyTMVarIO
-  !sendResult <- do
+  !sendSuccessful <- do
     !weakResultVar <- mkWeakTMVar resultVar (pure ())
     let !rbox = MkReplyBox weakResultVar callId
     let !msg = Blocking pdu rbox
-    MessageBox.trySend obox msg
-  case sendResult of
-    Left !failure ->
-      return (Left (CouldNotEnqueueCommand callId failure))
-    Right !_success -> error "TODO"
+    MessageBox.tryToDeliver obox msg
+  if not sendSuccessful
+    then return (Left (CouldNotEnqueueCommand callId))
+    else error "TODO"
 
 -- | Receive a 'NonBlocking' or a 'Blocking'.
 --
