@@ -10,7 +10,7 @@
 -- If you are sure that the producers fire at a slower rate
 -- then the rate at which the consumer consumes messages, use this
 -- module.
-module Protocol.MessageBox
+module Protocol.BoundedMessageBox
   ( createInBox,
     receive,
     tryReceive,
@@ -20,6 +20,7 @@ module Protocol.MessageBox
     deliver,
     InBox (),
     OutBox (),
+    Class.InBoxConfig(..)
   )
 where
 
@@ -30,7 +31,8 @@ import UnliftIO
     MonadUnliftIO,
     timeout,
   )
-import Data.Functor
+import Data.Functor ( ($>) )
+import qualified Protocol.MessageBoxClass as Class
 
 -- | Create an 'InBox' with an underlying
 -- message queue with a given message limit.
@@ -138,3 +140,16 @@ data InBox a
 --
 --   The 'OutBox' is the counter part of an 'InBox'.
 newtype OutBox a = MkOutBox (Unagi.InChan a)
+
+
+instance Class.IsMessageBox InBox OutBox where
+  data InBoxConfig InBox = BoundedMessageBox Int
+    deriving stock (Show)
+  {-# INLINE newInBox #-}
+  newInBox (BoundedMessageBox !limit) = createInBox limit
+  {-# INLINE newOutBox #-}
+  newOutBox = createOutBoxForInbox
+  {-# INLINE deliver #-}
+  deliver !o !a = deliver o a
+  {-# INLINE receive #-}
+  receive = receive

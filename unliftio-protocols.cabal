@@ -147,7 +147,8 @@ library
     -- Protocol,
     Protocol.Command,
     Protocol.Fresh,
-    Protocol.MessageBox,
+    Protocol.BoundedMessageBox,
+    Protocol.MessageBoxClass,
     Protocol.UnboundedMessageBox,
     Protocol.WeakThreadId
   other-modules:
@@ -171,7 +172,9 @@ test-suite unliftio-protocols-test
   other-modules:
     FreshTest,
     GoodConcurrencyTest,
-    MessageBoxTest,
+    MessageBoxClassTest,
+    BoundedMessageBoxTest,
+    UnboundedMessageBoxTest,
     ProtocolsTest
   ghc-options: 
     -Wno-missing-signatures

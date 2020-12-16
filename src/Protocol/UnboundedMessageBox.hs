@@ -5,11 +5,11 @@
 --
 -- Good single producer/single consumer performance
 --
--- If you are sure that the producer(s) send messages at a lower rate 
--- than the rate at which the consumer consumes messages, use this 
+-- If you are sure that the producer(s) send messages at a lower rate
+-- than the rate at which the consumer consumes messages, use this
 -- module.
 --
--- Otherwise use the more conservative "Protocol.MessageBox" module.
+-- Otherwise use the more conservative "Protocol.BoundedMessageBox" module.
 module Protocol.UnboundedMessageBox
   ( createInBox,
     receive,
@@ -18,15 +18,17 @@ module Protocol.UnboundedMessageBox
     deliver,
     InBox (),
     OutBox (),
+    Class.InBoxConfig(..)
   )
 where
 
+import qualified Control.Concurrent as IO
 import qualified Control.Concurrent.Chan.Unagi.NoBlocking as Unagi
+import qualified Protocol.MessageBoxClass as Class
 import UnliftIO
   ( MonadIO (liftIO),
     MonadUnliftIO,
   )
-import qualified Control.Concurrent as IO
 
 -- | Create an 'InBox'.
 --
@@ -84,3 +86,15 @@ data InBox a
 --
 --   The 'OutBox' is the counter part of an 'InBox'.
 newtype OutBox a = MkOutBox (Unagi.InChan a)
+
+instance Class.IsMessageBox InBox OutBox where
+  data InBoxConfig InBox = UnboundedMessageBox
+    deriving stock (Show)
+  {-# INLINE newInBox #-}
+  newInBox _ = createInBox
+  {-# INLINE newOutBox #-}
+  newOutBox = createOutBoxForInbox
+  {-# INLINE deliver #-}
+  deliver !o !m = deliver o m
+  {-# INLINE receive #-}
+  receive = receive

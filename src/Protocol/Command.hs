@@ -26,7 +26,7 @@ import Protocol.Fresh
   ( HasCounterVar,
     fresh,
   )
-import qualified Protocol.MessageBox as MessageBox
+import qualified Protocol.BoundedMessageBox as MessageBox
 import System.Mem.Weak (Weak)
 import UnliftIO
   ( MonadUnliftIO,

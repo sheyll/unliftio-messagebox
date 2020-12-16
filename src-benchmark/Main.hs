@@ -25,8 +25,9 @@ import Criterion.Types
     nfAppIO,
   )
 import Data.Semigroup (Semigroup (stimes))
-import qualified Protocol.MessageBox as Bounded
-import qualified Protocol.UnboundedMessageBox as Unbounded
+import Protocol.BoundedMessageBox (InBoxConfig (BoundedMessageBox))
+import Protocol.MessageBoxClass (IsMessageBox (..))
+import Protocol.UnboundedMessageBox (InBoxConfig (UnboundedMessageBox))
 import UnliftIO (MonadUnliftIO, conc, runConc)
 
 main =
@@ -45,11 +46,11 @@ main =
                 impl
                 (senderNo, noMessages, receiverNo)
             )
-          | noMessages <- [1_000_000],
+          | noMessages <- [100_000],
             (mboxImplTitle, impl) <-
-              [ let x = B 16 in (show x, unidirectionalMessagePassing mkTestMessage x),
-                let x = U in (show x, unidirectionalMessagePassing mkTestMessage x),
-                let x = B 4096 in (show x, unidirectionalMessagePassing mkTestMessage x)
+              [ let x = BoundedMessageBox 16 in (show x, unidirectionalMessagePassing mkTestMessage x),
+                let x = UnboundedMessageBox in (show x, unidirectionalMessagePassing mkTestMessage x),
+                let x = BoundedMessageBox 4096 in (show x, unidirectionalMessagePassing mkTestMessage x)
               ],
             (senderNo, receiverNo) <-
               [ (1, 1000),
@@ -76,42 +77,10 @@ mkTestMessage !i =
 newtype TestMessage = MkTestMessage ([Char], [Char], [Char], ([Char], [Char], Bool, Integer))
   deriving newtype (Show)
 
-class MBox inbox outbox | inbox -> outbox, outbox -> inbox where
-  data MBoxArg inbox
-
-  newIBox :: MonadUnliftIO m => MBoxArg inbox -> m (inbox a)
-  newOBox :: MonadUnliftIO m => inbox a -> m (outbox a)
-  deliver :: MonadUnliftIO m => outbox a -> a -> m ()
-  receive :: MonadUnliftIO m => inbox a -> m a
-
-instance MBox Unbounded.InBox Unbounded.OutBox where
-  data MBoxArg Unbounded.InBox = U
-    deriving stock (Show)
-  {-# INLINE newIBox #-}
-  newIBox _ = Unbounded.createInBox
-  {-# INLINE newOBox #-}
-  newOBox = Unbounded.createOutBoxForInbox
-  {-# INLINE deliver #-}
-  deliver !o !m = Unbounded.deliver o m
-  {-# INLINE receive #-}
-  receive = Unbounded.receive
-
-instance MBox Bounded.InBox Bounded.OutBox where
-  data MBoxArg Bounded.InBox = B Int
-    deriving stock (Show)
-  {-# INLINE newIBox #-}
-  newIBox (B !limit) = Bounded.createInBox limit
-  {-# INLINE newOBox #-}
-  newOBox = Bounded.createOutBoxForInbox
-  {-# INLINE deliver #-}
-  deliver !o !a = Bounded.deliver o a
-  {-# INLINE receive #-}
-  receive = Bounded.receive
-
 unidirectionalMessagePassing ::
-  (MonadUnliftIO m, MBox inbox outbox) =>
+  (MonadUnliftIO m, IsMessageBox inbox outbox) =>
   (Int -> TestMessage) ->
-  MBoxArg inbox ->
+  InBoxConfig inbox ->
   (Int, Int, Int) ->
   m ()
 unidirectionalMessagePassing !msgGen !impl (!nP, !nM, !nC) = do
@@ -121,16 +90,17 @@ unidirectionalMessagePassing !msgGen !impl (!nP, !nM, !nC) = do
   where
     producers !cs = stimes nP (conc producer)
       where
-        producer = 
-          mapM_ (uncurry (flip deliver))
-                ((,) <$> (msgGen <$> [0 .. (nM `div` (nC * nP)) - 1]) <*> cs)
+        producer =
+          mapM_
+            (uncurry (flip deliver))
+            ((,) <$> (msgGen <$> [0 .. (nM `div` (nC * nP)) - 1]) <*> cs)
     consumers = do
-      cis <- replicateM nC (newIBox impl)
+      cis <- replicateM nC (newInBox impl)
       let ccs = foldMap (conc . consume (nM `div` nC)) cis
-      cs <- traverse newOBox cis
+      cs <- traverse newOutBox cis
       return (ccs, cs)
       where
         consume 0 _inBox = return ()
         consume workLeft inBox = do
-            !_msg <- receive inBox
-            consume (workLeft - 1) inBox
+          !_msg <- receive inBox
+          consume (workLeft - 1) inBox

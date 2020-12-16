@@ -6,7 +6,7 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 
-module MessageBoxTest (test) where
+module BoundedMessageBoxTest (test) where
 
 import Control.Monad (forM, forever, replicateM, void)
 import Data.Function (fix)
@@ -14,7 +14,7 @@ import Data.List (sort)
 import qualified Data.Map.Strict as Map
 import Data.Maybe ()
 import Data.Semigroup ()
-import Protocol.MessageBox as MessageBox
+import Protocol.BoundedMessageBox as MessageBox
   (deliver,  InBox,
     createInBox,
     createOutBoxForInbox,
@@ -39,7 +39,7 @@ import UnliftIO.Concurrent (threadDelay)
 test :: Tasty.TestTree
 test =
   Tasty.testGroup
-    "Protocols.MessageBoxSimpler"
+    "Protocol.BoundedMessageBox"
     [ Tasty.testGroup
         "single threaded"
         [ Tasty.testGroup
@@ -367,13 +367,3 @@ test =
         -- [0 -> 2, 1 -> 3, 2 -> 4, 2 -> 5, 3 -> 5]
         -- y = mx + b
     ]
-
-{-
-
-manyReadersOneWriter = error "TODO"
-
-manyWriterOneReader = error "TODO"
-
-manyOneToOne = error "TODO"
-
--}
