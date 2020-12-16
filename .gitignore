@@ -21,3 +21,7 @@ TAGS
 *.hie
 *.dump-hi
 not-in-git.*
+*.beam
+*.tix
+/*.hp
+/*.prof
