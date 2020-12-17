@@ -1,11 +1,6 @@
--- | This provides the /Command Pattern/.
---
--- This module helps to build corrent RPC-style communication.
---
--- Nothing new is invented here, this just wrapping existing
--- libraries with rememberable, use case specific names.
---
--- It is a thin layer on async, STM and unliftio.
+-- | Abstractions for the definition of 
+-- 'Command' 'Messages', that flow between
+-- 
 module Protocol.Command
   ( Message (),
     Command,
@@ -35,15 +30,15 @@ import UnliftIO
     newEmptyTMVarIO,
   )
 
--- | This family allows declaration of valid
--- command messages of a user defined api.
+-- | This family allows to encode imperative /commands/.
 --
--- The api is discerned based upon a user defined (phantom-)
--- type.
--- paired with a 'ReturnType' that declares if and what
--- response is valid for a message.
+-- The clauses of a 'Command' define the commands that 
+-- a process should execute.
 --
--- Example:
+-- Every clause may specify an individual 'ReturnType' that 
+-- declares if and what response is valid for a message.
+--
+-- For example:
 --
 -- >
 -- > type LampId = Int
@@ -52,19 +47,16 @@ import UnliftIO
 -- >   GetLamps :: Command LigthControl (Return [LampId])
 -- >   SwitchOn :: LampId -> Command LigthControl FireAndForget
 -- >
--- > data LightControl -- the phantome type ise bu nnut
+-- > data LightControl -- the phantom type
 -- >
 --
--- The first type parameter is a phantom type - probably uninhabited -
--- indicating a set of messages commonly describing an API, or
--- api.
+-- The type index of the Command family is the uninhabited 
+-- @LightControl@ type.
+-- .
 --
 -- The second type parameter indicates if a message requires the
 -- receiver to send a reply back to the blocked and waiting
 -- sender, or if no reply is necessary.
---
--- Since 'Command' instances can be generalised algebraic data types
--- the specific 'ReturnType'
 data family Command protocolTag :: ReturnType -> Type
 
 -- | Indicates if a 'Command' requires the

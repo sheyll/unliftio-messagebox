@@ -170,12 +170,13 @@ test-suite unliftio-protocols-test
   main-is: Main.hs
   hs-source-dirs: src-test
   other-modules:
+    BoundedMessageBoxTest,    
+    CommandTest,    
     FreshTest,
     GoodConcurrencyTest,
     MessageBoxClassTest,
-    BoundedMessageBoxTest,
-    UnboundedMessageBoxTest,
-    ProtocolsTest
+    ProtocolsTest,
+    UnboundedMessageBoxTest
   ghc-options: 
     -Wno-missing-signatures
     -Wno-missing-export-lists
