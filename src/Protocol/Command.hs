@@ -1,7 +1,7 @@
 -- | Abstractions for the definition of
 -- 'Command' 'Messages', that flow between
 module Protocol.Command
-  ( Message (),
+  ( Message (..),
     Command,
     ReturnType (..),
     CallId (),
@@ -58,6 +58,7 @@ import UnliftIO
 -- sender, or if no reply is necessary.
 data family Command protocolTag :: ReturnType -> Type
 
+
 -- | Indicates if a 'Command' requires the
 -- receiver to send a reply or not.
 data ReturnType where
@@ -88,6 +89,7 @@ data Message api where
   -- used to send the reply to the other process
   -- blocking on 'call'
   Blocking ::
+    Show (Command api ( 'Return result)) => 
     Command api ( 'Return result) ->
     ReplyBox result ->
     Message api
@@ -97,8 +99,14 @@ data Message api where
   -- The smart constructor 'cast' can be used to
   -- this message.
   NonBlocking ::
-    Command api 'FireAndForget ->
+    (Show (Command api 'FireAndForget)) => Command api 'FireAndForget ->
     Message api
+
+instance Show (Message api) where 
+  showsPrec d (NonBlocking !m) = 
+    showParen (d >= 9) (showString "NonBlocking " . showsPrec 9 m)
+  showsPrec d (Blocking !m (MkReplyBox _ !callId)) = 
+    showParen (d >= 9) (showString "Blocking " . showsPrec 9 m . showChar ' ' . showsPrec 9 callId)
 
 -- | This is like 'OutBox', it can be used
 -- by the receiver of a 'Blocking'
@@ -127,7 +135,7 @@ data CommandError where
 
 -- | An identifier value every command send by 'call's.
 newtype CallId = MkCallId Int
-  deriving newtype (Eq, Ord)
+  deriving newtype (Eq, Ord, Show)
 
 -- | Enqueue a 'NonBlocking' 'Message' into an 'OutBox'.
 -- This is just for symetry to 'call', this is
@@ -136,7 +144,8 @@ newtype CallId = MkCallId Int
 -- The
 cast ::
   ( MonadUnliftIO m,
-    MessageBox.IsOutBox o
+    MessageBox.IsOutBox o,
+    Show (Command api 'FireAndForget)
   ) =>
   o (Message api) ->
   Command api 'FireAndForget ->
@@ -153,7 +162,8 @@ call ::
   ( HasCounterVar CallId env,
     MonadReader env m,
     MonadUnliftIO m,
-    MessageBox.IsOutBox o
+    MessageBox.IsOutBox o,
+    Show (Command api ( 'Return result))
   ) =>
   o (Message api) ->
   Command api ( 'Return result) ->
@@ -172,11 +182,20 @@ call !obox !pdu = do
 
 -- | Receive a 'NonBlocking' or a 'Blocking'.
 --
--- Block until the reBlockingply is received.
+-- Block until the reply is received.
 -- If for the given time, no answer was
 -- received, return 'BlockingCommandTimedOut'.
-handleMessage :: ()
-handleMessage = error "TODO"
+handleMessage ::
+  (MonadUnliftIO m, MessageBox.IsInBox inbox) =>
+  inbox (Message api) ->
+  (Message api -> m b) ->
+  m (Maybe b)
+handleMessage inbox onMessage = do
+  maybeMessage <- MessageBox.receive inbox
+  case maybeMessage of
+    Nothing -> pure Nothing
+    Just message -> do
+      Just <$> onMessage message
 
 replyTo :: ()
 replyTo = error "TODO"
