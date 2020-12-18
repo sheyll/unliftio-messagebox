@@ -5,10 +5,10 @@ module MessageBoxClassTest (test) where
 import Control.Monad (forM, replicateM)
 import Data.Foldable (Foldable (fold))
 import Data.Functor (($>))
-import Data.Maybe ()
+import Data.Maybe (isJust)
 import Data.Monoid (All (All, getAll))
 import qualified Protocol.BoundedMessageBox as B
-import Protocol.MessageBoxClass ( IsMessageBox(..) )
+import Protocol.MessageBoxClass ( IsMessageBox(..), IsInBox(..), IsOutBox(..) )
 import qualified Protocol.UnboundedMessageBox as U
 import Test.QuickCheck
   ( Positive (Positive),
@@ -33,7 +33,8 @@ test =
     ]
 
 deliverAllMessages ::
-  (IsMessageBox inbox outbox, Show (InBoxConfig inbox)) =>
+  (IsMessageBox inbox outbox, Show (InBoxConfig inbox),
+  IsInBox inbox, IsOutBox outbox) =>
   InBoxConfig inbox ->
   TestTree
 deliverAllMessages arg =
@@ -49,9 +50,9 @@ deliverAllMessages arg =
                       conc
                         ( do
                             outbox <- newOutBox inbox
-                            forM [0 .. n - 1] (\j -> deliver outbox ("test message: ", i, j) $> All True)
+                            forM [0 .. n - 1] (\j -> All <$> deliver outbox ("test message: ", i, j))
                         )
                   )
                   [0 .. k - 1]
-                <*> conc (replicateM (n * k) (receive inbox $> All True))
+                <*> conc (replicateM (n * k) (receive inbox >>= return . All . isJust))
             )

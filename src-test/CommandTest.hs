@@ -31,15 +31,15 @@ test :: Tasty.TestTree
 test =
   Tasty.testGroup
     "Protocol.Command"
-    [ testProperty "all books that many donors concurrently donate into the book store end up in the bookstore" $
-        donateAllBooks_prop
+    [ testProperty "all books that many donors concurrently donate into the book store end up in the bookstore" 
+        allDonatedBooksAreInTheBookStore
     ]
 
-donateAllBooks_prop :: [(Donor, Book)] -> Property
-donateAllBooks_prop donorsAndBooks = ioProperty $ do
+allDonatedBooksAreInTheBookStore :: [(Donor, Book)] -> Property
+allDonatedBooksAreInTheBookStore donorsAndBooks = ioProperty $ do
   bookStoreIn <- newInBox UnboundedMessageBox
   bookStoreOut <- newOutBox bookStoreIn
-  runConc
+  getAll <$> runConc
     ( foldMap
         ( \(donor, book) ->
             conc (cast bookStoreOut (Donate donor book) $> All True)
@@ -74,7 +74,7 @@ instance Arbitrary PersonName where
 
 data Donor = Donor
   { donorName :: PersonName,
-    donorId :: Integer
+    donorId :: Int
   }
   deriving stock (Show, Eq, Ord)
 
@@ -86,7 +86,7 @@ instance Arbitrary Donor where
 
 data Author = Author
   { authorName :: PersonName,
-    authorId :: Integer
+    authorId :: Int
   }
   deriving stock (Show, Eq, Ord)
 

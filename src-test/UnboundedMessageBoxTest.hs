@@ -15,7 +15,8 @@ import Data.Maybe ()
 import Data.Monoid (All (All, getAll))
 import qualified Protocol.MessageBoxClass as Class
 import Protocol.UnboundedMessageBox as MessageBox
-  ( createInBox,
+  ( InBoxNB (..),
+    createInBox,
     createOutBoxForInbox,
     deliver,
     receive,
@@ -25,9 +26,10 @@ import Test.QuickCheck
     Small (Small),
     ioProperty,
   )
-import Test.Tasty as Tasty (TestTree, testGroup, testCase)
+import Test.Tasty as Tasty (TestTree, testGroup)
+import Test.Tasty.HUnit as Tasty (assertEqual, testCase)
 import Test.Tasty.QuickCheck as Tasty (testProperty)
-import UnliftIO (conc, runConc)
+import UnliftIO (conc, runConc, timeout)
 
 test :: Tasty.TestTree
 test =
@@ -36,17 +38,9 @@ test =
     [ Tasty.testGroup
         "Non-Blocking IsOutBox/IsInBox instance"
         [ Tasty.testCase "receive from an empty queue" $ do
-            i <- MessageBox.createInBox 10
+            i <- MessageBox.createInBox
             timeout 1_000_000 (Class.receive $ InBoxNB i)
-              >>= assertEqual "receive must not block" (Just (Nothing @Int)),
-          Tasty.testCase "send to full queue" $ do
-            i <- MessageBox.createInBox 10
-            o <- MessageBox.createOutBoxForInbox i
-            let sendWhileNotFull = do
-                  success <- Class.deliver (OutBoxNB o) 2
-                  if not success then sendWhileNotFull else pure ()
-            timeout 1_000_000 sendWhileNotFull
-              >>= assertBool "deliver must not block" . isJust
+              >>= assertEqual "receive must not block" (Just (Nothing @Int))
         ],
       testProperty "all n messages of all k outBoxes are received by the inbox" $
         \(Positive (Small n)) (Positive (Small k)) ->

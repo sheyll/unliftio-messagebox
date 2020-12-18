@@ -24,9 +24,10 @@ import Criterion.Types
     bgroup,
     nfAppIO,
   )
+
 import Data.Semigroup (Semigroup (stimes))
 import Protocol.BoundedMessageBox (InBoxConfig (BoundedMessageBox))
-import Protocol.MessageBoxClass (IsMessageBox (..))
+import Protocol.MessageBoxClass (IsMessageBox (..), receive, deliver)
 import Protocol.UnboundedMessageBox (InBoxConfig (UnboundedMessageBox))
 import UnliftIO (MonadUnliftIO, conc, runConc)
 
