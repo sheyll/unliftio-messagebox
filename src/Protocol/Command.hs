@@ -221,6 +221,6 @@ handleMessage !inbox !onMessage = do
     Just !message -> do
       Just <$> onMessage message
 
-replyTo :: (MonadUnliftIO m) => a -> ReplyBox a -> m ()
-replyTo !message MkReplyBox {_replyBoxCallId = !callId, _replyBox = !replyBox} =
+replyTo :: (MonadUnliftIO m) => ReplyBox a -> a -> m ()
+replyTo MkReplyBox {_replyBoxCallId = !callId, _replyBox = !replyBox} !message =
   atomically $ putTMVar replyBox (callId, Right message)

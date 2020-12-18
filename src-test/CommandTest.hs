@@ -95,7 +95,7 @@ test =
           let concurrentCallAction = call bookStoreOutBox GetBooks 100
               concurrentBookStore = handleMessage bookStoreInBox $ \case
                 Blocking GetBooks replyBox -> do
-                  Nothing <$ expectedBooks `replyTo` replyBox
+                  Nothing <$ replyTo replyBox expectedBooks
                 NonBlocking a ->
                   pure (Just ("unexpected message: " <> show a))
           (callResult, handleResult) <- concurrently concurrentCallAction concurrentBookStore
@@ -125,7 +125,7 @@ test =
               concurrentBookStore = handleMessage bookStoreInBox $ \case
                 Blocking GetBooks replyBox -> do
                   threadDelay (2 * delayDuration)
-                  replyTo [] replyBox
+                  replyTo replyBox []
                   pure True
                 NonBlocking a ->
                   error (show a)
@@ -164,7 +164,7 @@ test =
               concurrentBookStore = handleMessage bookStoreInBox $ \case
                 Blocking GetBooks replyBox -> do
                   threadDelay baseDelay
-                  void (replyTo [] replyBox)
+                  void (replyTo replyBox [])
                   return Nothing
                 NonBlocking a ->
                   pure (Just ("unexpected message: " <> show a))
@@ -184,7 +184,7 @@ test =
               concurrentBookStore = handleMessage bookStoreInBox $ \case
                 Blocking GetBooks replyBox -> do
                   threadDelay (2 * baseDelay)
-                  void (replyTo [] replyBox)
+                  void (replyTo replyBox [])
                   threadDelay baseDelay
                   return (Just "living on, no exception")
                 NonBlocking a ->

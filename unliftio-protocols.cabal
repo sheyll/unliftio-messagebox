@@ -199,6 +199,6 @@ benchmark unliftio-protocols-bench
   hs-source-dirs: src-benchmark
   ghc-options:  -Wno-missing-signatures 
   build-depends:
-  build-depends:
     unliftio-protocols,
-    criterion
+    criterion,
+    rio
