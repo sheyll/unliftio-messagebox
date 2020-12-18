@@ -1,26 +1,39 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE EmptyDataDecls #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE NumericUnderscores #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 
 module CommandTest where
 
+import qualified Control.Concurrent.MVar as MVar
 import Data.Functor
-import Data.Semigroup
+import Data.Maybe (isJust)
+import Data.Semigroup (All (All, getAll))
+import GHC.IO.Exception
 import Protocol.Command
-import Data.Maybe(isJust)
-
+import Protocol.Fresh (CounterVar, HasCounterVar (..), fresh, newCounterVar)
 import Protocol.MessageBoxClass
   ( IsMessageBox (newInBox, newOutBox),
   )
 import Protocol.UnboundedMessageBox (InBoxConfig (UnboundedMessageBox))
+import RIO
 import Test.Tasty as Tasty (TestTree, testGroup)
+import Test.Tasty.HUnit
+  ( assertBool,
+    assertEqual,
+    assertFailure,
+    testCase,
+  )
 import Test.Tasty.QuickCheck
   ( Arbitrary (arbitrary),
     Large (getLarge),
@@ -33,8 +46,6 @@ import Test.Tasty.QuickCheck
   )
 import UnliftIO (conc, runConc)
 import UnliftIO.Concurrent
-import Test.Tasty.HUnit (assertEqual
-      ,assertBool, assertFailure, testCase)
 
 test :: Tasty.TestTree
 test =
@@ -46,26 +57,156 @@ test =
       testCase "handling a cast succeeds" $ do
         bookStoreInBox <- newInBox UnboundedMessageBox
         bookStoreOutBox <- newOutBox bookStoreInBox
-        let 
-          expected = Donate
-                  (Donor (PersonName "Mueller" "Hans") 1)
-                  ( Book
-                      "Wann wenn nicht wir."
-                      (Author (PersonName "Schmitt" "Agent") 477)
-                      (Publisher "Kletten Verlag")
-                      (Year 2019)
-                      []
-                  )
-              
-        void (forkIO ( void (cast bookStoreOutBox expected) ) )
+        let expected =
+              Donate
+                (Donor (PersonName "Mueller" "Hans") 1)
+                ( Book
+                    "Wann wenn nicht wir."
+                    (Author (PersonName "Schmitt" "Agent") 477)
+                    (Publisher "Kletten Verlag")
+                    (Year 2019)
+                    []
+                )
+        wasHandleMessageCalled <- newEmptyMVar
+        void (forkIO (void (cast bookStoreOutBox expected)))
         result <- handleMessage bookStoreInBox $
-            \case 
-              NonBlocking actual ->
-                assertEqual "correct message" expected actual
-              a ->
-                assertFailure ("unexpected message: " <> show a)
-        assertBool "handling the message was successful" (isJust result)
+          \case
+            NonBlocking actual -> do
+              putMVar wasHandleMessageCalled ()
+              assertEqual "correct message" expected actual
+            a ->
+              assertFailure ("unexpected message: " <> show a)
+        tryReadMVar wasHandleMessageCalled >>= assertBool "handle message must be called" . isJust
+        assertBool "handling the message was successful" (isJust result),
+      testCase "handling a call succeeds" $ do
+        freshCounter <- newCounterVar
+        runRIO (MkBookStoreEnv {_fresh = freshCounter}) $ do
+          let expectedBooks =
+                [ Book
+                    "Wann wenn nicht wir."
+                    (Author (PersonName "Schmitt" "Agent") 477)
+                    (Publisher "Kletten Verlag")
+                    (Year 2019)
+                    []
+                ]
+
+          bookStoreInBox <- newInBox UnboundedMessageBox
+          bookStoreOutBox <- newOutBox bookStoreInBox
+          let concurrentCallAction = call bookStoreOutBox GetBooks 100
+              concurrentBookStore = handleMessage bookStoreInBox $ \case
+                Blocking GetBooks replyBox -> do
+                  Nothing <$ expectedBooks `replyTo` replyBox
+                NonBlocking a ->
+                  pure (Just ("unexpected message: " <> show a))
+          (callResult, handleResult) <- concurrently concurrentCallAction concurrentBookStore
+          liftIO $ do
+            case callResult of
+              Left err ->
+                assertFailure $ "failed unexpectedly: " <> show err
+              Right actualBooks ->
+                assertEqual "call should return the right books" actualBooks expectedBooks
+            case handleResult of
+              Nothing ->
+                assertFailure "could not receive message in handleMessage"
+              Just Nothing -> return ()
+              Just (Just err) ->
+                assertFailure err,
+      testCase "reply to dead caller does not crash" $ do
+        let delayDuration = 1000
+        freshCounter <- newCounterVar
+        runRIO (MkBookStoreEnv {_fresh = freshCounter}) $ do
+          bookStoreInBox <- newInBox UnboundedMessageBox
+          bookStoreOutBox <- newOutBox bookStoreInBox
+          let concurrentCallAction = do
+                tId <- forkIO (void $ call bookStoreOutBox GetBooks (delayDuration * 3))
+                threadDelay (1 * delayDuration)
+                throwTo tId $ userError "uh-oh"
+
+              concurrentBookStore = handleMessage bookStoreInBox $ \case
+                Blocking GetBooks replyBox -> do
+                  threadDelay (2 * delayDuration)
+                  replyTo [] replyBox
+                  pure True
+                NonBlocking a ->
+                  error (show a)
+          (_callResult, handleResult) <- concurrently concurrentCallAction concurrentBookStore
+          liftIO $
+            assertEqual "expect bookStore to survive a failed reply" (Just True) handleResult,
+      testCase
+        "call to died thread returns Nothing"
+        $ do
+          let delayDuration = 1000_000
+          freshCounter <- newCounterVar
+          runRIO (MkBookStoreEnv {_fresh = freshCounter}) $ do
+            bookStoreInBox <- newInBox UnboundedMessageBox
+            bookStoreOutBox <- newOutBox bookStoreInBox
+            let concurrentCallAction = call bookStoreOutBox GetBooks (delayDuration * 2)
+                concurrentBookStore = handleMessage bookStoreInBox $ \case
+                  Blocking GetBooks _replyBox -> do
+                    threadDelay delayDuration
+                    pure Nothing
+                  NonBlocking a ->
+                    pure (Just ("unexpected message: " <> show a))
+            (callResult, handleResult) <- concurrently concurrentCallAction concurrentBookStore
+            liftIO $ do
+              callId' <- runRIO freshCounter fresh
+              assertEqual "no message other than GetBooks received" (Just Nothing) handleResult
+              case callResult of
+                (Left (BlockingCommandTimedOut (MkCallId c))) | MkCallId (c + 1) == callId' -> pure ()
+                _ -> assertFailure "call result should match (Left (BlockingCommandTimedOut _))",
+      testCase "replying to call within the given timeout is still successful even if delayed" $ do
+        freshCounter <- newCounterVar
+        runRIO (MkBookStoreEnv {_fresh = freshCounter}) $ do
+          let baseDelay = 10_000
+          bookStoreInBox <- newInBox UnboundedMessageBox
+          bookStoreOutBox <- newOutBox bookStoreInBox
+          let concurrentCallAction = call bookStoreOutBox GetBooks (2 * baseDelay)
+              concurrentBookStore = handleMessage bookStoreInBox $ \case
+                Blocking GetBooks replyBox -> do
+                  threadDelay baseDelay
+                  void (replyTo [] replyBox)
+                  return Nothing
+                NonBlocking a ->
+                  pure (Just ("unexpected message: " <> show a))
+          (callResult, handleResult) <- concurrently concurrentCallAction concurrentBookStore
+          liftIO $ do
+            assertEqual "no message other than GetBooks received" (Just Nothing) handleResult
+            case callResult of
+              (Right actualBooks) -> assertEqual "call should return the right books" actualBooks []
+              other -> assertFailure $ "call successful call, but got this instead: " <> show other,
+      testCase "replying to call with a delay longer than the given timeout is not successful but the process replying lives on" $ do
+        freshCounter <- newCounterVar
+        runRIO (MkBookStoreEnv {_fresh = freshCounter}) $ do
+          let baseDelay = 10_000
+          bookStoreInBox <- newInBox UnboundedMessageBox
+          bookStoreOutBox <- newOutBox bookStoreInBox
+          let concurrentCallAction = call bookStoreOutBox GetBooks baseDelay
+              concurrentBookStore = handleMessage bookStoreInBox $ \case
+                Blocking GetBooks replyBox -> do
+                  threadDelay (2 * baseDelay)
+                  void (replyTo [] replyBox)
+                  threadDelay baseDelay
+                  return (Just "living on, no exception")
+                NonBlocking a ->
+                  pure (Just ("unexpected message: " <> show a))
+          (callResult, handleResult) <- concurrently concurrentCallAction concurrentBookStore
+          liftIO $ do
+            callId' <- runRIO freshCounter fresh
+            assertEqual
+              "no message other than GetBooks received"
+              (Just (Just "living on, no exception"))
+              handleResult
+            case callResult of
+              (Left (BlockingCommandTimedOut (MkCallId c))) | MkCallId (c + 1) == callId' -> pure ()
+              _ -> assertFailure "call result should match (Left (BlockingCommandTimedOut _))"
     ]
+
+newtype BookStoreEnv = MkBookStoreEnv
+  {_fresh :: CounterVar CallId}
+
+instance HasCounterVar CallId BookStoreEnv where
+  getCounterVar MkBookStoreEnv {_fresh} = _fresh
+  putCounterVar newFresh MkBookStoreEnv {_fresh} = MkBookStoreEnv {_fresh = newFresh}
 
 allDonatedBooksAreInTheBookStore :: [(Donor, Book)] -> Property
 allDonatedBooksAreInTheBookStore donorsAndBooks = ioProperty $ do
@@ -85,13 +226,15 @@ data BookStore
 
 data instance Command BookStore _ where
   Donate :: Donor -> Book -> Command BookStore 'FireAndForget
-  GetBooks :: Command BookStore ('Return [Book])
+  GetBooks :: Command BookStore ( 'Return [Book])
 
 deriving stock instance Eq (Command BookStore 'FireAndForget)
+
 deriving stock instance Show (Command BookStore 'FireAndForget)
 
-deriving stock instance Eq (Command BookStore ('Return [Book]))
-deriving stock instance Show (Command BookStore ('Return [Book]))
+deriving stock instance Eq (Command BookStore ( 'Return [Book]))
+
+deriving stock instance Show (Command BookStore ( 'Return [Book]))
 
 newtype Year = Year Int
   deriving newtype (Show, Eq, Ord)

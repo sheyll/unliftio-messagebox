@@ -58,7 +58,7 @@ newFromSystemTime =
 
 newtype CounterVar a = MkCounterVar AtomicCounter
 
-class HasCounterVar a env where
+class HasCounterVar a env | env -> a where
   getCounterVar :: env -> CounterVar a
   putCounterVar :: CounterVar a -> env -> env
 

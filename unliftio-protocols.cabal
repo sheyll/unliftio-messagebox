@@ -187,8 +187,9 @@ test-suite unliftio-protocols-test
     tasty,
     tasty-hunit,
     tasty-quickcheck,
-    unliftio-protocols,      
-    HUnit
+    unliftio-protocols,
+    HUnit,
+    rio
 
               
 benchmark unliftio-protocols-bench

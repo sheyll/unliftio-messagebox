@@ -1,10 +1,12 @@
+{-# LANGUAGE StrictData #-}
+
 -- | Abstractions for the definition of
 -- 'Command' 'Messages', that flow between
 module Protocol.Command
   ( Message (..),
     Command,
     ReturnType (..),
-    CallId (),
+    CallId (MkCallId),
     ReplyBox (),
     CommandError (..),
     cast,
@@ -14,19 +16,33 @@ module Protocol.Command
   )
 where
 
+import Control.Applicative (Alternative ((<|>)))
 import Control.Monad.Reader (MonadReader)
+import Data.Functor ((<&>))
 import Data.Kind (Type)
 import Protocol.Fresh
   ( HasCounterVar,
     fresh,
   )
 import qualified Protocol.MessageBoxClass as MessageBox
-import System.Mem.Weak (Weak)
+import System.Mem.Weak (Weak, deRefWeak)
 import UnliftIO
-  ( MonadUnliftIO,
+  ( MVar,
+    MonadIO (liftIO),
+    MonadUnliftIO,
     TMVar,
+    atomically,
+    checkSTM,
     mkWeakTMVar,
+    newEmptyMVar,
     newEmptyTMVarIO,
+    putMVar,
+    putTMVar,
+    readTVar,
+    registerDelay,
+    takeMVar,
+    takeTMVar,
+    unliftIO,
   )
 
 -- | This family allows to encode imperative /commands/.
@@ -58,7 +74,6 @@ import UnliftIO
 -- sender, or if no reply is necessary.
 data family Command protocolTag :: ReturnType -> Type
 
-
 -- | Indicates if a 'Command' requires the
 -- receiver to send a reply or not.
 data ReturnType where
@@ -89,7 +104,7 @@ data Message api where
   -- used to send the reply to the other process
   -- blocking on 'call'
   Blocking ::
-    Show (Command api ( 'Return result)) => 
+    Show (Command api ( 'Return result)) =>
     Command api ( 'Return result) ->
     ReplyBox result ->
     Message api
@@ -99,13 +114,14 @@ data Message api where
   -- The smart constructor 'cast' can be used to
   -- this message.
   NonBlocking ::
-    (Show (Command api 'FireAndForget)) => Command api 'FireAndForget ->
+    (Show (Command api 'FireAndForget)) =>
+    Command api 'FireAndForget ->
     Message api
 
-instance Show (Message api) where 
-  showsPrec d (NonBlocking !m) = 
+instance Show (Message api) where
+  showsPrec d (NonBlocking !m) =
     showParen (d >= 9) (showString "NonBlocking " . showsPrec 9 m)
-  showsPrec d (Blocking !m (MkReplyBox _ !callId)) = 
+  showsPrec d (Blocking !m (MkReplyBox _ !callId)) =
     showParen (d >= 9) (showString "Blocking " . showsPrec 9 m . showChar ' ' . showsPrec 9 callId)
 
 -- | This is like 'OutBox', it can be used
@@ -113,7 +129,7 @@ instance Show (Message api) where
 -- to either send a reply using 'reply'
 -- or to fail/abort the request using 'sendRequestError'
 data ReplyBox a = MkReplyBox
-  { _replyBox :: Weak (TMVar (InternalReply a)),
+  { _replyBox :: TMVar (InternalReply a),
     _replyBoxCallId :: CallId
   }
 
@@ -132,6 +148,7 @@ data CommandError where
   BlockingCommandFailure :: CallId -> CommandError
   -- | Timeout waiting for the result.
   BlockingCommandTimedOut :: CallId -> CommandError
+  deriving stock (Show, Eq)
 
 -- | An identifier value every command send by 'call's.
 newtype CallId = MkCallId Int
@@ -153,7 +170,7 @@ cast ::
 cast obox !msg =
   MessageBox.deliver obox (NonBlocking msg)
 
--- | Enqueue a 'Blocking' 'Message' into an 'OutBox' and wait for the
+-- | Enqueue a 'Blocking' 'Message' into an 'MessageBox.IsOutBox' and wait for the
 -- response.
 --
 -- The receiving process must use 'replyTo'  with the 'ReplyBox'
@@ -167,18 +184,25 @@ call ::
   ) =>
   o (Message api) ->
   Command api ( 'Return result) ->
+  Int ->
   m (Either CommandError result)
-call !obox !pdu = do
+call !obox !pdu !timeoutMicroseconds = do
   !callId <- fresh
   !resultVar <- newEmptyTMVarIO
   !sendSuccessful <- do
-    !weakResultVar <- mkWeakTMVar resultVar (pure ())
-    let !rbox = MkReplyBox weakResultVar callId
+    let !rbox = MkReplyBox resultVar callId
     let !msg = Blocking pdu rbox
     MessageBox.deliver obox msg
   if not sendSuccessful
     then return (Left (CouldNotEnqueueCommand callId))
-    else error "TODO"
+    else do
+      timedOutVar <- registerDelay timeoutMicroseconds
+      atomically $
+        snd <$> takeTMVar resultVar
+          <|> ( do
+                  readTVar timedOutVar >>= checkSTM
+                  return (Left (BlockingCommandTimedOut callId))
+              )
 
 -- | Receive a 'NonBlocking' or a 'Blocking'.
 --
@@ -190,12 +214,13 @@ handleMessage ::
   inbox (Message api) ->
   (Message api -> m b) ->
   m (Maybe b)
-handleMessage inbox onMessage = do
-  maybeMessage <- MessageBox.receive inbox
+handleMessage !inbox !onMessage = do
+  !maybeMessage <- MessageBox.receive inbox
   case maybeMessage of
     Nothing -> pure Nothing
-    Just message -> do
+    Just !message -> do
       Just <$> onMessage message
 
-replyTo :: ()
-replyTo = error "TODO"
+replyTo :: (MonadUnliftIO m) => a -> ReplyBox a -> m ()
+replyTo !message MkReplyBox {_replyBoxCallId = !callId, _replyBox = !replyBox} =
+  atomically $ putTMVar replyBox (callId, Right message)
