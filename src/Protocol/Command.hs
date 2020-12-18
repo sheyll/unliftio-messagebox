@@ -1,6 +1,5 @@
--- | Abstractions for the definition of 
+-- | Abstractions for the definition of
 -- 'Command' 'Messages', that flow between
--- 
 module Protocol.Command
   ( Message (),
     Command,
@@ -21,7 +20,7 @@ import Protocol.Fresh
   ( HasCounterVar,
     fresh,
   )
-import qualified Protocol.BoundedMessageBox as MessageBox
+import qualified Protocol.MessageBoxClass as MessageBox
 import System.Mem.Weak (Weak)
 import UnliftIO
   ( MonadUnliftIO,
@@ -32,10 +31,10 @@ import UnliftIO
 
 -- | This family allows to encode imperative /commands/.
 --
--- The clauses of a 'Command' define the commands that 
+-- The clauses of a 'Command' define the commands that
 -- a process should execute.
 --
--- Every clause may specify an individual 'ReturnType' that 
+-- Every clause may specify an individual 'ReturnType' that
 -- declares if and what response is valid for a message.
 --
 -- For example:
@@ -50,7 +49,7 @@ import UnliftIO
 -- > data LightControl -- the phantom type
 -- >
 --
--- The type index of the Command family is the uninhabited 
+-- The type index of the Command family is the uninhabited
 -- @LightControl@ type.
 -- .
 --
@@ -136,12 +135,14 @@ newtype CallId = MkCallId Int
 --
 -- The
 cast ::
-  MonadUnliftIO m =>
-  MessageBox.OutBox (Message api) ->
+  ( MonadUnliftIO m,
+    MessageBox.IsOutBox o
+  ) =>
+  o (Message api) ->
   Command api 'FireAndForget ->
   m Bool
 cast obox !msg =
-  MessageBox.tryToDeliver obox (NonBlocking msg)
+  MessageBox.deliver obox (NonBlocking msg)
 
 -- | Enqueue a 'Blocking' 'Message' into an 'OutBox' and wait for the
 -- response.
@@ -151,9 +152,10 @@ cast obox !msg =
 call ::
   ( HasCounterVar CallId env,
     MonadReader env m,
-    MonadUnliftIO m
+    MonadUnliftIO m,
+    MessageBox.IsOutBox o
   ) =>
-  MessageBox.OutBox (Message api) ->
+  o (Message api) ->
   Command api ( 'Return result) ->
   m (Either CommandError result)
 call !obox !pdu = do
@@ -163,7 +165,7 @@ call !obox !pdu = do
     !weakResultVar <- mkWeakTMVar resultVar (pure ())
     let !rbox = MkReplyBox weakResultVar callId
     let !msg = Blocking pdu rbox
-    MessageBox.tryToDeliver obox msg
+    MessageBox.deliver obox msg
   if not sendSuccessful
     then return (Left (CouldNotEnqueueCommand callId))
     else error "TODO"

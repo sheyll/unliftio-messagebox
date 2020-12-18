@@ -20,6 +20,8 @@ module Protocol.BoundedMessageBox
     deliver,
     InBox (),
     OutBox (),
+    InBoxNB (..),
+    OutBoxNB (..),
     Class.InBoxConfig(..)
   )
 where
@@ -141,15 +143,48 @@ data InBox a
 --   The 'OutBox' is the counter part of an 'InBox'.
 newtype OutBox a = MkOutBox (Unagi.InChan a)
 
-
 instance Class.IsMessageBox InBox OutBox where
   data InBoxConfig InBox = BoundedMessageBox Int
     deriving stock (Show)
   {-# INLINE newInBox #-}
   newInBox (BoundedMessageBox !limit) = createInBox limit
   {-# INLINE newOutBox #-}
-  newOutBox = createOutBoxForInbox
-  {-# INLINE deliver #-}
-  deliver !o !a = deliver o a
+  newOutBox !i = createOutBoxForInbox i
+
+-- | A blocking instance that invokes 'receive'.
+instance Class.IsInBox InBox where
   {-# INLINE receive #-}
-  receive = receive
+  receive !i = Just <$> receive i
+
+-- | A blocking instance that invokes 'deliver'.
+instance Class.IsOutBox OutBox where
+  {-# INLINE deliver #-}
+  deliver !o !a = deliver o a $> True
+
+
+-- | A wrapper around 'InBox' to have a 
+-- non-blocking instance of 'Class.IsMessageBox' 
+-- that invokes 'tryReceive' instead of 'receive'.
+--
+-- Used in conjunction with 'OutBoxNB'.
+newtype InBoxNB a = InBoxNB (InBox a)
+
+-- | A wrapper around 'OutBox' to have a 
+-- non-blocking instance of 'Class.IsMessageBox' 
+-- that invokes 'tryToDeliver' instead of 'deliver'.
+--
+-- Used in conjunction with 'OutBoxNB'.
+newtype OutBoxNB a = OutBoxNB (OutBox a)
+
+-- | A non-blocking instance 
+-- that invokes 'tryReceive'.
+instance Class.IsInBox InBoxNB where
+  {-# INLINE receive #-}
+  receive (InBoxNB !i) = tryReceive i
+
+-- | A non-blocking instance 
+-- that invokes 'tryToDeliver'.
+instance Class.IsOutBox OutBoxNB where
+  {-# INLINE deliver #-}
+  deliver (OutBoxNB !o) !a = tryToDeliver o a
+

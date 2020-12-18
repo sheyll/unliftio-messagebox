@@ -12,17 +12,21 @@ import Control.Monad (forM, forever, replicateM, void)
 import Data.Function (fix)
 import Data.List (sort)
 import qualified Data.Map.Strict as Map
-import Data.Maybe ()
+import Data.Maybe (isJust)
 import Data.Semigroup ()
 import Protocol.BoundedMessageBox as MessageBox
-  (deliver,  InBox,
+  ( InBox,
+    InBoxNB (..),
+    OutBoxNB (..),
     createInBox,
     createOutBoxForInbox,
+    deliver,
     receive,
     tryReceive,
     tryToDeliver,
     tryToDeliverAndWait,
   )
+import qualified Protocol.MessageBoxClass as Class
 import Test.QuickCheck
 import Test.Tasty as Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit as Tasty
@@ -41,12 +45,28 @@ test =
   Tasty.testGroup
     "Protocol.BoundedMessageBox"
     [ Tasty.testGroup
+        "Non-Blocking IsOutBox/IsInBox instance"
+        [ Tasty.testCase "receive from an empty queue" $ do
+            i <- MessageBox.createInBox 10
+            timeout 1_000_000 (Class.receive $ InBoxNB i)
+              >>= assertEqual "receive must not block" (Just (Nothing @Int)),
+          Tasty.testCase "send to full queue" $ do
+            i <- MessageBox.createInBox 10
+            o <- MessageBox.createOutBoxForInbox i
+            let sendWhileNotFull = do
+                  success <- Class.deliver (OutBoxNB o) 2
+                  if not success then sendWhileNotFull else pure ()
+            timeout 1_000_000 sendWhileNotFull
+              >>= assertBool "deliver must not block" . isJust
+        ],
+      Tasty.testGroup
         "single threaded"
         [ Tasty.testGroup
             "createInBox and createOutBoxForInbox"
             [ testProperty "when createBox is applied to a limit > 0, then limit messages can be enqueued" $ \limit ->
                 limit > 0 && limit <= 100
-                  ==> ioProperty $ do
+                  ==> ioProperty
+                  $ do
                     i <- MessageBox.createInBox limit :: IO (InBox String)
                     o <- MessageBox.createOutBoxForInbox i
                     results <- replicateM limit (tryToDeliver o "test message")
@@ -177,8 +197,7 @@ test =
         ],
       Tasty.testGroup
         "multi threaded"
-        [ 
-          Tasty.testGroup
+        [ Tasty.testGroup
             "1 Writer x receivers y messages"
             [ Tasty.testProperty
                 "when using InBoxes with a limit greater than the number\
@@ -279,45 +298,46 @@ test =
                       !resultBad = drop (nGood + nAmbigous) result
 
                   assertBool "first messages succeed" (and resultGoodPart)
-                  assertBool "last messages fail" (not $ and  resultBad),
+                  assertBool "last messages fail" (not $ and resultBad),
               Tasty.testProperty
                 "when sending faster than receiving using deliver\
                 \ with a very high timeout will succeed\
                 \ to send all messages, irrespective of the queue size"
-                $ \(Positive (Small queueSize)) ->  withMaxSuccess 20 $ ioProperty $
-                  do
-                    let nGood = 256
-                        tSend = 200
-                        tRecv = 5 * tSend                        
+                $ \(Positive (Small queueSize)) -> withMaxSuccess 20 $
+                  ioProperty $
+                    do
+                      let nGood = 256
+                          tSend = 200
+                          tRecv = 5 * tSend
 
-                    receiverIn <- createInBox queueSize
-                    receiverOut <- createOutBoxForInbox receiverIn
-                    let doReceive =
-                          fix $ \continue -> do
-                            threadDelay tRecv
-                            receive receiverIn
-                              >>= maybe
-                                (return ())
-                                (const continue)
+                      receiverIn <- createInBox queueSize
+                      receiverOut <- createOutBoxForInbox receiverIn
+                      let doReceive =
+                            fix $ \continue -> do
+                              threadDelay tRecv
+                              receive receiverIn
+                                >>= maybe
+                                  (return ())
+                                  (const continue)
 
-                    let ms = replicate nGood (Just "Test-Message")
-                    let doSend = do
-                          res <- forM ms $ \m -> do
+                      let ms = replicate nGood (Just "Test-Message")
+                      let doSend = do
+                            res <- forM ms $ \m -> do
+                              threadDelay tSend
+                              tryToDeliverAndWait 5_000_000 receiverOut m
                             threadDelay tSend
-                            tryToDeliverAndWait 5_000_000 receiverOut m
-                          threadDelay tSend
-                          lr <- tryToDeliverAndWait 5_000_000 receiverOut Nothing
-                          return (lr : res)
+                            lr <- tryToDeliverAndWait 5_000_000 receiverOut Nothing
+                            return (lr : res)
 
-                    concurrently
-                      doReceive
-                      doSend
-                      >>= \case
-                        (_, actual) -> do
-                          let expected =
-                                True :
-                                replicate (nGood + 1 - 1) True
-                          assertEqual "messages succeed" expected actual,
+                      concurrently
+                        doReceive
+                        doSend
+                        >>= \case
+                          (_, actual) -> do
+                            let expected =
+                                  True :
+                                  replicate (nGood + 1 - 1) True
+                            assertEqual "messages succeed" expected actual,
               Tasty.testCase
                 "when 1000 senders send 100 messages to 1 receiver using \
                 \tryToDeliverAndWait, all messages will be received"

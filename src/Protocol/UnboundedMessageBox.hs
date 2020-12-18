@@ -5,11 +5,12 @@
 --
 -- Good single producer/single consumer performance
 --
--- If you are sure that the producer(s) send messages at a lower rate
--- than the rate at which the consumer consumes messages, use this
--- module.
+-- If you are sure that the producer(s) send messages 
+-- at a lower rate than the rate at which the consumer
+-- consumes messages, use this module.
 --
--- Otherwise use the more conservative "Protocol.BoundedMessageBox" module.
+-- Otherwise use the more conservative
+-- "Protocol.BoundedMessageBox" module.
 module Protocol.UnboundedMessageBox
   ( createInBox,
     receive,
@@ -18,6 +19,7 @@ module Protocol.UnboundedMessageBox
     deliver,
     InBox (),
     OutBox (),
+    InBoxNB (..),
     Class.InBoxConfig(..)
   )
 where
@@ -29,6 +31,7 @@ import UnliftIO
   ( MonadIO (liftIO),
     MonadUnliftIO,
   )
+import Data.Functor
 
 -- | Create an 'InBox'.
 --
@@ -69,10 +72,11 @@ deliver :: MonadUnliftIO m => OutBox a -> a -> m ()
 deliver (MkOutBox !s) !a =
   liftIO $ Unagi.writeChan s a
 
--- | A message queue out of which messages can by 'receive'd.
+-- | A message queue out of which messages can 
+--   by 'receive'd.
 --
--- This is the counter part of 'OutBox'. Can be used for reading
--- messages.
+-- This is the counter part of 'OutBox'. Can be 
+-- used for reading messages.
 --
 -- Messages can be received by 'receive' or 'tryReceive'.
 data InBox a
@@ -93,8 +97,26 @@ instance Class.IsMessageBox InBox OutBox where
   {-# INLINE newInBox #-}
   newInBox _ = createInBox
   {-# INLINE newOutBox #-}
-  newOutBox = createOutBoxForInbox
-  {-# INLINE deliver #-}
-  deliver !o !m = deliver o m
+  newOutBox !i = createOutBoxForInbox i
+
+-- | A blocking instance that invokes 'receive'.
+instance Class.IsInBox InBox where
   {-# INLINE receive #-}
-  receive = receive
+  receive !i = Just <$> receive i
+
+-- | A blocking instance that invokes 'deliver'.
+instance Class.IsOutBox OutBox where  
+  {-# INLINE deliver #-}
+  deliver !o !m = deliver o m $> True
+
+-- | A wrapper around 'InBox' to have a 
+-- non-blocking instance of 'Class.IsMessageBox' 
+-- that invokes 'tryReceive' instead of 'receive'.
+--
+-- Used in conjunction with 'OutBoxNB'.
+newtype InBoxNB a = InBoxNB (InBox a)
+
+-- | A non-blocking instance that invokes 'tryReceive'.
+instance Class.IsInBox InBoxNB where 
+  {-# INLINE receive #-}
+  receive (InBoxNB !i) = tryReceive i
