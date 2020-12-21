@@ -1,9 +1,11 @@
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE EmptyDataDecls #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs #-}
@@ -29,24 +31,33 @@ import Criterion.Types
 import qualified Data.Map.Strict as Map
 import Data.Semigroup (Semigroup (stimes))
 import Data.Set (Set)
+import qualified Data.Set as Set
 import Protocol.BoundedMessageBox (InBoxConfig (BoundedMessageBox))
+import qualified Protocol.BoundedMessageBox as Bounded
 import Protocol.Command as Command
 import Protocol.Fresh
 import Protocol.MessageBoxClass (IsMessageBox (..), deliver, receive)
 import Protocol.UnboundedMessageBox (InBoxConfig (UnboundedMessageBox))
+import qualified Protocol.UnboundedMessageBox as Unbounded
 import RIO
 import UnliftIO (MonadUnliftIO, conc, runConc)
-import qualified Data.Set as Set
 
 main =
   defaultMain
-    [ bgroup "rcpMessagePassing"
-        [ bench 
-            ("manyFetchDspsDirectly " ++ show cfg) 
-            (nfAppIO manyFetchDspsDirectly cfg) 
-        | cfg <- [(100000,1),(100000, 1000)]]
-
-    , bgroup
+    [ bgroup
+        "command"
+        [ bench
+            ( "fetchDsps: "
+                ++ show nF
+                ++ " total fetches "
+                ++ show nC
+                ++ " clients"
+            )
+            (nfAppIO fetchDspsBench cfg)
+          | cfg@(nF, nC) <-
+              [(100000, 1), (100000, 1000)]
+        ],
+      bgroup
         "unidirectionalMessagePassing"
         [ bench
             ( mboxImplTitle <> " "
@@ -88,7 +99,7 @@ mkTestMessage !i =
       )
     )
 
-newtype TestMessage = MkTestMessage ([Char], [Char], [Char], ([Char], [Char], Bool, Integer))
+newtype TestMessage = MkTestMessage (String, String, String, (String, String, Bool, Integer))
   deriving newtype (Show)
 
 unidirectionalMessagePassing ::
@@ -119,17 +130,63 @@ unidirectionalMessagePassing !msgGen !impl (!nP, !nM, !nC) = do
           !_msg <- receive inBox
           consume (workLeft - 1) inBox
 
-
 --------------------------------------------------------------------------------
 -- Command Benchmarks
 
-manyFetchDspsDirectly :: (Int,Int) -> IO ()
-manyFetchDspsDirectly (nFetchesTotal, nClients) =
-  error "TODO"
-  
+fetchDspsBench :: (Int, Int) -> IO ()
+fetchDspsBench (nFetchesTotal, nClients) =
+  let startClients serverOut =
+        stimes nClients (conc (client perClientWork))
+        where
+          client 0 = return ()
+          client !workLeft =
+            call serverOut FetchDsps 5_000_000
+              >>= either
+                (error . show)
+                (const (client (workLeft - 1)))
+
+      startServer ::
+        RIO
+          (CounterVar CallId)
+          ( Unbounded.OutBox (Message MediaApi),
+            Conc (RIO (CounterVar CallId)) ()
+          )
+      startServer = do
+        serverIn <- newInBox UnboundedMessageBox
+        serverOut <- newOutBox serverIn
+        let dspSet = Set.fromList [0 .. 4096]
+        return (serverOut, conc (server serverWork serverIn dspSet))
+        where
+          server ::
+            Int ->
+            Unbounded.InBox (Message MediaApi) ->
+            Set DspId ->
+            RIO (CounterVar CallId) ()
+          server 0 _ _ = return ()
+          server !workLeft !serverIn !dspSet =
+            handleMessage
+              serverIn
+              ( \case
+                  Blocking FetchDsps replyBox -> do
+                    replyTo replyBox dspSet
+                    server (workLeft - 1) serverIn dspSet
+                  Blocking other _ ->
+                    error ("unexpected command: " ++ show other)
+
+                  NonBlocking other ->
+                    error ("unexpected command: " ++ show other)
+              )
+             >>= maybe (error "handleMessage failed") return
+
+      perClientWork = nFetchesTotal `div` nClients
+      serverWork = perClientWork * nClients -- not the same as nFetchesTotal
+   in do
+        callIdCounter <- newCounterVar
+        runRIO callIdCounter $ do
+          (serverOut, serverConc) <- startServer
+          runConc (serverConc <> startClients serverOut)
 
 -- internals
-
 
 data MediaApi
 
@@ -151,6 +208,12 @@ data instance Command MediaApi _ where
   DestroyMixer :: MixerId -> Command MediaApi 'FireAndForget
   AddToMixer :: DspId -> MixerId -> MediaStreamId -> Command MediaApi ( 'Return Bool)
   RemoveFromMixer :: DspId -> MixerId -> MediaStreamId -> Command MediaApi ( 'Return ())
+
+deriving instance Show (Command MediaApi ( 'Return (Set DspId)))
+deriving instance Show (Command MediaApi ( 'Return (Maybe MixerId)))
+deriving instance Show (Command MediaApi ( 'Return Bool))
+deriving instance Show (Command MediaApi ( 'Return ()))
+deriving instance Show (Command MediaApi 'FireAndForget)
 
 data instance Command MediaClientApi _ where
   OnCallConnected :: MixingGroupId -> DspId -> MediaStreamId -> Command MediaClientApi 'FireAndForget
@@ -176,8 +239,13 @@ data MediaEnv = MediaEnv
 instance HasCounterVar MixerId MediaEnv where
   getCounterVar = mixerIdCounter
 
-runMediaEnv :: Message MediaApi -> RIO MediaEnv ()
-runMediaEnv =
+-- Run a MediaApi message handler, that exists when no message was received for 
+-- more than one second.
+mediaSim = error "TODO"
+
+-- Core of the media simulation: Handle MediaApi requests and manage a map of dsps.
+mediaSimHandleMessage :: Message MediaApi -> RIO MediaEnv ()
+mediaSimHandleMessage =
   \case
     Blocking FetchDsps replyBox -> do
       dspsVar <- asks dsps
@@ -196,27 +264,19 @@ runMediaEnv =
           Just <$> fresh
         _ ->
           pure Nothing
-      replyTo replyBox r    
-    Blocking (AddToMixer _ _ _) replyBox -> do
-      replyTo replyBox (error "TODO")    
-    Blocking (RemoveFromMixer _ _ _) replyBox -> do
-      replyTo replyBox (error "TODO")    
+      replyTo replyBox r
+    Blocking AddToMixer {} replyBox -> do
+      replyTo replyBox (error "TODO")
+    Blocking RemoveFromMixer {} replyBox -> do
+      replyTo replyBox (error "TODO")
     NonBlocking (DestroyMixer dspId) -> do
       dspsVar <- asks dsps
       allDsps <- readIORef dspsVar
       let capacities = Map.lookup dspId allDsps
       traverse_
         ( \capacity ->
-              writeIORef
-                dspsVar
-                (Map.insert dspId (max 0 (capacity - 1)) allDsps)
+            writeIORef
+              dspsVar
+              (Map.insert dspId (max 0 (capacity - 1)) allDsps)
         )
         capacities
-
-data AppEnv = AppEnv
-  { mixingGroups :: Map MixingGroupId (Map MediaStreamId MemberState)
-  }
-
-data ConfEnv = ConfEnv
-  { mixers :: Map (DspId, MixerId) (Set MediaStreamId)
-  }
