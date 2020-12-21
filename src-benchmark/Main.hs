@@ -26,8 +26,7 @@ import Criterion.Types
     bgroup,
     nfAppIO,
   )
-import qualified Data.IntMap as Map
-import Data.Map (Map)
+import qualified Data.Map.Strict as Map
 import Data.Semigroup (Semigroup (stimes))
 import Data.Set (Set)
 import Protocol.BoundedMessageBox (InBoxConfig (BoundedMessageBox))
@@ -37,10 +36,17 @@ import Protocol.MessageBoxClass (IsMessageBox (..), deliver, receive)
 import Protocol.UnboundedMessageBox (InBoxConfig (UnboundedMessageBox))
 import RIO
 import UnliftIO (MonadUnliftIO, conc, runConc)
+import qualified Data.Set as Set
 
 main =
   defaultMain
-    [ bgroup
+    [ bgroup "rcpMessagePassing"
+        [ bench 
+            ("manyFetchDspsDirectly " ++ show cfg) 
+            (nfAppIO manyFetchDspsDirectly cfg) 
+        | cfg <- [(100000,1),(100000, 1000)]]
+
+    , bgroup
         "unidirectionalMessagePassing"
         [ bench
             ( mboxImplTitle <> " "
@@ -113,7 +119,17 @@ unidirectionalMessagePassing !msgGen !impl (!nP, !nM, !nC) = do
           !_msg <- receive inBox
           consume (workLeft - 1) inBox
 
--- Command Benchmark
+
+--------------------------------------------------------------------------------
+-- Command Benchmarks
+
+manyFetchDspsDirectly :: (Int,Int) -> IO ()
+manyFetchDspsDirectly (nFetchesTotal, nClients) =
+  error "TODO"
+  
+
+-- internals
+
 
 data MediaApi
 
@@ -125,28 +141,28 @@ type DspId = Int
 
 type MixerId = Int
 
-type MemberId = Int
+type MediaStreamId = Int
 
-type ConferenceId = Int
+type MixingGroupId = Int
 
-data instance Command MediaApi r where
+data instance Command MediaApi _ where
   FetchDsps :: Command MediaApi ( 'Return (Set DspId))
   CreateMixer :: DspId -> Command MediaApi ( 'Return (Maybe MixerId))
   DestroyMixer :: MixerId -> Command MediaApi 'FireAndForget
-  AddToMixer :: DspId -> MixerId -> MemberId -> Command MediaApi ( 'Return Bool)
-  RemoveFromMixer :: DspId -> MixerId -> MemberId -> Command MediaApi ( 'Return ())
+  AddToMixer :: DspId -> MixerId -> MediaStreamId -> Command MediaApi ( 'Return Bool)
+  RemoveFromMixer :: DspId -> MixerId -> MediaStreamId -> Command MediaApi ( 'Return ())
 
-data instance Command MediaClientApi r where
-  OnCallConnected :: ConferenceId -> DspId -> MemberId -> Command MediaClientApi 'FireAndForget
-  OnCallDisconnected :: ConferenceId -> DspId -> MemberId -> Command MediaClientApi 'FireAndForget
-  MemberJoined :: ConferenceId -> MemberId -> Command MediaApi 'FireAndForget
-  MemberUnJoined :: ConferenceId -> MemberId -> Command MediaApi 'FireAndForget
+data instance Command MediaClientApi _ where
+  OnCallConnected :: MixingGroupId -> DspId -> MediaStreamId -> Command MediaClientApi 'FireAndForget
+  OnCallDisconnected :: MixingGroupId -> DspId -> MediaStreamId -> Command MediaClientApi 'FireAndForget
+  MemberJoined :: MixingGroupId -> MediaStreamId -> Command MediaClientApi 'FireAndForget
+  MemberUnJoined :: MixingGroupId -> MediaStreamId -> Command MediaClientApi 'FireAndForget
 
-data instance Command MixingTreeApi r where
-  CreateConference :: ConferenceId -> Command MixingTreeApi ( 'Return ())
-  DestroyConference :: ConferenceId -> Command MixingTreeApi ( 'Return ())
-  Join :: ConferenceId -> MemberId -> Command MixingTreeApi 'FireAndForget
-  UnJoin :: ConferenceId -> MemberId -> Command MixingTreeApi 'FireAndForget
+data instance Command MixingTreeApi _ where
+  CreateMixingGroup :: MixingGroupId -> Command MixingTreeApi ( 'Return ())
+  DestroyMixingGroup :: MixingGroupId -> Command MixingTreeApi ( 'Return ())
+  Join :: MixingGroupId -> MediaStreamId -> Command MixingTreeApi 'FireAndForget
+  UnJoin :: MixingGroupId -> MediaStreamId -> Command MixingTreeApi 'FireAndForget
 
 type Capacity = Int
 
@@ -160,44 +176,47 @@ data MediaEnv = MediaEnv
 instance HasCounterVar MixerId MediaEnv where
   getCounterVar = mixerIdCounter
 
-runMediaEnv :: Message MediaApi r -> RIO MediaEnv ()
+runMediaEnv :: Message MediaApi -> RIO MediaEnv ()
 runMediaEnv =
   \case
     Blocking FetchDsps replyBox -> do
       dspsVar <- asks dsps
       allDsps <- readIORef dspsVar
-      let goodDsps = filter (>= 2) (Map.keys allDsps)
+      let goodDsps = Set.filter (>= 2) (Map.keysSet allDsps)
       replyTo replyBox goodDsps
     Blocking (CreateMixer dspId) replyBox -> do
       dspsVar <- asks dsps
       allDsps <- readIORef dspsVar
-      let capacities = Map.lookup dspId
-      case capacities of
+      let capacities = Map.lookup dspId allDsps
+      r <- case capacities of
         Just capacity | capacity > 0 -> do
-          newMixerId <- fresh
-          writeIORef'
+          writeIORef
             dspsVar
             (Map.insert dspId (capacity - 1) allDsps)
+          Just <$> fresh
         _ ->
-          replyTo replyBox Nothing
-    Blocking (DestroyMixer dspId) -> do
+          pure Nothing
+      replyTo replyBox r    
+    Blocking (AddToMixer _ _ _) replyBox -> do
+      replyTo replyBox (error "TODO")    
+    Blocking (RemoveFromMixer _ _ _) replyBox -> do
+      replyTo replyBox (error "TODO")    
+    NonBlocking (DestroyMixer dspId) -> do
       dspsVar <- asks dsps
       allDsps <- readIORef dspsVar
-      let capacities = Map.lookup dspId
-      traverse
+      let capacities = Map.lookup dspId allDsps
+      traverse_
         ( \capacity ->
-            do
-              newMixerId <- fresh
-              writeIORef'
+              writeIORef
                 dspsVar
-                (Map.insert dspId (capacity + 1) allDsps)
+                (Map.insert dspId (max 0 (capacity - 1)) allDsps)
         )
         capacities
 
 data AppEnv = AppEnv
-  { conferences :: Map ConferenceId (Map MemberId MemberState)
+  { mixingGroups :: Map MixingGroupId (Map MediaStreamId MemberState)
   }
 
 data ConfEnv = ConfEnv
-  { mixers :: Map (DspId, MixerId) (Set MemberId)
+  { mixers :: Map (DspId, MixerId) (Set MediaStreamId)
   }
