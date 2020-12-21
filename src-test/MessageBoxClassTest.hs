@@ -54,5 +54,5 @@ deliverAllMessages arg =
                         )
                   )
                   [0 .. k - 1]
-                <*> conc (replicateM (n * k) (receive inbox >>= return . All . isJust))
+                <*> conc (replicateM (n * k) (All . isJust <$> receive inbox))
             )

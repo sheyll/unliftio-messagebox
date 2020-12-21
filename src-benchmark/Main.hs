@@ -29,19 +29,11 @@ import Criterion.Types
     bgroup,
     nfAppIO,
   )
-import qualified Data.Map.Strict as Map
 import Data.Semigroup (Semigroup (stimes))
-import Data.Set (Set)
-import qualified Data.Set as Set
 import Protocol.BoundedMessageBox (InBoxConfig (BoundedMessageBox))
-import qualified Protocol.BoundedMessageBox as Bounded
-import Protocol.Command as Command
-import Protocol.Fresh
 import Protocol.MessageBoxClass (IsMessageBox (..), deliver, receive)
 import Protocol.UnboundedMessageBox (InBoxConfig (UnboundedMessageBox))
-import qualified Protocol.UnboundedMessageBox as Unbounded
-import RIO
-import UnliftIO (MonadUnliftIO, conc, runConc)
+import RIO (MonadUnliftIO, conc, runConc)
 
 main =
   defaultMain

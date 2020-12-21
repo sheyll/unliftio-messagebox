@@ -18,31 +18,22 @@ where
 
 import Control.Applicative (Alternative ((<|>)))
 import Control.Monad.Reader (MonadReader)
-import Data.Functor ((<&>))
 import Data.Kind (Type)
 import Protocol.Fresh
   ( HasCounterVar,
     fresh,
   )
 import qualified Protocol.MessageBoxClass as MessageBox
-import System.Mem.Weak (Weak, deRefWeak)
 import UnliftIO
-  ( MVar,
-    MonadIO (liftIO),
-    MonadUnliftIO,
+  ( MonadUnliftIO,
     TMVar,
     atomically,
     checkSTM,
-    mkWeakTMVar,
-    newEmptyMVar,
     newEmptyTMVarIO,
-    putMVar,
     putTMVar,
     readTVar,
     registerDelay,
-    takeMVar,
     takeTMVar,
-    unliftIO,
   )
 
 -- | This family allows to encode imperative /commands/.

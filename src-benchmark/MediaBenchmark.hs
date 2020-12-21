@@ -23,8 +23,6 @@
 -- from the media domain.
 module MediaBenchmark (benchmark) where
 
-import Control.Monad (replicateM)
-import Criterion.Main (defaultMain)
 import Criterion.Types
   ( bench,
     bgroup,
@@ -32,17 +30,39 @@ import Criterion.Types
   )
 import qualified Data.Map.Strict as Map
 import Data.Semigroup (Semigroup (stimes))
-import Data.Set (Set)
 import qualified Data.Set as Set
-import Protocol.BoundedMessageBox (InBoxConfig (BoundedMessageBox))
-import qualified Protocol.BoundedMessageBox as Bounded
 import Protocol.Command as Command
+  ( CallId,
+    Command,
+    Message (..),
+    ReturnType (FireAndForget, Return),
+    call,
+    handleMessage,
+    replyTo,
+  )
 import Protocol.Fresh
-import Protocol.MessageBoxClass (IsMessageBox (..), deliver, receive)
+  ( CounterVar,
+    HasCounterVar (getCounterVar),
+    fresh,
+    newCounterVar,
+  )
+import Protocol.MessageBoxClass (IsMessageBox (..))
 import Protocol.UnboundedMessageBox (InBoxConfig (UnboundedMessageBox))
 import qualified Protocol.UnboundedMessageBox as Unbounded
 import RIO
-import UnliftIO (MonadUnliftIO, conc, runConc)
+  ( Conc,
+    IORef,
+    Map,
+    RIO,
+    Set,
+    asks,
+    conc,
+    readIORef,
+    runConc,
+    runRIO,
+    traverse_,
+    writeIORef,
+  )
 
 benchmark =
   bgroup
@@ -136,19 +156,19 @@ data instance Command MediaApi _ where
   AddToMixer :: DspId -> MixerId -> MediaStreamId -> Command MediaApi ( 'Return Bool)
   RemoveFromMixer :: DspId -> MixerId -> MediaStreamId -> Command MediaApi ( 'Return ())
 
-deriving instance Show (Command MediaApi ( 'Return (Set DspId)))
+deriving stock instance Show (Command MediaApi ( 'Return (Set DspId)))
 
-deriving instance Show (Command MediaApi ( 'Return (Maybe MixerId)))
+deriving stock instance Show (Command MediaApi ( 'Return (Maybe MixerId)))
 
-deriving instance Show (Command MediaApi ( 'Return Bool))
+deriving stock instance Show (Command MediaApi ( 'Return Bool))
 
-deriving instance Show (Command MediaApi ( 'Return ()))
+deriving stock instance Show (Command MediaApi ( 'Return ()))
 
-deriving instance Show (Command MediaApi 'FireAndForget)
+deriving stock instance Show (Command MediaApi 'FireAndForget)
 
 data instance Command MediaClientApi _ where
-  OnCallConnected :: MixingGroupId -> DspId -> MediaStreamId -> Command MediaClientApi 'FireAndForget
-  OnCallDisconnected :: MixingGroupId -> DspId -> MediaStreamId -> Command MediaClientApi 'FireAndForget
+  OnMediaStreamCreated :: MixingGroupId -> DspId -> MediaStreamId -> Command MediaClientApi 'FireAndForget
+  OnMediaStreamDestroyed :: MixingGroupId -> DspId -> MediaStreamId -> Command MediaClientApi 'FireAndForget
   MemberJoined :: MixingGroupId -> MediaStreamId -> Command MediaClientApi 'FireAndForget
   MemberUnJoined :: MixingGroupId -> MediaStreamId -> Command MediaClientApi 'FireAndForget
 

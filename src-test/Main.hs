@@ -9,6 +9,7 @@ import qualified UnboundedMessageBoxTest
 import qualified ProtocolsTest
 import qualified FreshTest
 
+main :: IO ()
 main = Tasty.defaultMain test
 
 test :: Tasty.TestTree

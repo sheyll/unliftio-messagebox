@@ -15,18 +15,54 @@
 
 module CommandTest where
 
-import qualified Control.Concurrent.MVar as MVar
-import Data.Functor
-import Data.Maybe (isJust)
+import Data.Functor (Functor ((<$)), void, ($>), (<$>))
 import Data.Semigroup (All (All, getAll))
-import GHC.IO.Exception
+import GHC.IO.Exception (userError)
 import Protocol.Command
+  ( CallId (..),
+    Command,
+    CommandError (BlockingCommandTimedOut),
+    Message (Blocking, NonBlocking),
+    ReturnType (FireAndForget, Return),
+    call,
+    cast,
+    handleMessage,
+    replyTo,
+  )
 import Protocol.Fresh (CounterVar, HasCounterVar (..), fresh, newCounterVar)
 import Protocol.MessageBoxClass
   ( IsMessageBox (newInBox, newOutBox),
   )
 import Protocol.UnboundedMessageBox (InBoxConfig (UnboundedMessageBox))
 import RIO
+  ( Applicative (pure, (<*>)),
+    Bool (True),
+    Either (Left, Right),
+    Eq ((==)),
+    Foldable (foldMap),
+    Int,
+    Maybe (Just, Nothing),
+    Monad (return, (>>=)),
+    MonadIO (liftIO),
+    Num ((*), (+)),
+    Ord,
+    Semigroup ((<>)),
+    Show (..),
+    String,
+    conc,
+    concurrently,
+    error,
+    isJust,
+    newEmptyMVar,
+    putMVar,
+    runConc,
+    runRIO,
+    threadDelay,
+    throwTo,
+    tryReadMVar,
+    ($),
+    (.),
+  )
 import Test.Tasty as Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit
   ( assertBool,
@@ -44,8 +80,7 @@ import Test.Tasty.QuickCheck
     ioProperty,
     testProperty,
   )
-import UnliftIO (conc, runConc)
-import UnliftIO.Concurrent
+import UnliftIO.Concurrent (forkIO)
 
 test :: Tasty.TestTree
 test =

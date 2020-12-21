@@ -62,7 +62,6 @@ withThreadId w k = deRefWeakThreadId w >>= k
 -- 'WeakThreadId' values can be converted to 'Weak' 'ThreadId'.
 newtype WeakThreadId = MkPid (Int, Weak ThreadId)
 
-
 instance Show WeakThreadId where
   showsPrec _ (MkPid (!x, _)) = shows x
 

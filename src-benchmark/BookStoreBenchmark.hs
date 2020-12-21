@@ -24,24 +24,36 @@
 -- which are processed by m consumers
 module BookStoreBenchmark (benchmark) where
 
-import Control.Monad (replicateM)
-import Criterion.Main (defaultMain)
 import Criterion.Types
   ( bench,
     bgroup,
     nfAppIO,
   )
-import qualified Data.IntMap as Map
-import Data.Map (Map)
-import Data.Semigroup (Semigroup (stimes), getAll)
-import Data.Set (Set)
+import Data.Semigroup (Semigroup (stimes))
 import Protocol.BoundedMessageBox (InBoxConfig (BoundedMessageBox))
 import Protocol.Command as Command
+  ( CallId,
+    Command,
+    Message (NonBlocking),
+    ReturnType (FireAndForget, Return),
+    cast,
+    handleMessage,
+  )
 import Protocol.Fresh
-import Protocol.MessageBoxClass (IsMessageBox (..), deliver, receive)
+  ( CounterVar,
+    HasCounterVar (..),
+    newCounterVar,
+  )
+import Protocol.MessageBoxClass (IsMessageBox (..))
 import Protocol.UnboundedMessageBox (InBoxConfig (UnboundedMessageBox))
 import RIO
-import UnliftIO (MonadUnliftIO, conc, runConc)
+  ( MonadIO (liftIO),
+    MonadUnliftIO,
+    conc,
+    runConc,
+    runRIO,
+    unless,
+  )
 
 mkExampleBook :: Int -> Book
 mkExampleBook !i =
@@ -101,12 +113,18 @@ unidirectionalMessagePassing !msgGen !impl (!nP, !nMTotal, !nC) = do
           let handler =
                 handleMessage bookStoreInBox $
                   \case
-                    NonBlocking actual -> do
+                    NonBlocking _actual -> do
                       return Nothing
                     a -> do
                       liftIO $ putStrLn "blocking case called"
                       pure (Just ("did not expect message: " <> show a))
-           in handler >>= maybe (error "HandleMessage failed!") (maybe (consumer (workLeft - 1)) error)
+           in handler
+                >>= maybe
+                  (error "HandleMessage failed!")
+                  ( maybe
+                      (consumer (workLeft - 1))
+                      error
+                  )
     let perProducerWork = nMTotal `div` nP -- books to donate per producer
         perConsumerWork = nMTotal `div` nC -- books to receive per consumer
     let consumers = stimes nC (conc $ consumer perConsumerWork)
