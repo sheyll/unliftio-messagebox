@@ -14,7 +14,7 @@ import UnliftIO (MonadUnliftIO)
 --
 -- The parameters are the types of the inbox and the outbox
 -- values of a message box.
-class (IsInBox inbox, IsOutBox outbox) =>  IsMessageBox inbox outbox | inbox -> outbox, outbox -> inbox where
+class (IsInBox inbox, IsOutBox outbox) => IsMessageBox inbox outbox | inbox -> outbox, outbox -> inbox where
   -- | The configuration parameter (if any) for the creation of an
   -- inbox. For a bounded message box this might be the limit of
   -- the message queue.

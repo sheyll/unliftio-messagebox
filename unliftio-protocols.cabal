@@ -196,6 +196,10 @@ benchmark unliftio-protocols-bench
   import: deps, compiler-flags-executables
   type: exitcode-stdio-1.0
   main-is: Main.hs
+  other-modules:
+    BookStoreBenchmark,
+    CommandBenchmark,
+    MediaBenchmark
   hs-source-dirs: src-benchmark
   ghc-options:  -Wno-missing-signatures 
   build-depends:

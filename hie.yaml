@@ -1,0 +1,8 @@
+cradle:
+  cabal:
+    - path: "./src/"
+      component: "unliftio-protocols"
+    - path: "./src-benchmark/"
+      component: "unliftio-protocols-bench"
+    - path: "./src-test"
+      component: "unliftio-protocols-test"
