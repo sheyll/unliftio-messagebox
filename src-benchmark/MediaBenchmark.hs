@@ -4,6 +4,7 @@
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE EmptyDataDecls #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs #-}
@@ -23,6 +24,7 @@
 -- from the media domain.
 module MediaBenchmark (benchmark) where
 
+import Control.Monad
 import Criterion.Types
   ( bench,
     bgroup,
@@ -133,6 +135,47 @@ fetchDspsBench (nFetchesTotal, nClients) =
           (serverOut, serverConc) <- startServer
           runConc (serverConc <> startClients serverOut)
 
+-- | A benchmark on a simulated application workload.
+--
+-- The applicaton has three layers:
+--
+-- 1. Media
+--    * Per dsp MediaApi processes
+--    * A dispatcher
+-- 2. Media Stream Grouping
+--    * A process per media stream group
+-- 3. Client
+--    * A process that processes a benchmark specific set of
+--      random requests for grouping media
+--
+-- Startup and shutdown:
+--  When a DSP is full, the DSP process will exit.
+--  
+
+mediaAppBenchmark ::
+  Map DspId Capacity ->
+  Map MixingGroupId (DspId, Set MediaStreamId) ->
+  IO ()
+mediaAppBenchmark !availableDsps !testMixingGroups = do
+  (mediaOutBox, mediaConc) <- spawnMediaApi
+  error "TODO"
+  where
+    spawnMediaApi = do
+      (perDspOutBoxes, perDspConc) <- dspMediaApiProcesses
+      spawnMediaProxy perDspOutBoxes
+      where
+        spawnMediaProxy perDspOutBoxes = do
+          error "TODO"
+        dspMediaApiProcesses =
+          fmap
+            unzip
+            ( forM
+                (Map.toList availableDsps)
+                ( \(myDspId, myCapa) -> do
+                    return (myOutBox, (myDspId, conc))
+                )
+            )
+
 -- * Types for the domain of the benchmarks in this module
 
 data MediaApi
@@ -182,53 +225,43 @@ type Capacity = Int
 
 newtype MemberState = MemberState {isMemberJoined :: Bool}
 
-data MediaEnv = MediaEnv
-  { dsps :: IORef (Map DspId Capacity),
-    mixerIdCounter :: CounterVar MixerId
-  }
-
-instance HasCounterVar MixerId MediaEnv where
-  getCounterVar = mixerIdCounter
-
 -- | General purpose 'MediaApi' server
 -- Run a MediaApi message handler, that exists when no message was received for
 -- more than one second.
-mediaSim = error "TODO"
-  where
-    -- Core of the media simulation: Handle MediaApi requests and manage a map of dsps.
-    mediaSimHandleMessage :: Message MediaApi -> RIO MediaEnv ()
-    mediaSimHandleMessage =
-      \case
-        Blocking FetchDsps replyBox -> do
-          dspsVar <- asks dsps
-          allDsps <- readIORef dspsVar
-          let goodDsps = Set.filter (>= 2) (Map.keysSet allDsps)
-          replyTo replyBox goodDsps
-        Blocking (CreateMixer dspId) replyBox -> do
-          dspsVar <- asks dsps
-          allDsps <- readIORef dspsVar
-          let capacities = Map.lookup dspId allDsps
-          r <- case capacities of
-            Just capacity | capacity > 0 -> do
-              writeIORef
-                dspsVar
-                (Map.insert dspId (capacity - 1) allDsps)
-              Just <$> fresh
-            _ ->
-              pure Nothing
-          replyTo replyBox r
-        Blocking AddToMixer {} replyBox -> do
-          replyTo replyBox (error "TODO")
-        Blocking RemoveFromMixer {} replyBox -> do
-          replyTo replyBox (error "TODO")
-        NonBlocking (DestroyMixer dspId) -> do
-          dspsVar <- asks dsps
-          allDsps <- readIORef dspsVar
-          let capacities = Map.lookup dspId allDsps
-          traverse_
-            ( \capacity ->
-                writeIORef
-                  dspsVar
-                  (Map.insert dspId (max 0 (capacity - 1)) allDsps)
-            )
-            capacities
+mediaApiSim ::
+  (HasCounterVar MixerId env) =>
+  Map DspId Capacity ->
+  MixerId ->
+  RIO env ()
+mediaApiSim myDsps nextMixerId = error "TODO"
+
+
+-- Core of the media simulation: Handle MediaApi requests and manage a map of dsps.
+mediaSimHandleMessage ::
+  Map DspId Capacity ->
+  Message MediaApi ->
+  RIO  (Map DspId Capacity)
+mediaSimHandleMessage allDsps =
+  \case
+    Blocking FetchDsps replyBox -> do
+      let goodDsps = Set.filter (>= 2) (Map.keysSet allDsps)
+      replyTo replyBox goodDsps
+      return allDsps
+    Blocking (CreateMixer dspId) replyBox -> 
+      case Map.lookup dspId allDsps of
+        Just capacity | capacity > 0 -> do                
+            fresh >>= replyTo replyBox . Just 
+            return (Map.insert dspId (capacity - 1) allDsps)
+        _ -> do
+            replyTo replyBox Nothing 
+            return allDsps
+    Blocking (AddToMixer _dspId _ _) _replyBox -> do
+      error "TODO"
+    Blocking (RemoveFromMixer _dspId _ _) _replyBox -> 
+      error "TODO"
+    NonBlocking (DestroyMixer dspId) -> do
+      case Map.lookup dspId allDsps of
+        Just capacity | capacity > 0 -> do                
+            return (Map.insert dspId (capacity + 1) allDsps)
+        _ -> do
+            return allDsps

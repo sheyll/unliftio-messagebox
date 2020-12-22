@@ -25,7 +25,7 @@ import Protocol.Fresh
   )
 import qualified Protocol.MessageBoxClass as MessageBox
 import UnliftIO
-  ( MonadUnliftIO,
+  (MonadUnliftIO,
     TMVar,
     atomically,
     checkSTM,
@@ -119,6 +119,10 @@ instance Show (Message api) where
 -- by the receiver of a 'Blocking'
 -- to either send a reply using 'reply'
 -- or to fail/abort the request using 'sendRequestError'
+-- data ReplyBox a = MkReplyBox
+--   { _replyBox :: MVar (InternalReply a),
+--     _replyBoxCallId :: CallId
+--   }
 data ReplyBox a = MkReplyBox
   { _replyBox :: TMVar (InternalReply a),
     _replyBoxCallId :: CallId
@@ -212,6 +216,10 @@ handleMessage !inbox !onMessage = do
     Just !message -> do
       Just <$> onMessage message
 
+-- | This is called from the callback passed to 'handleMessage'.
+-- When handling a 'Blocking' 'Message' the 'ReplyBox' contained
+-- in the message contains the 'TMVar' for the result, and this
+-- function puts the result into it.
 replyTo :: (MonadUnliftIO m) => ReplyBox a -> a -> m ()
 replyTo MkReplyBox {_replyBoxCallId = !callId, _replyBox = !replyBox} !message =
   atomically $ putTMVar replyBox (callId, Right message)
