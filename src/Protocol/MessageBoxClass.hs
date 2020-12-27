@@ -5,6 +5,7 @@ module Protocol.MessageBoxClass
   ( IsMessageBox (..),
     IsInBox (..),
     IsOutBox (..),
+    handleMessage,
   )
 where
 
@@ -52,3 +53,16 @@ class IsOutBox outbox where
   -- be a non-blocking operation.
   -- Return if the operation was successful.
   deliver :: MonadUnliftIO m => outbox a -> a -> m Bool
+
+-- | Receive a message and apply a function to it.
+handleMessage ::
+  (MonadUnliftIO m, IsInBox inbox) =>
+  inbox message ->
+  (message -> m b) ->
+  m (Maybe b)
+handleMessage !inbox !onMessage = do
+  !maybeMessage <- receive inbox
+  case maybeMessage of
+    Nothing -> pure Nothing
+    Just !message -> do
+      Just <$> onMessage message

@@ -26,12 +26,12 @@ import Protocol.Command
     ReturnType (FireAndForget, Return),
     call,
     cast,
-    handleMessage,
     replyTo,
   )
 import Protocol.Fresh (CounterVar, HasCounterVar (..), fresh, newCounterVar)
 import Protocol.MessageBoxClass
   ( IsMessageBox (newInBox, newOutBox),
+    handleMessage,
   )
 import Protocol.UnboundedMessageBox (InBoxConfig (UnboundedMessageBox))
 import RIO

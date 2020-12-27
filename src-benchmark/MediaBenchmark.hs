@@ -39,7 +39,6 @@ import Protocol.Command as Command
     Message (..),
     ReturnType (FireAndForget, Return),
     call,
-    handleMessage,
     replyTo,
   )
 import Protocol.Fresh
@@ -48,7 +47,11 @@ import Protocol.Fresh
     fresh,
     newCounterVar,
   )
-import Protocol.MessageBoxClass (IsMessageBox (..))
+import Protocol.MessageBoxClass
+  ( IsMessageBox (..),
+    IsOutBox,
+    handleMessage,
+  )
 import Protocol.UnboundedMessageBox (InBoxConfig (UnboundedMessageBox))
 import qualified Protocol.UnboundedMessageBox as Unbounded
 import RIO
@@ -140,8 +143,7 @@ fetchDspsBench (nFetchesTotal, nClients) =
 -- The applicaton has three layers:
 --
 -- 1. Media
---    * Per dsp MediaApi processes
---    * A dispatcher
+--    * MediaApi processes
 -- 2. Media Stream Grouping
 --    * A process per media stream group
 -- 3. Client
@@ -149,9 +151,8 @@ fetchDspsBench (nFetchesTotal, nClients) =
 --      random requests for grouping media
 --
 -- Startup and shutdown:
---  When a DSP is full, the DSP process will exit.
---  
-
+--  The MediaApi will handle requests for ever.
+--  The Client will processes a list of
 mediaAppBenchmark ::
   Map DspId Capacity ->
   Map MixingGroupId (DspId, Set MediaStreamId) ->
@@ -160,29 +161,14 @@ mediaAppBenchmark !availableDsps !testMixingGroups = do
   (mediaOutBox, mediaConc) <- spawnMediaApi
   error "TODO"
   where
-    spawnMediaApi = do
-      (perDspOutBoxes, perDspConc) <- dspMediaApiProcesses
-      spawnMediaProxy perDspOutBoxes
-      where
-        spawnMediaProxy perDspOutBoxes = do
+    spawnMediaApi =
           error "TODO"
-        dspMediaApiProcesses =
-          fmap
-            unzip
-            ( forM
-                (Map.toList availableDsps)
-                ( \(myDspId, myCapa) -> do
-                    return (myOutBox, (myDspId, conc))
-                )
-            )
-
+     
 -- * Types for the domain of the benchmarks in this module
 
 data MediaApi
 
-data MediaClientApi
-
-data MixingTreeApi
+data MixingApi
 
 type DspId = Int
 
@@ -196,8 +182,8 @@ data instance Command MediaApi _ where
   FetchDsps :: Command MediaApi ( 'Return (Set DspId))
   CreateMixer :: DspId -> Command MediaApi ( 'Return (Maybe MixerId))
   DestroyMixer :: MixerId -> Command MediaApi 'FireAndForget
-  AddToMixer :: DspId -> MixerId -> MediaStreamId -> Command MediaApi ( 'Return Bool)
-  RemoveFromMixer :: DspId -> MixerId -> MediaStreamId -> Command MediaApi ( 'Return ())
+  AddToMixer :: MixerId -> MediaStreamId -> Command MediaApi ( 'Return Bool)
+  RemoveFromMixer :: MediaStreamId -> Command MediaApi ( 'Return ())
 
 deriving stock instance Show (Command MediaApi ( 'Return (Set DspId)))
 
@@ -209,59 +195,169 @@ deriving stock instance Show (Command MediaApi ( 'Return ()))
 
 deriving stock instance Show (Command MediaApi 'FireAndForget)
 
-data instance Command MediaClientApi _ where
-  OnMediaStreamCreated :: MixingGroupId -> DspId -> MediaStreamId -> Command MediaClientApi 'FireAndForget
-  OnMediaStreamDestroyed :: MixingGroupId -> DspId -> MediaStreamId -> Command MediaClientApi 'FireAndForget
-  MemberJoined :: MixingGroupId -> MediaStreamId -> Command MediaClientApi 'FireAndForget
-  MemberUnJoined :: MixingGroupId -> MediaStreamId -> Command MediaClientApi 'FireAndForget
+data MediaClientEvent where
+  OnMediaStreamCreated :: MixingGroupId -> DspId -> MediaStreamId -> MediaClientEvent
+  OnMediaStreamDestroyed :: MixingGroupId -> DspId -> MediaStreamId -> MediaClientEvent
+  deriving stock (Show, Eq)
 
-data instance Command MixingTreeApi _ where
-  CreateMixingGroup :: MixingGroupId -> Command MixingTreeApi ( 'Return ())
-  DestroyMixingGroup :: MixingGroupId -> Command MixingTreeApi ( 'Return ())
-  Join :: MixingGroupId -> MediaStreamId -> Command MixingTreeApi 'FireAndForget
-  UnJoin :: MixingGroupId -> MediaStreamId -> Command MixingTreeApi 'FireAndForget
+data MixingGroupEvent where
+  MemberJoined :: MixingGroupId -> MediaStreamId -> MixingGroupEvent
+  MemberUnJoined :: MixingGroupId -> MediaStreamId -> MixingGroupEvent
+  deriving stock (Show, Eq)
+
+data instance Command MixingApi _ where
+  CreateMixingGroup ::
+    MixingGroupId ->
+    Command MixingApi ( 'Return ())
+  DestroyMixingGroup ::
+    MixingGroupId ->
+    Command MixingApi ( 'Return ())
+  Join ::
+    IsOutBox outBox =>
+    MixingGroupId ->
+    MediaStreamId ->
+    outBox MixingGroupEvent ->
+    Command MixingApi 'FireAndForget
+  UnJoin ::
+    IsOutBox outBox =>
+    MixingGroupId ->
+    MediaStreamId ->
+    outBox MixingGroupEvent ->
+    Command MixingApi 'FireAndForget
 
 type Capacity = Int
 
 newtype MemberState = MemberState {isMemberJoined :: Bool}
 
--- | General purpose 'MediaApi' server
--- Run a MediaApi message handler, that exists when no message was received for
--- more than one second.
-mediaApiSim ::
-  (HasCounterVar MixerId env) =>
-  Map DspId Capacity ->
-  MixerId ->
-  RIO env ()
-mediaApiSim myDsps nextMixerId = error "TODO"
+-- | MixingApi dispatcher
+dispatchMixingApi ::
+  (IsOutBox outBox, HasCounterVar CallId env) =>
+  DispatcherSt outBox ->
+  MediaClientEvent ->
+  RIO env (DispatcherSt outBox)
+dispatchMixingApi st =
+  \case
+    OnMediaStreamCreated _ _ _ -> error "TODO"
+    OnMediaStreamDestroyed _ _ _ -> error "TODO"
 
 
--- Core of the media simulation: Handle MediaApi requests and manage a map of dsps.
-mediaSimHandleMessage ::
-  Map DspId Capacity ->
+data DispatcherSt outBox = DispatcherSt
+  { dMediaServer :: outBox MediaApi,
+    mixingServers :: Map MixingGroupId (outBox MixingApi)
+  }
+
+-- | Mix media streams using 'MediaApi'
+
+-- | Media server simulation
+--
+-- Handle 'MediaApi' requests and manage a map of
+-- dsps and mixers.
+handleMediaApi ::
+  HasCounterVar CallId env =>
+  MediaSimSt ->
   Message MediaApi ->
-  RIO  (Map DspId Capacity)
-mediaSimHandleMessage allDsps =
+  RIO env MediaSimSt
+handleMediaApi st =
   \case
     Blocking FetchDsps replyBox -> do
-      let goodDsps = Set.filter (>= 2) (Map.keysSet allDsps)
+      let goodDsps = Set.filter (>= 2) (Map.keysSet (allDsps st))
       replyTo replyBox goodDsps
-      return allDsps
-    Blocking (CreateMixer dspId) replyBox -> 
-      case Map.lookup dspId allDsps of
-        Just capacity | capacity > 0 -> do                
-            fresh >>= replyTo replyBox . Just 
-            return (Map.insert dspId (capacity - 1) allDsps)
+      return st
+    Blocking (CreateMixer dspId) replyBox ->
+      case Map.lookup dspId (allDsps st) of
+        Just capacity | capacity > 0 -> do
+          let theNewMixerId = nextMixerId st
+          replyTo replyBox (Just theNewMixerId)
+          return
+            ( st
+                { allDsps =
+                    Map.insert
+                      dspId
+                      (capacity - 1)
+                      (allDsps st),
+                  allMixers =
+                    Map.insert
+                      theNewMixerId
+                      (dspId, Set.empty)
+                      (allMixers st),
+                  nextMixerId = theNewMixerId + 1
+                }
+            )
         _ -> do
-            replyTo replyBox Nothing 
-            return allDsps
-    Blocking (AddToMixer _dspId _ _) _replyBox -> do
-      error "TODO"
-    Blocking (RemoveFromMixer _dspId _ _) _replyBox -> 
-      error "TODO"
-    NonBlocking (DestroyMixer dspId) -> do
-      case Map.lookup dspId allDsps of
-        Just capacity | capacity > 0 -> do                
-            return (Map.insert dspId (capacity + 1) allDsps)
-        _ -> do
-            return allDsps
+          replyTo replyBox Nothing
+          return st
+    Blocking (AddToMixer theMixer newMember) replyBox ->
+      case Map.lookup theMixer (allMixers st) of
+        Nothing ->
+          replyTo replyBox False >> return st
+        Just (dsp, streams) ->
+          if Set.member newMember streams
+            then replyTo replyBox True >> return st
+            else case Map.lookup dsp (allDsps st) of
+              Just capacity
+                | capacity >= 1 ->
+                  replyTo replyBox True
+                    >> return
+                      ( st
+                          { allMixers =
+                              Map.insert
+                                theMixer
+                                (dsp, Set.insert newMember streams)
+                                (allMixers st),
+                            allDsps =
+                              Map.insert
+                                dsp
+                                (capacity - 1)
+                                (allDsps st)
+                          }
+                      )
+              _ ->
+                replyTo replyBox False >> return st
+    Blocking (RemoveFromMixer theMember) replyBox ->
+      replyTo replyBox ()
+        >> pure
+        $ case Map.foldrWithKey'
+          ( \theMixer (theDsp, theMembers) acc ->
+              if Set.member theMember theMembers
+                then Just (theMixer, (theDsp, theMembers))
+                else acc
+          )
+          Nothing
+          (allMixers st) of
+          Nothing ->
+            st
+          Just (theMixer, (theDsp, theMembers)) ->
+            st
+              { allDsps =
+                  Map.update
+                    (Just . (+ 1))
+                    theDsp
+                    (allDsps st),
+                allMixers =
+                  Map.insert
+                    theMixer
+                    (theDsp, Set.delete theMember theMembers)
+                    (allMixers st)
+              }
+    NonBlocking (DestroyMixer theMixerId) ->
+      let foundMixer (mixersDsp, mediaStreams) =
+            st
+              { allMixers =
+                  Map.delete theMixerId (allMixers st),
+                allDsps =
+                  Map.update
+                    (Just . (+ (1 + Set.size mediaStreams)))
+                    mixersDsp
+                    (allDsps st)
+              }
+       in pure $
+            maybe
+              st
+              foundMixer
+              (Map.lookup theMixerId (allMixers st))
+
+data MediaSimSt = MediaSimSt
+  { allDsps :: Map DspId Capacity,
+    nextMixerId :: MixerId,
+    allMixers :: Map MixerId (DspId, Set MediaStreamId)
+  }

@@ -40,7 +40,6 @@ import Protocol.Command as Command
     ReturnType (FireAndForget, Return),
     call,
     cast,
-    handleMessage,
     replyTo,
   )
 import Protocol.Fresh
@@ -48,7 +47,7 @@ import Protocol.Fresh
     HasCounterVar (..),
     newCounterVar,
   )
-import Protocol.MessageBoxClass (IsMessageBox (..))
+import Protocol.MessageBoxClass (IsMessageBox (..), handleMessage)
 import Protocol.UnboundedMessageBox (InBoxConfig (UnboundedMessageBox))
 import RIO
   ( MonadIO (liftIO),
@@ -167,16 +166,14 @@ castsAndCalls !msgGen !impl ((!nDonors, !nDonationsPerStore), !nStores, (!nCusto
         customer !stores = conc (go nRequestsPerStore)
           where
             go 0 = return ()
-            go !workLeft = 
-              let 
-                getBooks !store  =
-                  call store GetBooks 5_000_000
-                    >>= either
-                      (error . ("get books failed: " ++) . show)
-                      (const (pure ()))
-              in 
-                traverse_ getBooks stores 
-                >> go (workLeft - 1)
+            go !workLeft =
+              let getBooks !store =
+                    call store GetBooks 5_000_000
+                      >>= either
+                        (error . ("get books failed: " ++) . show)
+                        (const (pure ()))
+               in traverse_ getBooks stores
+                    >> go (workLeft - 1)
 
     let -- handle nMessagesToHandle requests
         bookStore nMessagesToHandle = do
@@ -200,7 +197,7 @@ castsAndCalls !msgGen !impl ((!nDonors, !nDonationsPerStore), !nStores, (!nCusto
                       (uncurry (go inBox))
     let nMessagesPerStore =
           nDonationsPerStore * nDonors
-           + nRequestsPerStore * nCustomers
+            + nRequestsPerStore * nCustomers
     (bookStoresOutBoxes, bookStoresConc) <-
       unzip <$> replicateM nStores (bookStore nMessagesPerStore)
     let customers = stimes nCustomers (customer bookStoresOutBoxes)
@@ -240,16 +237,16 @@ benchmark =
       bgroup
         "call"
         [ bench
-            (   " donors: "
+            ( " donors: "
                 <> show nDonors
                 <> " stores: "
                 <> show nStores
                 <> " customers: "
                 <> show nCustomers
                 <> " total donations: "
-                <> show (nDonors * nDonationsPerStore * nStores )
+                <> show (nDonors * nDonationsPerStore * nStores)
                 <> " total GetBooks: "
-                <> show (nCustomers * nGetBooksPerStore * nStores )
+                <> show (nCustomers * nGetBooksPerStore * nStores)
             )
             ( nfAppIO
                 (castsAndCalls mkExampleBook UnboundedMessageBox)
@@ -258,6 +255,6 @@ benchmark =
           | ((nDonors, nDonationsPerStore), nStores, (nCustomers, nGetBooksPerStore)) <-
               [ ((1, 1), 1, (1, 1)),
                 ((500, 10), 10, (500, 10))
-              ]            
+              ]
         ]
     ]

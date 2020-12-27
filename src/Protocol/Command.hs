@@ -11,8 +11,11 @@ module Protocol.Command
     CommandError (..),
     cast,
     call,
-    handleMessage,
     replyTo,
+    enqueueCall,
+    PendingReply(),
+    waitForReply,
+    tryTakeReply,
   )
 where
 
@@ -25,7 +28,7 @@ import Protocol.Fresh
   )
 import qualified Protocol.MessageBoxClass as MessageBox
 import UnliftIO
-  (MonadUnliftIO,
+  ( MonadUnliftIO,
     TMVar,
     atomically,
     checkSTM,
@@ -199,22 +202,48 @@ call !obox !pdu !timeoutMicroseconds = do
                   return (Left (BlockingCommandTimedOut callId))
               )
 
--- | Receive a 'NonBlocking' or a 'Blocking'.
+-- | Enqueue a 'Blocking' 'Message' into an 'MessageBox.IsOutBox'.
 --
--- Block until the reply is received.
--- If for the given time, no answer was
--- received, return 'BlockingCommandTimedOut'.
-handleMessage ::
-  (MonadUnliftIO m, MessageBox.IsInBox inbox) =>
-  inbox (Message api) ->
-  (Message api -> m b) ->
-  m (Maybe b)
-handleMessage !inbox !onMessage = do
-  !maybeMessage <- MessageBox.receive inbox
-  case maybeMessage of
-    Nothing -> pure Nothing
-    Just !message -> do
-      Just <$> onMessage message
+-- The result can be obtained by 'waitForReply'.
+--
+-- The receiving process must use 'replyTo'  with the 'ReplyBox'
+-- received along side the 'Command' in the 'Blocking'.
+enqueueCall  ::
+  ( HasCounterVar CallId env,
+    MonadReader env m,
+    MonadUnliftIO m,
+    MessageBox.IsOutBox o,
+    Show (Command api ( 'Return result))
+  ) =>
+  o (Message api) ->
+  Command api ( 'Return result) ->
+  m (PendingReply result)
+enqueueCall = error "TODO"
+
+-- | The result of 'enqueueCall'.
+-- Use 'waitForReply' or 'tryTakeReply'.
+newtype PendingReply r = MkPendingReply ()
+
+-- | Wait for the reply of a 'Blocking' 'Message' 
+-- sent by 'enqueueCall'.
+{-# INLINE waitForReply #-}
+waitForReply :: 
+  MonadUnliftIO m => 
+  PendingReply r -> 
+  Int ->  -- ^ The time in micro seconds to wait 
+          -- before returning 'Left' 'BlockingCommandTimedOut'
+  m (Either CommandError result)
+waitForReply _ = error "TODO"
+
+
+-- | If a reply for an 'enqueueCall' operation is available 
+-- return it, otherwise return 'Nothing'.
+{-# INLINE tryTakeReply #-}
+tryTakeReply :: 
+  MonadUnliftIO m => 
+  PendingReply r -> 
+  m (Maybe (Either CommandError result))
+tryTakeReply = error "TODO"  
 
 -- | This is called from the callback passed to 'handleMessage'.
 -- When handling a 'Blocking' 'Message' the 'ReplyBox' contained
