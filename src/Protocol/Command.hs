@@ -13,31 +13,24 @@ module Protocol.Command
     call,
     replyTo,
     enqueueCall,
+    delegateCall,
     PendingReply(),
     waitForReply,
     tryTakeReply,
+    HasCallIdCounter(getCallIdCounter, putCallIdCounter),
+    newCallIdCounter,
+    newCallId,
   )
 where
 
 import Control.Applicative (Alternative ((<|>)))
-import Control.Monad.Reader (MonadReader)
+import Control.Monad.Reader (asks, MonadReader)
 import Data.Kind (Type)
 import Protocol.Fresh
-  ( HasCounterVar,
-    fresh,
+  (newCounterVar, incrementAndGet, CounterVar,
   )
 import qualified Protocol.MessageBoxClass as MessageBox
 import UnliftIO
-  ( MonadUnliftIO,
-    TMVar,
-    atomically,
-    checkSTM,
-    newEmptyTMVarIO,
-    putTMVar,
-    readTVar,
-    registerDelay,
-    takeTMVar,
-  )
 
 -- | This family allows to encode imperative /commands/.
 --
@@ -152,6 +145,25 @@ data CommandError where
 newtype CallId = MkCallId Int
   deriving newtype (Eq, Ord, Show)
 
+-- | Class of environment records containing a 'CounterVar' for 'CallId's.
+class HasCallIdCounter env where
+  getCallIdCounter :: env -> CounterVar CallId
+  putCallIdCounter :: CounterVar CallId -> env -> env
+
+instance HasCallIdCounter (CounterVar CallId) where
+  getCallIdCounter = id
+  putCallIdCounter = const
+
+-- | Create a new 'CallId' 'CounterVar'.
+newCallIdCounter :: MonadIO m => m (CounterVar CallId)
+newCallIdCounter = newCounterVar
+
+-- | Increment and get a new 'CallId'.
+{-# INLINE newCallId #-}
+newCallId :: (MonadReader env m, HasCallIdCounter env, MonadUnliftIO m) => m CallId
+newCallId = asks getCallIdCounter >>= incrementAndGet
+
+
 -- | Enqueue a 'NonBlocking' 'Message' into an 'OutBox'.
 -- This is just for symetry to 'call', this is
 -- equivalent to: @\obox -> MessageBox.tryToDeliver obox . NonBlocking@
@@ -174,7 +186,7 @@ cast obox !msg =
 -- The receiving process must use 'replyTo'  with the 'ReplyBox'
 -- received along side the 'Command' in the 'Blocking'.
 call ::
-  ( HasCounterVar CallId env,
+  ( HasCallIdCounter env,
     MonadReader env m,
     MonadUnliftIO m,
     MessageBox.IsOutBox o,
@@ -185,7 +197,7 @@ call ::
   Int ->
   m (Either CommandError result)
 call !obox !pdu !timeoutMicroseconds = do
-  !callId <- fresh
+  !callId <- newCallId
   !resultVar <- newEmptyTMVarIO
   !sendSuccessful <- do
     let !rbox = MkReplyBox resultVar callId
@@ -209,7 +221,7 @@ call !obox !pdu !timeoutMicroseconds = do
 -- The receiving process must use 'replyTo'  with the 'ReplyBox'
 -- received along side the 'Command' in the 'Blocking'.
 enqueueCall  ::
-  ( HasCounterVar CallId env,
+  ( HasCallIdCounter env,
     MonadReader env m,
     MonadUnliftIO m,
     MessageBox.IsOutBox o,
@@ -219,6 +231,24 @@ enqueueCall  ::
   Command api ( 'Return result) ->
   m (PendingReply result)
 enqueueCall = error "TODO"
+
+-- | Pass on the call to another process.
+--
+-- Used to implement dispatcher processes.
+--
+-- Returns 'True' if the 'MessageBox.deliver' operation was
+-- successful.
+{-# INLINE delegateCall #-}
+delegateCall :: 
+  ( MonadUnliftIO m, 
+   MessageBox.IsOutBox o,
+   Show (Command api ( 'Return r)) ) =>  
+  o (Message api) -> 
+  Command api ( 'Return r) -> 
+  ReplyBox r -> 
+  m Bool
+delegateCall !o !c !r = 
+  MessageBox.deliver o (Blocking c r)
 
 -- | The result of 'enqueueCall'.
 -- Use 'waitForReply' or 'tryTakeReply'.
@@ -230,8 +260,9 @@ newtype PendingReply r = MkPendingReply ()
 waitForReply :: 
   MonadUnliftIO m => 
   PendingReply r -> 
-  Int ->  -- ^ The time in micro seconds to wait 
-          -- before returning 'Left' 'BlockingCommandTimedOut'
+  -- | The time in micro seconds to wait 
+  -- before returning 'Left' 'BlockingCommandTimedOut'
+  Int ->  
   m (Either CommandError result)
 waitForReply _ = error "TODO"
 

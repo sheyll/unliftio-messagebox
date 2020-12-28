@@ -15,8 +15,10 @@
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE StrictData #-}
+{-# LANGUAGE Strict #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
@@ -24,7 +26,7 @@
 -- from the media domain.
 module MediaBenchmark (benchmark) where
 
-import Control.Monad
+import Control.Monad (forM, forM_, replicateM_, unless, void)
 import Criterion.Types
   ( bench,
     bgroup,
@@ -36,53 +38,59 @@ import qualified Data.Set as Set
 import Protocol.Command as Command
   ( CallId,
     Command,
+    HasCallIdCounter (getCallIdCounter, putCallIdCounter),
     Message (..),
     ReturnType (FireAndForget, Return),
     call,
+    cast,
+    delegateCall,
     replyTo,
   )
 import Protocol.Fresh
   ( CounterVar,
-    HasCounterVar (getCounterVar),
-    fresh,
+    HasCounterVar (getCounterVar, putCounterVar),
     newCounterVar,
   )
 import Protocol.MessageBoxClass
-  ( IsMessageBox (..),
-    IsOutBox,
+  ( IsInBox (receive),
+    IsMessageBox (..),
+    IsOutBox (deliver),
+    TimeoutWrapper (MkTimeoutWrapper),
     handleMessage,
   )
 import Protocol.UnboundedMessageBox (InBoxConfig (UnboundedMessageBox))
 import qualified Protocol.UnboundedMessageBox as Unbounded
 import RIO
-  ( Conc,
-    IORef,
-    Map,
+  ( Map,
     RIO,
     Set,
     asks,
-    conc,
-    readIORef,
-    runConc,
     runRIO,
-    traverse_,
-    writeIORef,
   )
+import UnliftIO
+    ( MonadIO(liftIO), SomeException, try, conc, race_, runConc, Conc )
+import UnliftIO.Concurrent (forkIO)
 
 benchmark =
   bgroup
     "Media"
-    [ bench
-        ( "fetchDsps: "
-            ++ show nF
-            ++ " total fetches "
-            ++ show nC
-            ++ " clients"
-        )
-        (nfAppIO fetchDspsBench cfg)
-      | cfg@(nF, nC) <-
-          [(100000, 1), (100000, 1000)]
-    ]
+    ( [ bench ("MediaMixing/" ++ show p) (nfAppIO mediaAppBenchmark p)
+        | p <-
+            [ Param 1 1 1,Param 10 1 1,Param 10 10 1,Param 100 100 50,Param 100 1000 5,Param 200 1000 50
+            ]
+      ]
+        ++ [ bench
+               ( "fetchDsps: "
+                   ++ show nF
+                   ++ " total fetches "
+                   ++ show nC
+                   ++ " clients"
+               )
+               (nfAppIO fetchDspsBench cfg)
+             | cfg@(nF, nC) <-
+                 [(100000, 1), (100000, 1000)]
+           ]
+    )
 
 -- | Run @nClients@ processes that each call 'FetchDsps' so many times
 -- that globally @nFetchesTotal@ times 'FetchDsps' is called.
@@ -93,7 +101,7 @@ fetchDspsBench (nFetchesTotal, nClients) =
         where
           client 0 = return ()
           client !workLeft =
-            call serverOut FetchDsps 5_000_000
+            call serverOut FetchDsps 500_000
               >>= either
                 (error . show)
                 (const (client (workLeft - 1)))
@@ -143,27 +151,290 @@ fetchDspsBench (nFetchesTotal, nClients) =
 -- The applicaton has three layers:
 --
 -- 1. Media
---    * MediaApi processes
--- 2. Media Stream Grouping
---    * A process per media stream group
--- 3. Client
---    * A process that processes a benchmark specific set of
---      random requests for grouping media
+--    * One MediaApi process with @i@ Dsps
+-- 2. @k@ mixing group processes
+--    * i.e. one process per media stream group
+--    * one shared reference with a @Map MixingGroupId (OutBox (Message MixingApi))@
+-- 3. @k@ So called Clients
+--    * Each client /owns/ one mixing group process
+--    * The client does this before exiting:
+--       - it creates the mixing group
+--       - adds @l@ members, such that it
+--         - calls fetch dsps each time, and
+--         - expects 'MemberJoined' for each member
+--       - it then removes all @l@ members, such that it
+--         - expects a 'MemberUnjoined' for each member, and
+--         - destroys the group
 --
--- Startup and shutdown:
---  The MediaApi will handle requests for ever.
---  The Client will processes a list of
-mediaAppBenchmark ::
-  Map DspId Capacity ->
-  Map MixingGroupId (DspId, Set MediaStreamId) ->
-  IO ()
-mediaAppBenchmark !availableDsps !testMixingGroups = do
-  (mediaOutBox, mediaConc) <- spawnMediaApi
-  error "TODO"
+-- This whole process is repeated @m@ times.
+--
+-- When all clients have finished, send a shutdown message to the media process,
+-- and wait for every process to finish.
+mediaAppBenchmark :: Param -> IO ()
+mediaAppBenchmark param = do
+  (mixingOut, c1) <- do
+    (mediaOutBox, mediaConc) <- spawnMediaApi
+    (mixingOut, mixingConc) <- spawnMixingManager mediaOutBox
+    return (mixingOut, mediaConc <> mixingConc)
+  counters <- AppCounters <$> newCounterVar <*> newCounterVar
+  let clients = spawnClients mixingOut
+  runRIO counters (race_ (runConc c1) (runConc clients))
   where
-    spawnMediaApi =
-          error "TODO"
-     
+    spawnMediaApi = do
+      mediaInBox <- Unbounded.createInBox
+      mediaOutBox <- Unbounded.createOutBoxForInbox mediaInBox
+      let startMediaServer =
+            void $ mediaServerLoop (mkMediaSimSt (toDspConfig param))
+          mediaServerLoop st =
+            try
+              (handleMessage mediaInBox (handleMediaApi st))
+              >>= either
+                ( liftIO
+                    . putStrLn
+                    . ("media server failed to receive next message: " ++)
+                    . (show :: SomeException -> String)
+                )
+                (maybe (error "media server loop premature exit") mediaServerLoop)
+      return (mediaOutBox, conc startMediaServer)
+
+    spawnMixingManager ::
+      Unbounded.OutBox (Message MediaApi) ->
+      IO (Unbounded.OutBox (Message MixingApi), Conc (RIO AppCounters) ())
+    spawnMixingManager mediaBoxOut = do
+      mixingInBox <- Unbounded.createInBox
+      mixingOutBox <- Unbounded.createOutBoxForInbox mixingInBox
+      let startMixingServer =
+            let groupMap :: Map MixingGroupId (Unbounded.OutBox (Message MixingApi))
+                groupMap = Map.empty
+             in mixingServerLoop groupMap
+          mixingServerLoop groupMap =
+            try
+              ( handleMessage
+                  mixingInBox
+                  (dispatchMixingApi groupMap)
+              )
+              >>= either
+                ( liftIO
+                    . putStrLn
+                    . ("mixingServerLoop failed: " ++)
+                    . (show :: SomeException -> String)
+                )
+                ( maybe
+                    (error "mixing server loop premature exit")
+                    mixingServerLoop
+                )
+          dispatchMixingApi ::
+            Map MixingGroupId (Unbounded.OutBox (Message MixingApi)) ->
+            Message MixingApi ->
+            RIO AppCounters (Map MixingGroupId (Unbounded.OutBox (Message MixingApi)))
+          dispatchMixingApi st =
+            \case
+              Blocking cm@(CreateMixingGroup !mgId) !r -> do
+                unless
+                  (Map.notMember mgId st)
+                  (error ("Mixing group ID conflict: " ++ show mgId))
+                mgOutBox <- spawnMixingGroup mediaBoxOut
+                ok <- delegateCall mgOutBox cm r
+                unless ok (error ("delegation failed: " ++ show cm))
+                return (Map.insert mgId mgOutBox st)
+              Blocking (DestroyMixingGroup !mgId) !r ->
+                case Map.lookup mgId st of
+                  Nothing ->
+                    error ("DestroyMixingGroup: Mixing group doesn't exist: " ++ show mgId)
+                  Just mgOutBox -> do
+                    ok <- delegateCall mgOutBox (DestroyMixingGroup mgId) r
+                    unless ok (error ("delegation failed: " ++ show (DestroyMixingGroup mgId)))
+                    return (Map.delete mgId st)
+              NonBlocking m@(Join mgId _ _) ->
+                case Map.lookup mgId st of
+                  Nothing ->
+                    error ("Mixing group doesn't exist: " ++ show mgId ++ " in: " ++ show m)
+                  Just mgOutBox -> do
+                    ok <- cast mgOutBox m
+                    unless ok (error ("delegation failed: " ++ show m))
+                    return st
+              NonBlocking m@(UnJoin mgId _ _) ->
+                case Map.lookup mgId st of
+                  Nothing ->
+                    error ("Mixing group doesn't exist: " ++ show mgId ++ " in: " ++ show m)
+                  Just mgOutBox -> do
+                    ok <- cast mgOutBox m
+                    unless ok (error ("delegation failed: " ++ show m))
+                    return st
+      return (mixingOutBox, conc startMixingServer)
+    spawnMixingGroup ::
+      Unbounded.OutBox (Message MediaApi) ->
+      RIO AppCounters (Unbounded.OutBox (Message MixingApi))
+    spawnMixingGroup mediaOutBox = do
+      !mgInBox <- Unbounded.createInBox
+      !mgOutBox <- Unbounded.createOutBoxForInbox mgInBox
+      let mgLoop (mgId, groupMap) =
+            handleMessage
+              mgInBox
+              (handleCmd (mgId, groupMap))
+              >>= maybe
+                (error "mixing server loop premature exit")
+                (maybe (return ()) mgLoop)
+          handleCmd ::
+            (MixingGroupId, Map DspId (MixerId, Set MemberId)) ->
+            Message MixingApi ->
+            RIO AppCounters (Maybe (MixingGroupId, Map DspId (MixerId, Set MemberId)))
+          handleCmd (mgId, st) =
+            \case
+              Blocking (CreateMixingGroup mgId') r -> do
+                replyTo r ()
+                return (Just (mgId', st))
+              Blocking (DestroyMixingGroup _) r -> do
+                replyTo r ()
+                return Nothing -- exit
+              NonBlocking (Join _mgId memberId callBack) ->
+                call mediaOutBox FetchDsps 500_000
+                  >>= either
+                    ( \mErr -> do
+                        void $ deliver callBack (MemberUnJoined mgId memberId)
+                        error (show mErr)
+                    )
+                    ( \dsps ->
+                        let selectedDspId =
+                              let ks = Set.toList dsps
+                                  nDsps = length ks
+                                  ki = memberId `rem` nDsps
+                               in ks !! ki
+                            doAdd theMixerId theMembers =
+                              let m = AddToMixer theMixerId memberId
+                               in call mediaOutBox m 200_000
+                                    >>= \case
+                                      Left err ->
+                                        error (show m ++ " failed: " ++ show err)
+                                      Right False -> do
+                                        void $ deliver callBack (MemberUnJoined mgId memberId)
+                                        error (show m ++ " did not succeed")
+                                      Right True -> do
+                                        let st' =
+                                              Map.insert
+                                                selectedDspId
+                                                (theMixerId, Set.insert memberId theMembers)
+                                                st
+                                        void $ deliver callBack (MemberJoined mgId memberId)
+                                        return (Just (mgId, st'))
+                         in if Set.null dsps
+                              then error "Not enough DSP capacity"
+                              else case Map.lookup selectedDspId st of
+                                Nothing -> do
+                                  call mediaOutBox (CreateMixer selectedDspId) 500_000
+                                    >>= \case
+                                      Left err ->
+                                        error (show err)
+                                      Right Nothing ->
+                                        error ("create mixer failed on: " ++ show selectedDspId)
+                                      Right (Just theMixerId) ->
+                                        doAdd theMixerId Set.empty
+                                Just (mixerId, members) -> doAdd mixerId members
+                    )
+              NonBlocking (UnJoin _ memberId callBack) ->
+                case Map.toList (Map.filter (Set.member memberId . snd) st) of
+                  ((theDspId, (theMixerId, theMembers)) : _) -> do
+                    call mediaOutBox (RemoveFromMixer theMixerId memberId) 500_000
+                      >>= either (error . show) (const (return ()))
+                    let theMembers' = Set.delete memberId theMembers
+                    if Set.null theMembers'
+                      then do
+                        ok <- cast mediaOutBox (DestroyMixer theMixerId)
+                        unless ok (error (show (DestroyMixer theMixerId) ++ " failed!"))
+                        void $ deliver callBack (MemberUnJoined mgId memberId)
+                        return (Just (mgId, Map.delete theDspId st))
+                      else do
+                        void $ deliver callBack (MemberUnJoined mgId memberId)
+                        return (Just (mgId, Map.insert theDspId (theMixerId, theMembers') st))
+                  [] ->
+                    return (Just (mgId, st))
+      void $ forkIO (mgLoop (-1, Map.empty))
+      return mgOutBox
+
+    spawnClients mixingOutBox =
+      let clients = foldMap spawnClient [0 .. nGroups param - 1]
+
+          spawnClient mixingGroupId = conc $ do
+            eventsIn <- Unbounded.createInBox
+            eventsOut <- Unbounded.createOutBoxForInbox eventsIn
+            -- create conference,
+            call mixingOutBox (CreateMixingGroup mixingGroupId) 500_000
+              >>= either
+                (error . ((show (CreateMixingGroup mixingGroupId) ++ " failed: ") ++) . show)
+                (const (return ()))
+            -- add participants and wait for the joined event
+            members <- forM [0 .. nMembers param - 1] $ \i -> do
+              let !memberId = nMembers param * mixingGroupId + i
+              castSuccessful <- cast mixingOutBox (Join mixingGroupId memberId eventsOut)
+              unless
+                castSuccessful
+                (error ("Failed to cast: " ++ show (Join mixingGroupId memberId eventsOut)))
+              return memberId
+            replicateM_
+              (nMembers param)
+              ( receive  eventsIn
+                  >>= \case
+                    Just (MemberJoined _ _) ->
+                      return ()
+                    unexpected ->
+                      error ("Unexpected mixing group event: " ++ show unexpected)
+              )
+            -- remove participants and wait for unjoined
+            forM_ members $ \memberId -> do
+              castSuccessful <- cast mixingOutBox (UnJoin mixingGroupId memberId eventsOut)
+              unless
+                castSuccessful
+                (error ("Failed to cast: " ++ show (UnJoin mixingGroupId memberId eventsOut)))
+            replicateM_
+              (nMembers param)
+              ( receive (MkTimeoutWrapper 500_000 eventsIn)
+                  >>= \case
+                    Just (MemberUnJoined _ _) ->
+                      return ()
+                    unexpected ->
+                      error ("Unexpected mixing group event: " ++ show unexpected)
+              )
+            -- destroy the conference,
+            call mixingOutBox (DestroyMixingGroup mixingGroupId) 500_000
+              >>= either
+                (error . ((show (DestroyMixingGroup mixingGroupId) ++ " failed: ") ++) . show)
+                (const (return ()))
+       in clients
+
+data AppCounters = AppCounters
+  { callIdCounter :: !(CounterVar CallId),
+    idCounter :: !(CounterVar Int)
+  }
+
+instance HasCallIdCounter AppCounters where
+  getCallIdCounter = asks callIdCounter
+  putCallIdCounter x v = v {callIdCounter = x}
+
+instance HasCounterVar Int AppCounters where
+  getCounterVar = asks idCounter
+  putCounterVar x v = v {idCounter = x}
+
+data Param = Param
+  { nDsps :: !Int,
+    nGroups :: !Int,
+    nMembers :: !Int
+  }
+
+instance Show Param where
+  showsPrec _ Param {nDsps, nGroups, nMembers} =
+    shows nDsps . showString "DSPs/"
+      . shows nGroups
+      . showString "GRPs/"
+      . shows nMembers
+      . showString "MEMBERS"
+
+toDspConfig :: Param -> Map DspId Capacity
+toDspConfig p =
+  let perDspCapacity =
+        max 2 (2*requiredTotal) -- (2 * (ceiling (fromIntegral requiredTotal / fromIntegral (nDsps p) :: Double)))
+      requiredTotal = nGroups p + nGroups p * nMembers p
+   in Map.fromList ([0 ..] `zip` replicate (nDsps p) perDspCapacity)
+
 -- * Types for the domain of the benchmarks in this module
 
 data MediaApi
@@ -174,7 +445,7 @@ type DspId = Int
 
 type MixerId = Int
 
-type MediaStreamId = Int
+type MemberId = Int
 
 type MixingGroupId = Int
 
@@ -182,8 +453,8 @@ data instance Command MediaApi _ where
   FetchDsps :: Command MediaApi ( 'Return (Set DspId))
   CreateMixer :: DspId -> Command MediaApi ( 'Return (Maybe MixerId))
   DestroyMixer :: MixerId -> Command MediaApi 'FireAndForget
-  AddToMixer :: MixerId -> MediaStreamId -> Command MediaApi ( 'Return Bool)
-  RemoveFromMixer :: MediaStreamId -> Command MediaApi ( 'Return ())
+  AddToMixer :: MixerId -> MemberId -> Command MediaApi ( 'Return Bool)
+  RemoveFromMixer :: MixerId -> MemberId -> Command MediaApi ( 'Return ())
 
 deriving stock instance Show (Command MediaApi ( 'Return (Set DspId)))
 
@@ -195,14 +466,9 @@ deriving stock instance Show (Command MediaApi ( 'Return ()))
 
 deriving stock instance Show (Command MediaApi 'FireAndForget)
 
-data MediaClientEvent where
-  OnMediaStreamCreated :: MixingGroupId -> DspId -> MediaStreamId -> MediaClientEvent
-  OnMediaStreamDestroyed :: MixingGroupId -> DspId -> MediaStreamId -> MediaClientEvent
-  deriving stock (Show, Eq)
-
 data MixingGroupEvent where
-  MemberJoined :: MixingGroupId -> MediaStreamId -> MixingGroupEvent
-  MemberUnJoined :: MixingGroupId -> MediaStreamId -> MixingGroupEvent
+  MemberJoined :: MixingGroupId -> MemberId -> MixingGroupEvent
+  MemberUnJoined :: MixingGroupId -> MemberId -> MixingGroupEvent
   deriving stock (Show, Eq)
 
 data instance Command MixingApi _ where
@@ -215,36 +481,29 @@ data instance Command MixingApi _ where
   Join ::
     IsOutBox outBox =>
     MixingGroupId ->
-    MediaStreamId ->
+    MemberId ->
     outBox MixingGroupEvent ->
     Command MixingApi 'FireAndForget
   UnJoin ::
     IsOutBox outBox =>
     MixingGroupId ->
-    MediaStreamId ->
+    MemberId ->
     outBox MixingGroupEvent ->
     Command MixingApi 'FireAndForget
 
+instance Show (Command MixingApi ( 'Return ())) where
+  showsPrec d (CreateMixingGroup i) =
+    showParen (d >= 9) (showString "CreateMixingGroup " . shows i)
+  showsPrec d (DestroyMixingGroup i) =
+    showParen (d >= 9) (showString "DestroyMixingGroup " . shows i)
+
+instance Show (Command MixingApi 'FireAndForget) where
+  showsPrec d (Join i j _) =
+    showParen (d >= 9) (showString "Join " . shows i . showChar ' ' . shows j)
+  showsPrec d (UnJoin i j _) =
+    showParen (d >= 9) (showString "UnJoin " . shows i . showChar ' ' . shows j)
+
 type Capacity = Int
-
-newtype MemberState = MemberState {isMemberJoined :: Bool}
-
--- | MixingApi dispatcher
-dispatchMixingApi ::
-  (IsOutBox outBox, HasCounterVar CallId env) =>
-  DispatcherSt outBox ->
-  MediaClientEvent ->
-  RIO env (DispatcherSt outBox)
-dispatchMixingApi st =
-  \case
-    OnMediaStreamCreated _ _ _ -> error "TODO"
-    OnMediaStreamDestroyed _ _ _ -> error "TODO"
-
-
-data DispatcherSt outBox = DispatcherSt
-  { dMediaServer :: outBox MediaApi,
-    mixingServers :: Map MixingGroupId (outBox MixingApi)
-  }
 
 -- | Mix media streams using 'MediaApi'
 
@@ -253,14 +512,13 @@ data DispatcherSt outBox = DispatcherSt
 -- Handle 'MediaApi' requests and manage a map of
 -- dsps and mixers.
 handleMediaApi ::
-  HasCounterVar CallId env =>
   MediaSimSt ->
   Message MediaApi ->
   RIO env MediaSimSt
-handleMediaApi st =
+handleMediaApi !st =
   \case
     Blocking FetchDsps replyBox -> do
-      let goodDsps = Set.filter (>= 2) (Map.keysSet (allDsps st))
+      let !goodDsps = Map.keysSet (Map.filter (> 1) (allDsps st))
       replyTo replyBox goodDsps
       return st
     Blocking (CreateMixer dspId) replyBox ->
@@ -290,7 +548,7 @@ handleMediaApi st =
       case Map.lookup theMixer (allMixers st) of
         Nothing ->
           replyTo replyBox False >> return st
-        Just (dsp, streams) ->
+        Just (!dsp, !streams) ->
           if Set.member newMember streams
             then replyTo replyBox True >> return st
             else case Map.lookup dsp (allDsps st) of
@@ -313,32 +571,26 @@ handleMediaApi st =
                       )
               _ ->
                 replyTo replyBox False >> return st
-    Blocking (RemoveFromMixer theMember) replyBox ->
+    Blocking (RemoveFromMixer theMixer theMember) replyBox -> do
       replyTo replyBox ()
-        >> pure
-        $ case Map.foldrWithKey'
-          ( \theMixer (theDsp, theMembers) acc ->
-              if Set.member theMember theMembers
-                then Just (theMixer, (theDsp, theMembers))
-                else acc
-          )
-          Nothing
-          (allMixers st) of
-          Nothing ->
-            st
-          Just (theMixer, (theDsp, theMembers)) ->
-            st
-              { allDsps =
-                  Map.update
-                    (Just . (+ 1))
-                    theDsp
-                    (allDsps st),
-                allMixers =
-                  Map.insert
-                    theMixer
-                    (theDsp, Set.delete theMember theMembers)
-                    (allMixers st)
-              }
+      case Map.lookup theMixer (allMixers st) of
+        Just (theDsp, theMembers)
+          | Set.member theMember theMembers ->
+            return
+              st
+                { allDsps =
+                    Map.update
+                      (Just . (+ 1))
+                      theDsp
+                      (allDsps st),
+                  allMixers =
+                    Map.insert
+                      theMixer
+                      (theDsp, Set.delete theMember theMembers)
+                      (allMixers st)
+                }
+        _ ->
+          return st
     NonBlocking (DestroyMixer theMixerId) ->
       let foundMixer (mixersDsp, mediaStreams) =
             st
@@ -359,5 +611,13 @@ handleMediaApi st =
 data MediaSimSt = MediaSimSt
   { allDsps :: Map DspId Capacity,
     nextMixerId :: MixerId,
-    allMixers :: Map MixerId (DspId, Set MediaStreamId)
+    allMixers :: Map MixerId (DspId, Set MemberId)
   }
+
+mkMediaSimSt :: Map DspId Capacity -> MediaSimSt
+mkMediaSimSt x =
+  MediaSimSt
+    { allDsps = x,
+      nextMixerId = 0,
+      allMixers = Map.empty
+    }

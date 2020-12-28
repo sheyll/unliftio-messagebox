@@ -19,7 +19,7 @@ import Data.Functor (Functor ((<$)), void, ($>), (<$>))
 import Data.Semigroup (All (All, getAll))
 import GHC.IO.Exception (userError)
 import Protocol.Command
-  ( CallId (..),
+  (HasCallIdCounter(..),  CallId (..),
     Command,
     CommandError (BlockingCommandTimedOut),
     Message (Blocking, NonBlocking),
@@ -28,7 +28,7 @@ import Protocol.Command
     cast,
     replyTo,
   )
-import Protocol.Fresh (CounterVar, HasCounterVar (..), fresh, newCounterVar)
+import Protocol.Fresh (CounterVar, fresh, newCounterVar)
 import Protocol.MessageBoxClass
   ( IsMessageBox (newInBox, newOutBox),
     handleMessage,
@@ -239,9 +239,9 @@ test =
 newtype BookStoreEnv = MkBookStoreEnv
   {_fresh :: CounterVar CallId}
 
-instance HasCounterVar CallId BookStoreEnv where
-  getCounterVar MkBookStoreEnv {_fresh} = _fresh
-  putCounterVar newFresh MkBookStoreEnv {_fresh} = MkBookStoreEnv {_fresh = newFresh}
+instance HasCallIdCounter BookStoreEnv where
+  getCallIdCounter MkBookStoreEnv {_fresh} = _fresh
+  putCallIdCounter newFresh MkBookStoreEnv {_fresh} = MkBookStoreEnv {_fresh = newFresh}
 
 allDonatedBooksAreInTheBookStore :: [(Donor, Book)] -> Property
 allDonatedBooksAreInTheBookStore donorsAndBooks = ioProperty $ do

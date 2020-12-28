@@ -4,6 +4,7 @@
 -- TODO benchmark, and test uniqueness.
 module Protocol.Fresh
   ( fresh,
+    incrementAndGet,
     newFromSystemTime,
     newCounterVar,
     HasCounterVar (getCounterVar, putCounterVar),
@@ -25,6 +26,7 @@ import UnliftIO (MonadIO (..))
 
 -- | Atomically increment and get the value of the 'Counter'
 -- for type @a@ that must be present in the @env@.
+{-# INLINE fresh #-}
 fresh ::
   forall a env m.
   ( MonadReader env m,
@@ -34,8 +36,20 @@ fresh ::
   ) =>
   m a
 fresh =
-  asks (getCounterVar @a) >>= \(MkCounterVar !atomicCounter) ->
-    coerce <$> liftIO (incrCounter 1 atomicCounter)
+  asks (getCounterVar @a) >>= incrementAndGet
+
+-- | Atomically increment and get the value of the 'Counter'
+-- for type @a@ that must be present in the @env@.
+{-# INLINE incrementAndGet #-}
+incrementAndGet ::
+  forall a m.
+  ( MonadIO m,
+    Coercible a Int
+  ) =>
+  CounterVar a -> m a
+incrementAndGet (MkCounterVar !atomicCounter) =
+  coerce <$> liftIO (incrCounter 1 atomicCounter)
+
 
 -- | Create a new 'CounterVar' starting at @0@.
 newCounterVar ::
@@ -56,8 +70,11 @@ newFromSystemTime =
   where
     currentTimeMillis = round . (1000 *) <$> getPOSIXTime
 
+-- | An 'AtomicCounter'.
 newtype CounterVar a = MkCounterVar AtomicCounter
 
+-- | A type class for @MonadReader@ based
+-- applications.
 class HasCounterVar a env | env -> a where
   getCounterVar :: env -> CounterVar a
   putCounterVar :: CounterVar a -> env -> env

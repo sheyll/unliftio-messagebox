@@ -5,11 +5,12 @@ module Protocol.MessageBoxClass
   ( IsMessageBox (..),
     IsInBox (..),
     IsOutBox (..),
+    TimeoutWrapper(..),
     handleMessage,
   )
 where
 
-import UnliftIO (MonadUnliftIO)
+import UnliftIO (MonadUnliftIO, timeout)
 
 -- | A type class for common operations on messages boxes.
 --
@@ -54,7 +55,30 @@ class IsOutBox outbox where
   -- Return if the operation was successful.
   deliver :: MonadUnliftIO m => outbox a -> a -> m Bool
 
+-- | A generic wrapper for 'IsOutBox' or 'IsInBox' instances
+-- that uses 'timeout' around 'deliver' and 'receive'.
+data TimeoutWrapper box msg = MkTimeoutWrapper !Int !(box msg)
+
+-- | A generic wrapper for 'IsOutBox' instances
+-- that uses 'timeout' around 'deliver'.
+instance IsOutBox box => IsOutBox (TimeoutWrapper box) where
+  deliver (MkTimeoutWrapper !t !o) !m =
+    timeout t (deliver o m)
+      >>= maybe
+        (pure False)
+        return
+
+-- | A generic wrapper for 'IsInBox' instances
+-- that uses 'timeout' around 'receive'.
+instance IsInBox box => IsInBox (TimeoutWrapper box) where
+  receive (MkTimeoutWrapper !t !o) =
+    timeout t (receive o)
+      >>= maybe
+        (pure Nothing)
+        return
+
 -- | Receive a message and apply a function to it.
+--  TODO exception handling: indefinitely blocked in mvar!!
 handleMessage ::
   (MonadUnliftIO m, IsInBox inbox) =>
   inbox message ->

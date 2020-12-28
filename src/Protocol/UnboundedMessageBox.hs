@@ -112,11 +112,10 @@ instance Class.IsOutBox OutBox where
 -- | A wrapper around 'InBox' to have a
 -- non-blocking instance of 'Class.IsMessageBox'
 -- that invokes 'tryReceive' instead of 'receive'.
---
--- Used in conjunction with 'OutBoxNB'.
 newtype InBoxNB a = InBoxNB (InBox a)
 
 -- | A non-blocking instance that invokes 'tryReceive'.
 instance Class.IsInBox InBoxNB where
   {-# INLINE receive #-}
   receive (InBoxNB !i) = tryReceive i
+

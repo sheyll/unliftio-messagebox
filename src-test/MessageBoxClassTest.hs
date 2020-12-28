@@ -4,7 +4,6 @@ module MessageBoxClassTest (test) where
 
 import Control.Monad (forM, replicateM)
 import Data.Foldable (Foldable (fold))
-import Data.Functor (($>))
 import Data.Maybe (isJust)
 import Data.Monoid (All (All, getAll))
 import qualified Protocol.BoundedMessageBox as B

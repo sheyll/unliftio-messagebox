@@ -25,16 +25,16 @@
 -- which are processed by m consumers
 module BookStoreBenchmark (benchmark) where
 
-import Control.Monad (replicateM, zipWithM_)
+import Control.Monad (replicateM)
 import Criterion.Types
   ( bench,
     bgroup,
     nfAppIO,
   )
-import Data.Semigroup (Semigroup (stimes), sconcat)
+import Data.Semigroup (Semigroup (stimes))
 import Protocol.BoundedMessageBox (InBoxConfig (BoundedMessageBox))
 import Protocol.Command as Command
-  ( CallId,
+  (HasCallIdCounter(getCallIdCounter, putCallIdCounter),  CallId,
     Command,
     Message (Blocking, NonBlocking),
     ReturnType (FireAndForget, Return),
@@ -44,7 +44,6 @@ import Protocol.Command as Command
   )
 import Protocol.Fresh
   ( CounterVar,
-    HasCounterVar (..),
     newCounterVar,
   )
 import Protocol.MessageBoxClass (IsMessageBox (..), handleMessage)
@@ -57,7 +56,6 @@ import RIO
     runRIO,
     traverse_,
     unless,
-    when,
   )
 
 mkExampleBook :: Int -> Book
@@ -93,9 +91,9 @@ deriving stock instance Show (Command BookStore ( 'Return [Book]))
 newtype BookStoreEnv = MkBookStoreEnv
   {_fresh :: CounterVar CallId}
 
-instance HasCounterVar CallId BookStoreEnv where
-  getCounterVar MkBookStoreEnv {_fresh} = _fresh
-  putCounterVar newFresh MkBookStoreEnv {_fresh} = MkBookStoreEnv {_fresh = newFresh}
+instance HasCallIdCounter BookStoreEnv where
+  getCallIdCounter MkBookStoreEnv {_fresh} = _fresh
+  putCallIdCounter newFresh MkBookStoreEnv {_fresh} = MkBookStoreEnv {_fresh = newFresh}
 
 onlyCasts ::
   (MonadUnliftIO m, IsMessageBox inbox outbox) =>
@@ -142,67 +140,73 @@ castsAndCalls ::
   InBoxConfig inbox ->
   ((Int, Int), Int, (Int, Int)) ->
   m ()
-castsAndCalls !msgGen !impl ((!nDonors, !nDonationsPerStore), !nStores, (!nCustomers, !nRequestsPerStore)) = do
-  freshCounter <- newCounterVar
-  runRIO (MkBookStoreEnv {_fresh = freshCounter}) $ do
-    let -- donate nDonationsPerStore books to all bookStores
-        donor !bookStores !producerId =
-          let books !storeId =
-                msgGen
-                  . (storeId +)
-                  . (nStores *)
-                  . ((nDonationsPerStore * producerId) +)
-                  <$> [0 .. nDonationsPerStore - 1]
-              donateIt (!storeId, !bookStoreOutBox) =
-                traverse_
-                  ( \ !b ->
-                      do
-                        ok <- cast bookStoreOutBox (Donate b)
-                        unless ok (error "cast failed!")
-                  )
-                  (books storeId)
-           in conc (traverse_ donateIt (zip [0 ..] bookStores))
-    let -- ask all bookstores nRequestsPerStore times for their books
-        customer !stores = conc (go nRequestsPerStore)
-          where
-            go 0 = return ()
-            go !workLeft =
-              let getBooks !store =
-                    call store GetBooks 5_000_000
-                      >>= either
-                        (error . ("get books failed: " ++) . show)
-                        (const (pure ()))
-               in traverse_ getBooks stores
-                    >> go (workLeft - 1)
+castsAndCalls
+  !msgGen
+  !impl
+  ( (!nDonors, !nDonationsPerStore),
+    !nStores,
+    (!nCustomers, !nRequestsPerStore)
+    ) = do
+    freshCounter <- newCounterVar
+    runRIO (MkBookStoreEnv {_fresh = freshCounter}) $ do
+      let -- donate nDonationsPerStore books to all bookStores
+          donor !bookStores !producerId =
+            let books !storeId =
+                  msgGen
+                    . (storeId +)
+                    . (nStores *)
+                    . ((nDonationsPerStore * producerId) +)
+                    <$> [0 .. nDonationsPerStore - 1]
+                donateIt (!storeId, !bookStoreOutBox) =
+                  traverse_
+                    ( \ !b ->
+                        do
+                          ok <- cast bookStoreOutBox (Donate b)
+                          unless ok (error "cast failed!")
+                    )
+                    (books storeId)
+             in conc (traverse_ donateIt (zip [0 ..] bookStores))
+      let -- ask all bookstores nRequestsPerStore times for their books
+          customer !stores = conc (go nRequestsPerStore)
+            where
+              go 0 = return ()
+              go !workLeft =
+                let getBooks !store =
+                      call store GetBooks 5_000_000
+                        >>= either
+                          (error . ("get books failed: " ++) . show)
+                          (const (pure ()))
+                 in traverse_ getBooks stores
+                      >> go (workLeft - 1)
 
-    let -- handle nMessagesToHandle requests
-        bookStore nMessagesToHandle = do
-          bIn <- newInBox impl
-          bOut <- newOutBox bIn
-          return (bOut, conc (go bIn nMessagesToHandle []))
-          where
-            go _bIn 0 _myBooks = pure ()
-            go !inBox !workLeft !myBooks =
-              let handler =
-                    handleMessage inBox $
-                      \case
-                        NonBlocking (Donate !b) ->
-                          pure (workLeft - 1, b : myBooks)
-                        Blocking GetBooks replyBox -> do
-                          replyTo replyBox myBooks
-                          pure (workLeft - 1, myBooks)
-               in handler
-                    >>= maybe
-                      (error "HandleMessage failed!")
-                      (uncurry (go inBox))
-    let nMessagesPerStore =
-          nDonationsPerStore * nDonors
-            + nRequestsPerStore * nCustomers
-    (bookStoresOutBoxes, bookStoresConc) <-
-      unzip <$> replicateM nStores (bookStore nMessagesPerStore)
-    let customers = stimes nCustomers (customer bookStoresOutBoxes)
-    let donors = mconcat (donor bookStoresOutBoxes <$> [0 .. nDonors - 1])
-    runConc (donors <> customers <> mconcat bookStoresConc)
+      let -- handle nMessagesToHandle requests
+          bookStore nMessagesToHandle = do
+            bIn <- newInBox impl
+            bOut <- newOutBox bIn
+            return (bOut, conc (go bIn nMessagesToHandle []))
+            where
+              go _bIn 0 _myBooks = pure ()
+              go !inBox !workLeft !myBooks =
+                let handler =
+                      handleMessage inBox $
+                        \case
+                          NonBlocking (Donate !b) ->
+                            pure (workLeft - 1, b : myBooks)
+                          Blocking GetBooks replyBox -> do
+                            replyTo replyBox myBooks
+                            pure (workLeft - 1, myBooks)
+                 in handler
+                      >>= maybe
+                        (error "HandleMessage failed!")
+                        (uncurry (go inBox))
+      let nMessagesPerStore =
+            nDonationsPerStore * nDonors
+              + nRequestsPerStore * nCustomers
+      (bookStoresOutBoxes, bookStoresConc) <-
+        unzip <$> replicateM nStores (bookStore nMessagesPerStore)
+      let customers = stimes nCustomers (customer bookStoresOutBoxes)
+      let donors = mconcat (donor bookStoresOutBoxes <$> [0 .. nDonors - 1])
+      runConc (donors <> customers <> mconcat bookStoresConc)
 
 benchmark =
   bgroup
