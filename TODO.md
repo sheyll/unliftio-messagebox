@@ -3,17 +3,32 @@ TODO
 
 ## Goal: Know Your Code 
 
-* DONE: Write test-coverage script 
 * Write property tests exhibiting race
   conditions like shutdown races that
   provokes ThreadBlockedIndefinitelyOnMVar 
-* Write unit tests for untested code
+* Write unit tests for untested code 
+* Remove unused code
+* Write missing Documentation 
 
+## Goal: Automatic Report Generation
+* Write script to commit the results of benchmarks, tests, 
+  test profiling and test code coverage reports
+  to a branch of the git repo
+* Add Weeder script
+* Add Haddock script
+* Add graphmod script  
+* Add profiling test case execution script
+* Reduce the number of benchmarks
+* Make a profiling report based on a subset of the benchmarks
+* Link to the benchmarks and reports from the README.md
+* Make a benchmark for the Erlang code
+* Make Erlang part of the nix-based environment
 
 ## Goal: Fast Code
 
 * Try to reduce SYSTEM time
 * benchmark TMVar vs MVar for reply box 
+* benchmark type class methods vs. direct function calls
 
 ## Goal: No Space Leaks
 
@@ -38,6 +53,3 @@ TODO
 * make the timeout in handleMessage pluggable
    (use newtype wrapper for IsInBox instances)
 
-## Goal: Nice Code
-
-* Remove unused code
