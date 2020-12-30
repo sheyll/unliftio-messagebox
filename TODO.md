@@ -1,6 +1,13 @@
 TODO
 ====
 
+## Goal: Know Your Code 
+
+* Write property tests exhibiting race
+  conditions like shutdown races that
+  provokes ThreadBlockedIndefinitelyOnMVar 
+
+
 ## Goal: Fast Code
 
 * Try to reduce SYSTEM time
