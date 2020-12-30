@@ -3,9 +3,11 @@ TODO
 
 ## Goal: Know Your Code 
 
+* DONE: Write test-coverage script 
 * Write property tests exhibiting race
   conditions like shutdown races that
   provokes ThreadBlockedIndefinitelyOnMVar 
+* Write unit tests for untested code
 
 
 ## Goal: Fast Code
@@ -17,6 +19,8 @@ TODO
 
 * Extract the media benchmark and create a long
   running example program that checks for memory leaks
+* Use Weak References Code
+  in combination with catching ThreadBlockedIndefinitelyInMVarOperation)
 
 ## Goal: Robust Code
 
@@ -28,7 +32,6 @@ TODO
   to Handle dead lock exceptions  
 * Make usages of MVars or TVars e.g. `replyTo`, `handleMessage`, `receive`
   dead lock exception safe
-* Write unit tests for untested code
 * Add thread safe code to combine message box creation
   and spawning
 * make a variant for 'Conc', 'Async' and plain 'forkIO'
@@ -37,7 +40,4 @@ TODO
 
 ## Goal: Nice Code
 
-* Remove unused code, 
-* Add a coverage report script
-* Weak references
-
+* Remove unused code
