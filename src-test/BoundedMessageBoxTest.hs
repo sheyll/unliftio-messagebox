@@ -13,10 +13,9 @@ import Data.Function (fix)
 import Data.List (sort)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (isJust)
-import Data.Semigroup ()
+import Data.Semigroup (All (All, getAll))
 import Protocol.BoundedMessageBox as MessageBox
   ( InBox,
-    InBoxNB (..),
     OutBoxNB (..),
     createInBox,
     createOutBoxForInbox,
@@ -45,11 +44,12 @@ test =
   Tasty.testGroup
     "Protocol.BoundedMessageBox"
     [ Tasty.testGroup
-        "Non-Blocking IsOutBox/IsInBox instance"
+        "Non-Blocking"
         [ Tasty.testCase "receive from an empty queue" $ do
             i <- MessageBox.createInBox 10
-            timeout 1_000_000 (Class.receive $ InBoxNB i)
-              >>= assertEqual "receive must not block" (Just (Nothing @Int)),
+            f <- Class.tryReceive i
+            timeout 1_000_000 (Class.takeNow f)
+              >>= assertEqual "the future must not block and should return be emtpy" (Just (Nothing @Int)),
           Tasty.testCase "send to full queue" $ do
             i <- MessageBox.createInBox 10
             o <- MessageBox.createOutBoxForInbox i
@@ -80,16 +80,16 @@ test =
                     results <- replicateM limit (tryToDeliver o "test message")
                     return $ and results,
               testProperty "when the message box is 'full' not more then one more messages can be enqueued" $
-                \(Positive (Small noOfMessagesThatCanBeWritten)) (Positive (Small x)) ->
+                \(Positive (Small nOfMessagesThatCanBeWritten)) (Positive (Small x)) ->
                   ioProperty $ do
-                    let noOfMessagesAttemptedToWrite = noOfMessagesThatCanBeWritten + x
-                    i <- MessageBox.createInBox noOfMessagesThatCanBeWritten
+                    let noOfMessagesAttemptedToWrite = nOfMessagesThatCanBeWritten + x
+                    i <- MessageBox.createInBox nOfMessagesThatCanBeWritten
                     o <- MessageBox.createOutBoxForInbox i
                     let messages = replicate noOfMessagesAttemptedToWrite "some test message"
                     results <- traverse (tryToDeliver o) messages
-                    let (expectedSuccesses, rest) = splitAt noOfMessagesThatCanBeWritten results
-                        (_ambuiguos, expectedFailures) = splitAt noOfMessagesThatCanBeWritten rest
-                    let expectSomeFailures = noOfMessagesAttemptedToWrite > 2 * noOfMessagesThatCanBeWritten
+                    let (expectedSuccesses, rest) = splitAt nOfMessagesThatCanBeWritten results
+                        (_ambuiguos, expectedFailures) = splitAt nOfMessagesThatCanBeWritten rest
+                    let expectSomeFailures = noOfMessagesAttemptedToWrite > 2 * nOfMessagesThatCanBeWritten
 
                     return
                       ( label "all isRight expectedSuccesses" (and expectedSuccesses)
@@ -97,7 +97,7 @@ test =
                           .&&. cover
                             100.0
                             expectSomeFailures
-                            "noOfMessagesAttemptedToWrite > 2 * noOfMessagesThatCanBeWritten"
+                            "noOfMessagesAttemptedToWrite > 2 * nOfMessagesThatCanBeWritten"
                             (expectSomeFailures ==> not (null expectedFailures))
                       )
             ],
@@ -147,16 +147,32 @@ test =
           Tasty.testGroup
             "create, send and receive messages"
             [ testProperty "all messages that were succecssfully sent are received in order" $
-                \(NonEmpty (ms :: [(Bool, Double, [String])])) (Positive (Small noOfMessagesThatCanBeWritten)) ->
+                \(NonEmpty (ms :: [(Bool, Double, [String])])) (Positive (Small nOfMessagesThatCanBeWritten)) ->
                   withMaxSuccess 20 $
                     ioProperty $ do
-                      i <- MessageBox.createInBox noOfMessagesThatCanBeWritten
+                      i <- MessageBox.createInBox nOfMessagesThatCanBeWritten
                       o <- MessageBox.createOutBoxForInbox i
                       allFine <- forM ms $ \message -> do
                         response <- tryToDeliver o message
-                        receiveResult <- tryReceive i
+                        f <- tryReceive i
+                        receiveResult <- Class.takeNow f
                         return (response && receiveResult == Just message)
                       return (and allFine),
+              testProperty "the future for the first message, receives only the first message" $
+                \(NonEmpty (ms :: [(Bool, Double, [String])])) (Positive (Small nOfMessagesThatCanBeWritten)) ->
+                  withMaxSuccess 20 $
+                    ioProperty $ do
+                      i <- MessageBox.createInBox nOfMessagesThatCanBeWritten
+                      o <- MessageBox.createOutBoxForInbox i
+                      futures <- replicateM (length ms) (tryReceive i)
+                      allDelivered <- forM ms (fmap All . tryToDeliver o)
+                      allReceived <-
+                        mapConcurrently
+                          ( \(message, future) -> fix $ \notNow -> do
+                              Class.takeNow future >>= maybe notNow (return . All . (== message))
+                          )
+                          (ms `zip` futures)
+                      return (getAll (mconcat allDelivered <> mconcat allReceived)),
               testProperty
                 "At least 'queueSize' messages can be written before without loosing\
                 \ any message, and after n messages have been read, upto n messages \
@@ -175,14 +191,14 @@ test =
                         results1 <- traverse (tryToDeliver o) messages1
                         let sendSuccessfully1 = and results1
                         -- read n messages
-                        receivedMessages1 <- replicateM n (tryReceive i)
+                        receivedMessages1 <- replicateM n (tryReceive i >>= Class.takeNow)
 
                         -- write n messages
                         let (messages2, ~_valueGenerator2) = splitAt n valueGenerator1
                         results2 <- traverse (tryToDeliver o) messages2
                         let sendSuccessfully2 = and results2
                         -- read queueSize messages
-                        receivedMessages2 <- replicateM queueSize (tryReceive i)
+                        receivedMessages2 <- replicateM queueSize (tryReceive i >>= Class.takeNow)
 
                         let receivedInOrder =
                               receivedMessages1 ++ receivedMessages2
@@ -280,7 +296,7 @@ test =
 
                   receiverIn <- createInBox nGood
                   receiverOut <- createOutBoxForInbox receiverIn
-                  let doReceive = void (forever (tryReceive receiverIn >> threadDelay tRecv))
+                  let doReceive = void (forever (receive receiverIn >> threadDelay tRecv))
 
                   let !good = [("Test-Message GOOD", Just n) | !n <- [1 .. nGood :: Int]]
                       !ambigous = [("Test-Message ambigous", Just n) | !n <- [1 .. nAmbigous :: Int]]

@@ -53,13 +53,12 @@ import Protocol.Fresh
     newCounterVar,
   )
 import Protocol.MessageBoxClass
-  ( IsInBox (receive),
-    IsMessageBox (..),
+  (newOutBox2,  IsInBox (receive),
+    IsInBoxConfig (..),
     IsOutBox (deliver),
-    TimeoutWrapper (MkTimeoutWrapper),
+    WithTimeout (WithTimeout),
     handleMessage,
   )
-import Protocol.UnboundedMessageBox (InBoxConfig (UnboundedMessageBox))
 import qualified Protocol.UnboundedMessageBox as Unbounded
 import RIO
   ( Map,
@@ -120,8 +119,8 @@ fetchDspsBench (nFetchesTotal, nClients) =
             Conc (RIO (CounterVar CallId)) ()
           )
       startServer = do
-        serverIn <- newInBox UnboundedMessageBox
-        serverOut <- newOutBox serverIn
+        serverIn <- newInBox Unbounded.UnboundedMessageBox
+        serverOut <- newOutBox2 serverIn
         let dspSet = Set.fromList [0 .. 4096]
         return (serverOut, conc (server serverWork serverIn dspSet))
         where
@@ -424,7 +423,7 @@ mediaAppBenchmark param = do
                 (error ("Failed to cast: " ++ show (UnJoin mixingGroupId memberId eventsOut)))
             replicateM_
               (nMembers param)
-              ( receive (MkTimeoutWrapper 500_000 eventsIn)
+              ( receive (WithTimeout 500_000 eventsIn)
                   >>= \case
                     Just (MemberUnJoined _ _) ->
                       return ()

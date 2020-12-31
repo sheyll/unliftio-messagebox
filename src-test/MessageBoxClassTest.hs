@@ -7,7 +7,7 @@ import Data.Foldable (Foldable (fold))
 import Data.Maybe (isJust)
 import Data.Monoid (All (All, getAll))
 import qualified Protocol.BoundedMessageBox as B
-import Protocol.MessageBoxClass ( IsMessageBox(..), IsInBox(..), IsOutBox(..) )
+import Protocol.MessageBoxClass (IsInBox (..), IsInBoxConfig (..), IsOutBox (..))
 import qualified Protocol.UnboundedMessageBox as U
 import Test.QuickCheck
   ( Positive (Positive),
@@ -22,21 +22,25 @@ test :: Tasty.TestTree
 test =
   Tasty.testGroup
     "Protocol.MessageBoxClass"
-    [ Tasty.testGroup
+    [ -- TODO receive tests
+      -- TODO deliver tests
+      -- TODO Timeout tests
+      -- TODO CatchExceptions tests
+
+      Tasty.testGroup
         "all n messages of all k outBoxes are received by the inbox"
-        [ deliverAllMessages U.UnboundedMessageBox,
-          deliverAllMessages (B.BoundedMessageBox 2),
-          deliverAllMessages (B.BoundedMessageBox 16),
-          deliverAllMessages (B.BoundedMessageBox 128)
+        [ realWorldTest U.UnboundedMessageBox,
+          realWorldTest (B.BoundedMessageBox 2),
+          realWorldTest (B.BoundedMessageBox 16),
+          realWorldTest (B.BoundedMessageBox 128)
         ]
     ]
 
-deliverAllMessages ::
-  (IsMessageBox inbox outbox, Show (InBoxConfig inbox),
-  IsInBox inbox, IsOutBox outbox) =>
-  InBoxConfig inbox ->
+realWorldTest ::
+  (IsInBoxConfig cfg inbox, Show cfg) =>
+  cfg ->
   TestTree
-deliverAllMessages arg =
+realWorldTest arg =
   testProperty (show arg) $
     \(Positive (Small n)) (Positive (Small k)) ->
       ioProperty $
@@ -48,7 +52,7 @@ deliverAllMessages arg =
                   ( \i ->
                       conc
                         ( do
-                            outbox <- newOutBox inbox
+                            outbox <- newOutBox2 inbox
                             forM [0 .. n - 1] (\j -> All <$> deliver outbox ("test message: ", i, j))
                         )
                   )

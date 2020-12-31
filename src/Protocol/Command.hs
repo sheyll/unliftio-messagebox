@@ -14,20 +14,22 @@ module Protocol.Command
     replyTo,
     enqueueCall,
     delegateCall,
-    PendingReply(),
+    PendingReply (),
     waitForReply,
     tryTakeReply,
-    HasCallIdCounter(getCallIdCounter, putCallIdCounter),
+    HasCallIdCounter (getCallIdCounter, putCallIdCounter),
     newCallIdCounter,
     newCallId,
   )
 where
 
 import Control.Applicative (Alternative ((<|>)))
-import Control.Monad.Reader (asks, MonadReader)
+import Control.Monad.Reader (MonadReader, asks)
 import Data.Kind (Type)
 import Protocol.Fresh
-  (newCounterVar, incrementAndGet, CounterVar,
+  ( CounterVar,
+    incrementAndGet,
+    newCounterVar,
   )
 import qualified Protocol.MessageBoxClass as MessageBox
 import UnliftIO
@@ -163,7 +165,6 @@ newCallIdCounter = newCounterVar
 newCallId :: (MonadReader env m, HasCallIdCounter env, MonadUnliftIO m) => m CallId
 newCallId = asks getCallIdCounter >>= incrementAndGet
 
-
 -- | Enqueue a 'NonBlocking' 'Message' into an 'OutBox'.
 -- This is just for symetry to 'call', this is
 -- equivalent to: @\obox -> MessageBox.tryToDeliver obox . NonBlocking@
@@ -220,7 +221,7 @@ call !obox !pdu !timeoutMicroseconds = do
 --
 -- The receiving process must use 'replyTo'  with the 'ReplyBox'
 -- received along side the 'Command' in the 'Blocking'.
-enqueueCall  ::
+enqueueCall ::
   ( HasCallIdCounter env,
     MonadReader env m,
     MonadUnliftIO m,
@@ -239,42 +240,42 @@ enqueueCall = error "TODO"
 -- Returns 'True' if the 'MessageBox.deliver' operation was
 -- successful.
 {-# INLINE delegateCall #-}
-delegateCall :: 
-  ( MonadUnliftIO m, 
-   MessageBox.IsOutBox o,
-   Show (Command api ( 'Return r)) ) =>  
-  o (Message api) -> 
-  Command api ( 'Return r) -> 
-  ReplyBox r -> 
+delegateCall ::
+  ( MonadUnliftIO m,
+    MessageBox.IsOutBox o,
+    Show (Command api ( 'Return r))
+  ) =>
+  o (Message api) ->
+  Command api ( 'Return r) ->
+  ReplyBox r ->
   m Bool
-delegateCall !o !c !r = 
+delegateCall !o !c !r =
   MessageBox.deliver o (Blocking c r)
 
 -- | The result of 'enqueueCall'.
 -- Use 'waitForReply' or 'tryTakeReply'.
 newtype PendingReply r = MkPendingReply ()
 
--- | Wait for the reply of a 'Blocking' 'Message' 
+-- | Wait for the reply of a 'Blocking' 'Message'
 -- sent by 'enqueueCall'.
 {-# INLINE waitForReply #-}
-waitForReply :: 
-  MonadUnliftIO m => 
-  PendingReply r -> 
-  -- | The time in micro seconds to wait 
+waitForReply ::
+  MonadUnliftIO m =>
+  PendingReply r ->
+  -- | The time in micro seconds to wait
   -- before returning 'Left' 'BlockingCommandTimedOut'
-  Int ->  
+  Int ->
   m (Either CommandError result)
 waitForReply _ = error "TODO"
 
-
--- | If a reply for an 'enqueueCall' operation is available 
+-- | If a reply for an 'enqueueCall' operation is available
 -- return it, otherwise return 'Nothing'.
 {-# INLINE tryTakeReply #-}
-tryTakeReply :: 
-  MonadUnliftIO m => 
-  PendingReply r -> 
+tryTakeReply ::
+  MonadUnliftIO m =>
+  PendingReply r ->
   m (Maybe (Either CommandError result))
-tryTakeReply = error "TODO"  
+tryTakeReply = error "TODO"
 
 -- | This is called from the callback passed to 'handleMessage'.
 -- When handling a 'Blocking' 'Message' the 'ReplyBox' contained

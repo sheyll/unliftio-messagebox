@@ -173,7 +173,7 @@ test-suite unliftio-protocols-test
     BoundedMessageBoxTest,    
     CommandTest,    
     FreshTest,
-    GoodConcurrencyTest,
+    CornerCaseTests,
     MessageBoxClassTest,
     ProtocolsTest,
     UnboundedMessageBoxTest

@@ -30,9 +30,9 @@ import Criterion.Types
     nfAppIO,
   )
 import Data.Semigroup (Semigroup (stimes))
-import Protocol.BoundedMessageBox (InBoxConfig (BoundedMessageBox))
-import Protocol.MessageBoxClass (IsMessageBox (..), deliver, receive)
-import Protocol.UnboundedMessageBox (InBoxConfig (UnboundedMessageBox))
+import Protocol.BoundedMessageBox (BoundedMessageBox (BoundedMessageBox))
+import Protocol.MessageBoxClass (newOutBox2, IsInBoxConfig (..), deliver, receive)
+import Protocol.UnboundedMessageBox (UnboundedMessageBox (UnboundedMessageBox))
 import RIO (MonadUnliftIO, conc, runConc)
 
 main =
@@ -85,9 +85,9 @@ newtype TestMessage = MkTestMessage (String, String, String, (String, String, Bo
   deriving newtype (Show)
 
 unidirectionalMessagePassing ::
-  (MonadUnliftIO m, IsMessageBox inbox outbox) =>
+  (MonadUnliftIO m, IsInBoxConfig cfg inbox) =>
   (Int -> TestMessage) ->
-  InBoxConfig inbox ->
+  cfg ->
   (Int, Int, Int) ->
   m ()
 unidirectionalMessagePassing !msgGen !impl (!nP, !nM, !nC) = do
@@ -104,7 +104,7 @@ unidirectionalMessagePassing !msgGen !impl (!nP, !nM, !nC) = do
     consumers = do
       cis <- replicateM nC (newInBox impl)
       let ccs = foldMap (conc . consume (nM `div` nC)) cis
-      cs <- traverse newOutBox cis
+      cs <- traverse newOutBox2 cis
       return (ccs, cs)
       where
         consume 0 _inBox = return ()

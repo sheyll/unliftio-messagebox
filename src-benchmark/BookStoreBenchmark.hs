@@ -32,10 +32,11 @@ import Criterion.Types
     nfAppIO,
   )
 import Data.Semigroup (Semigroup (stimes))
-import Protocol.BoundedMessageBox (InBoxConfig (BoundedMessageBox))
+import Protocol.BoundedMessageBox (BoundedMessageBox (BoundedMessageBox))
 import Protocol.Command as Command
-  (HasCallIdCounter(getCallIdCounter, putCallIdCounter),  CallId,
+  ( CallId,
     Command,
+    HasCallIdCounter (getCallIdCounter, putCallIdCounter),
     Message (Blocking, NonBlocking),
     ReturnType (FireAndForget, Return),
     call,
@@ -46,8 +47,8 @@ import Protocol.Fresh
   ( CounterVar,
     newCounterVar,
   )
-import Protocol.MessageBoxClass (IsMessageBox (..), handleMessage)
-import Protocol.UnboundedMessageBox (InBoxConfig (UnboundedMessageBox))
+import Protocol.MessageBoxClass (IsInBoxConfig (..), handleMessage, newOutBox2)
+import Protocol.UnboundedMessageBox (UnboundedMessageBox (UnboundedMessageBox))
 import RIO
   ( MonadIO (liftIO),
     MonadUnliftIO,
@@ -96,16 +97,16 @@ instance HasCallIdCounter BookStoreEnv where
   putCallIdCounter newFresh MkBookStoreEnv {_fresh} = MkBookStoreEnv {_fresh = newFresh}
 
 onlyCasts ::
-  (MonadUnliftIO m, IsMessageBox inbox outbox) =>
+  (MonadUnliftIO m, IsInBoxConfig cfg inbox) =>
   (Int -> Book) ->
-  InBoxConfig inbox ->
+  cfg ->
   (Int, Int, Int) ->
   m ()
 onlyCasts !msgGen !impl (!nP, !nMTotal, !nC) = do
   freshCounter <- newCounterVar
   runRIO (MkBookStoreEnv {_fresh = freshCounter}) $ do
     bookStoreInBox <- newInBox impl
-    bookStoreOutBox <- newOutBox bookStoreInBox
+    bookStoreOutBox <- newOutBox2 bookStoreInBox
     let producer 0 = pure ()
         producer workLeft = do
           ok <- cast bookStoreOutBox (Donate $ msgGen 1)
@@ -135,9 +136,9 @@ onlyCasts !msgGen !impl (!nP, !nMTotal, !nC) = do
     runConc (producers <> consumers)
 
 castsAndCalls ::
-  (MonadUnliftIO m, IsMessageBox inbox outbox) =>
+  (MonadUnliftIO m, IsInBoxConfig cfg inbox) =>
   (Int -> Book) ->
-  InBoxConfig inbox ->
+  cfg ->
   ((Int, Int), Int, (Int, Int)) ->
   m ()
 castsAndCalls
@@ -182,7 +183,7 @@ castsAndCalls
       let -- handle nMessagesToHandle requests
           bookStore nMessagesToHandle = do
             bIn <- newInBox impl
-            bOut <- newOutBox bIn
+            bOut <- newOutBox2 bIn
             return (bOut, conc (go bIn nMessagesToHandle []))
             where
               go _bIn 0 _myBooks = pure ()

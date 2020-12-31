@@ -15,8 +15,7 @@ import Data.Maybe ()
 import Data.Monoid (All (All, getAll))
 import qualified Protocol.MessageBoxClass as Class
 import Protocol.UnboundedMessageBox as MessageBox
-  ( InBoxNB (..),
-    createInBox,
+  ( createInBox,
     createOutBoxForInbox,
     deliver,
     receive,
@@ -36,11 +35,12 @@ test =
   Tasty.testGroup
     "Protocol.UnboundedMessageBox"
     [ Tasty.testGroup
-        "Non-Blocking IsOutBox/IsInBox instance"
+        "Non-Blocking"
         [ Tasty.testCase "receive from an empty queue" $ do
             i <- MessageBox.createInBox
-            timeout 1_000_000 (Class.receive $ InBoxNB i)
-              >>= assertEqual "receive must not block" (Just (Nothing @Int))
+            f <- Class.tryReceive i
+            timeout 1_000_000 (Class.takeNow f)
+              >>= assertEqual "the future must not block and should return be emtpy" (Just (Nothing @Int))
         ],
       testProperty "all n messages of all k outBoxes are received by the inbox" $
         \(Positive (Small n)) (Positive (Small k)) ->

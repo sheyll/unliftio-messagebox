@@ -1,13 +1,13 @@
-module Main(main) where
+module Main (main) where
 
-import qualified Test.Tasty as Tasty
-import qualified GoodConcurrencyTest
-import qualified CommandTest
-import qualified MessageBoxClassTest
 import qualified BoundedMessageBoxTest
-import qualified UnboundedMessageBoxTest
-import qualified ProtocolsTest
+import qualified CommandTest
+import qualified CornerCaseTests
 import qualified FreshTest
+import qualified MessageBoxClassTest
+import qualified ProtocolsTest
+import qualified Test.Tasty as Tasty
+import qualified UnboundedMessageBoxTest
 
 main :: IO ()
 main = Tasty.defaultMain test
@@ -16,11 +16,11 @@ test :: Tasty.TestTree
 test =
   Tasty.testGroup
     "Tests"
-    [ CommandTest.test,
+    [ CornerCaseTests.test,
+      CommandTest.test,
       MessageBoxClassTest.test,
       BoundedMessageBoxTest.test,
       UnboundedMessageBoxTest.test,
       ProtocolsTest.test,
-      FreshTest.test,
-      GoodConcurrencyTest.test
+      FreshTest.test
     ]

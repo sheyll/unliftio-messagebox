@@ -18,23 +18,22 @@ module Protocol.BoundedMessageBox
     tryToDeliver,
     tryToDeliverAndWait,
     deliver,
+    BoundedMessageBox (..),
     InBox (),
     OutBox (),
-    InBoxNB (..),
     OutBoxNB (..),
-    Class.InBoxConfig(..)
   )
 where
 
 import qualified Control.Concurrent.Chan.Unagi.Bounded as Unagi
+import Data.Functor (($>))
 import Data.Maybe (fromMaybe)
+import qualified Protocol.MessageBoxClass as Class
 import UnliftIO
   ( MonadIO (liftIO),
     MonadUnliftIO,
     timeout,
   )
-import Data.Functor ( ($>) )
-import qualified Protocol.MessageBoxClass as Class
 
 -- | Create an 'InBox' with an underlying
 -- message queue with a given message limit.
@@ -54,20 +53,18 @@ receive :: MonadUnliftIO m => InBox a -> m a
 receive (MkInBox _ !s) =
   liftIO (Unagi.readChan s)
 
--- | Try to receive a message from an 'InBox',
--- return @Nothing@ if the queue is empty.
+-- | Return a 'Future' for the next value that will be received.
 {-# INLINE tryReceive #-}
-tryReceive :: MonadUnliftIO m => InBox a -> m (Maybe a)
+tryReceive :: MonadUnliftIO m => InBox a -> m (Class.Future a)
 tryReceive (MkInBox _ !s) = liftIO $ do
   (!promise, _) <- Unagi.tryReadChan s
-  Unagi.tryRead promise
+  return (Class.Future (Unagi.tryRead promise))
 
 -- | Create an 'OutBox' to write the items
 -- that the given 'InBox' receives.
 {-# INLINE createOutBoxForInbox #-}
 createOutBoxForInbox :: MonadUnliftIO m => InBox a -> m (OutBox a)
 createOutBoxForInbox (MkInBox !s _) = return $! MkOutBox s
-
 
 -- | Put a message into the 'OutBox'
 -- of an 'InBox', such that the process
@@ -76,9 +73,9 @@ createOutBoxForInbox (MkInBox !s _) = return $! MkOutBox s
 -- If the 'InBox' is full, wait until the end of time
 -- or that the message box is not full anymore.
 {-# INLINE deliver #-}
-deliver :: MonadUnliftIO m => OutBox a -> a ->  m ()
+deliver :: MonadUnliftIO m => OutBox a -> a -> m ()
 deliver (MkOutBox !s) !a =
-   liftIO $ Unagi.writeChan s a
+  liftIO $ Unagi.writeChan s a
 
 -- | Try to put a message into the 'OutBox'
 -- of an 'InBox', such that the process
@@ -98,7 +95,7 @@ tryToDeliver (MkOutBox !s) !a =
 -- 'InBox' has been closed or is full.
 --
 -- This assumes that the queue is likely empty, and
--- tries 'tryToDeliver' first before wasting any 
+-- tries 'tryToDeliver' first before wasting any
 -- precious cpu cycles entering 'timeout'.
 tryToDeliverAndWait ::
   MonadUnliftIO m =>
@@ -143,48 +140,46 @@ data InBox a
 --   The 'OutBox' is the counter part of an 'InBox'.
 newtype OutBox a = MkOutBox (Unagi.InChan a)
 
-instance Class.IsMessageBox InBox OutBox where
-  data InBoxConfig InBox = BoundedMessageBox Int
-    deriving stock (Show)
+-- * 'Class.IsInBoxConfig' instances
+
+-- ** Blocking
+
+-- | Contains the (vague) limit of messages that
+-- can be enqueued in an 'OutBox' to be read from
+-- an 'InBox'. 
+newtype BoundedMessageBox = BoundedMessageBox Int
+  deriving stock (Show)
+
+instance Class.IsInBoxConfig BoundedMessageBox InBox where
   {-# INLINE newInBox #-}
   newInBox (BoundedMessageBox !limit) = createInBox limit
-  {-# INLINE newOutBox #-}
-  newOutBox !i = createOutBoxForInbox i
 
 -- | A blocking instance that invokes 'receive'.
 instance Class.IsInBox InBox where
+  type OutBox2 InBox = OutBox
   {-# INLINE receive #-}
   receive !i = Just <$> receive i
+  {-# INLINE tryReceive #-}
+  tryReceive !i = tryReceive i
+  {-# INLINE newOutBox2 #-}
+  newOutBox2 !i = createOutBoxForInbox i
 
 -- | A blocking instance that invokes 'deliver'.
 instance Class.IsOutBox OutBox where
   {-# INLINE deliver #-}
   deliver !o !a = deliver o a $> True
 
+--  ** Non-Blocking
 
--- | A wrapper around 'InBox' to have a 
--- non-blocking instance of 'Class.IsMessageBox' 
--- that invokes 'tryReceive' instead of 'receive'.
---
--- Used in conjunction with 'OutBoxNB'.
-newtype InBoxNB a = InBoxNB (InBox a)
-
--- | A wrapper around 'OutBox' to have a 
--- non-blocking instance of 'Class.IsMessageBox' 
+-- | A wrapper around 'OutBox' to have a
+-- non-blocking instance of 'Class.IsInBoxConfig'
 -- that invokes 'tryToDeliver' instead of 'deliver'.
 --
 -- Used in conjunction with 'OutBoxNB'.
 newtype OutBoxNB a = OutBoxNB (OutBox a)
 
--- | A non-blocking instance 
--- that invokes 'tryReceive'.
-instance Class.IsInBox InBoxNB where
-  {-# INLINE receive #-}
-  receive (InBoxNB !i) = tryReceive i
-
--- | A non-blocking instance 
+-- | A non-blocking instance
 -- that invokes 'tryToDeliver'.
 instance Class.IsOutBox OutBoxNB where
   {-# INLINE deliver #-}
   deliver (OutBoxNB !o) !a = tryToDeliver o a
-

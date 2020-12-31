@@ -19,9 +19,10 @@ import Data.Functor (Functor ((<$)), void, ($>), (<$>))
 import Data.Semigroup (All (All, getAll))
 import GHC.IO.Exception (userError)
 import Protocol.Command
-  (HasCallIdCounter(..),  CallId (..),
+  ( CallId (..),
     Command,
     CommandError (BlockingCommandTimedOut),
+    HasCallIdCounter (..),
     Message (Blocking, NonBlocking),
     ReturnType (FireAndForget, Return),
     call,
@@ -30,10 +31,11 @@ import Protocol.Command
   )
 import Protocol.Fresh (CounterVar, fresh, newCounterVar)
 import Protocol.MessageBoxClass
-  ( IsMessageBox (newInBox, newOutBox),
+  ( IsInBoxConfig (newInBox),
     handleMessage,
+    newOutBox2,
   )
-import Protocol.UnboundedMessageBox (InBoxConfig (UnboundedMessageBox))
+import Protocol.UnboundedMessageBox (UnboundedMessageBox (UnboundedMessageBox))
 import RIO
   ( Applicative (pure, (<*>)),
     Bool (True),
@@ -91,7 +93,7 @@ test =
         allDonatedBooksAreInTheBookStore,
       testCase "handling a cast succeeds" $ do
         bookStoreInBox <- newInBox UnboundedMessageBox
-        bookStoreOutBox <- newOutBox bookStoreInBox
+        bookStoreOutBox <- newOutBox2 bookStoreInBox
         let expected =
               Donate
                 (Donor (PersonName "Mueller" "Hans") 1)
@@ -126,7 +128,7 @@ test =
                 ]
 
           bookStoreInBox <- newInBox UnboundedMessageBox
-          bookStoreOutBox <- newOutBox bookStoreInBox
+          bookStoreOutBox <- newOutBox2 bookStoreInBox
           let concurrentCallAction = call bookStoreOutBox GetBooks 100
               concurrentBookStore = handleMessage bookStoreInBox $ \case
                 Blocking GetBooks replyBox -> do
@@ -151,7 +153,7 @@ test =
         freshCounter <- newCounterVar
         runRIO (MkBookStoreEnv {_fresh = freshCounter}) $ do
           bookStoreInBox <- newInBox UnboundedMessageBox
-          bookStoreOutBox <- newOutBox bookStoreInBox
+          bookStoreOutBox <- newOutBox2 bookStoreInBox
           let concurrentCallAction = do
                 tId <- forkIO (void $ call bookStoreOutBox GetBooks (delayDuration * 3))
                 threadDelay (1 * delayDuration)
@@ -174,7 +176,7 @@ test =
           freshCounter <- newCounterVar
           runRIO (MkBookStoreEnv {_fresh = freshCounter}) $ do
             bookStoreInBox <- newInBox UnboundedMessageBox
-            bookStoreOutBox <- newOutBox bookStoreInBox
+            bookStoreOutBox <- newOutBox2 bookStoreInBox
             let concurrentCallAction = call bookStoreOutBox GetBooks (delayDuration * 2)
                 concurrentBookStore = handleMessage bookStoreInBox $ \case
                   Blocking GetBooks _replyBox -> do
@@ -194,7 +196,7 @@ test =
         runRIO (MkBookStoreEnv {_fresh = freshCounter}) $ do
           let baseDelay = 10_000
           bookStoreInBox <- newInBox UnboundedMessageBox
-          bookStoreOutBox <- newOutBox bookStoreInBox
+          bookStoreOutBox <- newOutBox2 bookStoreInBox
           let concurrentCallAction = call bookStoreOutBox GetBooks (2 * baseDelay)
               concurrentBookStore = handleMessage bookStoreInBox $ \case
                 Blocking GetBooks replyBox -> do
@@ -205,16 +207,16 @@ test =
                   pure (Just ("unexpected message: " <> show a))
           (callResult, handleResult) <- concurrently concurrentCallAction concurrentBookStore
           liftIO $ do
-            assertEqual "no message other than GetBooks received" (Just Nothing) handleResult
+            assertEqual "unexpected message received" (Just Nothing) handleResult
             case callResult of
               (Right actualBooks) -> assertEqual "call should return the right books" actualBooks []
-              other -> assertFailure $ "call successful call, but got this instead: " <> show other,
+              other -> assertFailure $ "unexpected call result" <> show other,
       testCase "replying to call with a delay longer than the given timeout is not successful but the process replying lives on" $ do
         freshCounter <- newCounterVar
         runRIO (MkBookStoreEnv {_fresh = freshCounter}) $ do
-          let baseDelay = 10_000
+          let baseDelay = 50_000
           bookStoreInBox <- newInBox UnboundedMessageBox
-          bookStoreOutBox <- newOutBox bookStoreInBox
+          bookStoreOutBox <- newOutBox2 bookStoreInBox
           let concurrentCallAction = call bookStoreOutBox GetBooks baseDelay
               concurrentBookStore = handleMessage bookStoreInBox $ \case
                 Blocking GetBooks replyBox -> do
@@ -228,12 +230,16 @@ test =
           liftIO $ do
             callId' <- runRIO freshCounter fresh
             assertEqual
-              "no message other than GetBooks received"
+              "GetBooks expected"
               (Just (Just "living on, no exception"))
               handleResult
             case callResult of
               (Left (BlockingCommandTimedOut (MkCallId c))) | MkCallId (c + 1) == callId' -> pure ()
-              _ -> assertFailure "call result should match (Left (BlockingCommandTimedOut _))"
+              e ->
+                assertFailure
+                  ( "call result should match (Left (BlockingCommandTimedOut _)), unexpected: "
+                      <> show e
+                  )
     ]
 
 newtype BookStoreEnv = MkBookStoreEnv
@@ -246,7 +252,7 @@ instance HasCallIdCounter BookStoreEnv where
 allDonatedBooksAreInTheBookStore :: [(Donor, Book)] -> Property
 allDonatedBooksAreInTheBookStore donorsAndBooks = ioProperty $ do
   bookStoreIn <- newInBox UnboundedMessageBox
-  bookStoreOut <- newOutBox bookStoreIn
+  bookStoreOut <- newOutBox2 bookStoreIn
   getAll
     <$> runConc
       ( foldMap

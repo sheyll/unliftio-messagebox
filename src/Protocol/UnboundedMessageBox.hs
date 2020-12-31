@@ -19,8 +19,7 @@ module Protocol.UnboundedMessageBox
     deliver,
     InBox (),
     OutBox (),
-    InBoxNB (..),
-    Class.InBoxConfig (..),
+    UnboundedMessageBox(..),
   )
 where
 
@@ -53,10 +52,10 @@ receive (MkInBox _ !s) =
 -- | Try to receive a message from an 'InBox',
 -- return @Nothing@ if the queue is empty.
 {-# INLINE tryReceive #-}
-tryReceive :: MonadUnliftIO m => InBox a -> m (Maybe a)
+tryReceive :: MonadUnliftIO m => InBox a -> m (Class.Future a)
 tryReceive (MkInBox _ !s) = liftIO $ do
   !promise <- Unagi.tryReadChan s
-  Unagi.tryRead promise
+  return (Class.Future (Unagi.tryRead promise))
 
 -- | Create an 'OutBox' to write the items
 -- that the given 'InBox' receives.
@@ -91,31 +90,26 @@ data InBox a
 --   The 'OutBox' is the counter part of an 'InBox'.
 newtype OutBox a = MkOutBox (Unagi.InChan a)
 
-instance Class.IsMessageBox InBox OutBox where
-  data InBoxConfig InBox = UnboundedMessageBox
-    deriving stock (Show)
+-- | The (empty) configuration for creating 
+-- 'InBox'es using the 'Class.IsInBoxConfig' methods.
+data UnboundedMessageBox = UnboundedMessageBox
+  deriving stock Show
+
+instance Class.IsInBoxConfig UnboundedMessageBox InBox where
   {-# INLINE newInBox #-}
-  newInBox _ = createInBox
-  {-# INLINE newOutBox #-}
-  newOutBox !i = createOutBoxForInbox i
+  newInBox UnboundedMessageBox = createInBox
 
 -- | A blocking instance that invokes 'receive'.
 instance Class.IsInBox InBox where
+  type OutBox2 InBox = OutBox
   {-# INLINE receive #-}
   receive !i = Just <$> receive i
+  {-# INLINE tryReceive #-}
+  tryReceive !i = tryReceive i
+  {-# INLINE newOutBox2 #-}
+  newOutBox2 !i = createOutBoxForInbox i
 
 -- | A blocking instance that invokes 'deliver'.
 instance Class.IsOutBox OutBox where
   {-# INLINE deliver #-}
   deliver !o !m = deliver o m $> True
-
--- | A wrapper around 'InBox' to have a
--- non-blocking instance of 'Class.IsMessageBox'
--- that invokes 'tryReceive' instead of 'receive'.
-newtype InBoxNB a = InBoxNB (InBox a)
-
--- | A non-blocking instance that invokes 'tryReceive'.
-instance Class.IsInBox InBoxNB where
-  {-# INLINE receive #-}
-  receive (InBoxNB !i) = tryReceive i
-
