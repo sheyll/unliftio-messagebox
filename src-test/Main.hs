@@ -6,11 +6,15 @@ import qualified CornerCaseTests
 import qualified FreshTest
 import qualified MessageBoxClassTest
 import qualified ProtocolsTest
+import System.Environment ( setEnv )
 import qualified Test.Tasty as Tasty
 import qualified UnboundedMessageBoxTest
 
 main :: IO ()
-main = Tasty.defaultMain test
+main =
+  do
+    setEnv "TASTY_NUM_THREADS" "1"
+    Tasty.defaultMain test
 
 test :: Tasty.TestTree
 test =
