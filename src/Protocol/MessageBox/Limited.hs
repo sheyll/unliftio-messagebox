@@ -1,7 +1,9 @@
 -- | Thread safe queues for uni directional message passing
 -- between threads.
 --
--- This message box has an upper limit.
+-- This message box has an upper limit, that means that 
+-- sometimes delivery either fails or is blocked until 
+-- the receiving thread has consumed more messages.
 --
 -- Use this module if the producer(s) outperform the consumer,
 -- but you want the extra safety that the queue blocks the
