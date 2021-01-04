@@ -19,7 +19,7 @@ import UnliftIO (liftIO, MonadUnliftIO, timeout, try)
 -- | A type class for creating 'InBox' instances.
 --
 -- The configuration parameter (if any) for the creation of an
--- inbox. For a bounded message box this might be the limit of
+-- inbox. For a limited message box this might be the limit of
 -- the message queue.
 class IsInBox inbox => IsInBoxConfig cfg inbox | cfg -> inbox where
   -- | Create a new @inbox@.

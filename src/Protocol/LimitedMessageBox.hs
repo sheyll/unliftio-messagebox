@@ -1,7 +1,7 @@
 -- | Thread safe queues for message passing
 -- between many concurrent processes.
 --
--- This message box is __BOUNDED__.
+-- This message box is __LIMITED__.
 --
 -- Use this module if the producer(s) outperform the consumer,
 -- but you want the extra safety that the queue blocks the
@@ -10,7 +10,7 @@
 -- If you are sure that the producers fire at a slower rate
 -- then the rate at which the consumer consumes messages, use this
 -- module.
-module Protocol.BoundedMessageBox
+module Protocol.LimitedMessageBox
   ( createInBox,
     receive,
     tryReceive,
@@ -18,7 +18,7 @@ module Protocol.BoundedMessageBox
     tryToDeliver,
     tryToDeliverAndWait,
     deliver,
-    BoundedMessageBox (..),
+    LimitedMessageBox (..),
     InBox (),
     OutBox (),
     OutBoxNB (..),
@@ -147,12 +147,12 @@ newtype OutBox a = MkOutBox (Unagi.InChan a)
 -- | Contains the (vague) limit of messages that
 -- can be enqueued in an 'OutBox' to be read from
 -- an 'InBox'. 
-newtype BoundedMessageBox = BoundedMessageBox Int
+newtype LimitedMessageBox = LimitedMessageBox Int
   deriving stock (Show)
 
-instance Class.IsInBoxConfig BoundedMessageBox InBox where
+instance Class.IsInBoxConfig LimitedMessageBox InBox where
   {-# INLINE newInBox #-}
-  newInBox (BoundedMessageBox !limit) = createInBox limit
+  newInBox (LimitedMessageBox !limit) = createInBox limit
 
 -- | A blocking instance that invokes 'receive'.
 instance Class.IsInBox InBox where

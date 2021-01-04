@@ -6,7 +6,7 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 
-module UnboundedMessageBoxTest (test) where
+module UnlimitedMessageBoxTest (test) where
 
 import Control.Monad (forM, replicateM)
 import Data.Foldable (Foldable (fold))
@@ -14,7 +14,7 @@ import Data.Functor (($>))
 import Data.Maybe ()
 import Data.Monoid (All (All, getAll))
 import qualified Protocol.MessageBoxClass as Class
-import Protocol.UnboundedMessageBox as MessageBox
+import Protocol.UnlimitedMessageBox as MessageBox
   ( createInBox,
     createOutBoxForInbox,
     deliver,
@@ -33,7 +33,7 @@ import UnliftIO (conc, runConc, timeout)
 test :: Tasty.TestTree
 test =
   Tasty.testGroup
-    "Protocol.UnboundedMessageBox"
+    "Protocol.UnlimitedMessageBox"
     [ Tasty.testGroup
         "Non-Blocking"
         [ Tasty.testCase "receive from an empty queue" $ do

@@ -59,7 +59,7 @@ import Protocol.MessageBoxClass
     WithTimeout (WithTimeout),
     handleMessage,
   )
-import qualified Protocol.UnboundedMessageBox as Unbounded
+import qualified Protocol.UnlimitedMessageBox as Unlimited
 import RIO
   ( Map,
     RIO,
@@ -115,18 +115,18 @@ fetchDspsBench (nFetchesTotal, nClients) =
       startServer ::
         RIO
           (CounterVar CallId)
-          ( Unbounded.OutBox (Message MediaApi),
+          ( Unlimited.OutBox (Message MediaApi),
             Conc (RIO (CounterVar CallId)) ()
           )
       startServer = do
-        serverIn <- newInBox Unbounded.UnboundedMessageBox
+        serverIn <- newInBox Unlimited.UnlimitedMessageBox
         serverOut <- newOutBox2 serverIn
         let dspSet = Set.fromList [0 .. 4096]
         return (serverOut, conc (server serverWork serverIn dspSet))
         where
           server ::
             Int ->
-            Unbounded.InBox (Message MediaApi) ->
+            Unlimited.InBox (Message MediaApi) ->
             Set DspId ->
             RIO (CounterVar CallId) ()
           server 0 _ _ = return ()
@@ -201,8 +201,8 @@ mediaAppBenchmark param = do
   runRIO appCounters (runConc (c1 <> clients))
   where
     spawnMediaApi = do
-      mediaInBox <- Unbounded.createInBox
-      mediaOutBox <- Unbounded.createOutBoxForInbox mediaInBox
+      mediaInBox <- Unlimited.createInBox
+      mediaOutBox <- Unlimited.createOutBoxForInbox mediaInBox
       let startMediaServer =
             void $ mediaServerLoop (mkMediaSimSt (toDspConfig param))
           mediaServerLoop st = do
@@ -221,13 +221,13 @@ mediaAppBenchmark param = do
       return (mediaOutBox, conc startMediaServer)
 
     spawnMixingBroker ::
-      Unbounded.OutBox (Message MediaApi) ->
-      IO (Unbounded.OutBox (Message MixingApi), Conc (RIO AppCounters) ())
+      Unlimited.OutBox (Message MediaApi) ->
+      IO (Unlimited.OutBox (Message MixingApi), Conc (RIO AppCounters) ())
     spawnMixingBroker mediaBoxOut = do
-      mixingInBox <- Unbounded.createInBox
-      mixingOutBox <- Unbounded.createOutBoxForInbox mixingInBox
+      mixingInBox <- Unlimited.createInBox
+      mixingOutBox <- Unlimited.createOutBoxForInbox mixingInBox
       let startMixingServer =
-            let groupMap :: Map MixingGroupId (Unbounded.OutBox (Message MixingApi))
+            let groupMap :: Map MixingGroupId (Unlimited.OutBox (Message MixingApi))
                 groupMap = Map.empty
              in mixingServerLoop (0, groupMap)
           mixingServerLoop !groupMap =
@@ -251,9 +251,9 @@ mediaAppBenchmark param = do
                     )
                 )
           dispatchMixingApi ::
-            (Int, Map MixingGroupId (Unbounded.OutBox (Message MixingApi))) ->
+            (Int, Map MixingGroupId (Unlimited.OutBox (Message MixingApi))) ->
             Message MixingApi ->
-            RIO AppCounters (Int, Map MixingGroupId (Unbounded.OutBox (Message MixingApi)))
+            RIO AppCounters (Int, Map MixingGroupId (Unlimited.OutBox (Message MixingApi)))
           dispatchMixingApi (!nDestroyed, !st) =
             \case
               Blocking cm@(CreateMixingGroup !mgId) !r -> do
@@ -290,11 +290,11 @@ mediaAppBenchmark param = do
                     return (nDestroyed, st)
       return (mixingOutBox, conc startMixingServer)
     spawnMixingGroup ::
-      Unbounded.OutBox (Message MediaApi) ->
-      RIO AppCounters (Unbounded.OutBox (Message MixingApi))
+      Unlimited.OutBox (Message MediaApi) ->
+      RIO AppCounters (Unlimited.OutBox (Message MixingApi))
     spawnMixingGroup !mediaOutBox = do
-      !mgInBox <- Unbounded.createInBox
-      !mgOutBox <- Unbounded.createOutBoxForInbox mgInBox
+      !mgInBox <- Unlimited.createInBox
+      !mgOutBox <- Unlimited.createOutBoxForInbox mgInBox
       let mgLoop (!mgId, !groupMap) =
             try
               ( handleMessage
@@ -391,8 +391,8 @@ mediaAppBenchmark param = do
       let !clients = foldMap spawnClient [0 .. nGroups param - 1]
 
           spawnClient !mixingGroupId = conc $ do
-            eventsIn <- Unbounded.createInBox
-            eventsOut <- Unbounded.createOutBoxForInbox eventsIn
+            eventsIn <- Unlimited.createInBox
+            eventsOut <- Unlimited.createOutBoxForInbox eventsIn
             -- create conference,
             call mixingOutBox (CreateMixingGroup mixingGroupId) 50_000_000
               >>= either

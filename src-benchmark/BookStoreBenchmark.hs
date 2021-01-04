@@ -32,7 +32,7 @@ import Criterion.Types
     nfAppIO,
   )
 import Data.Semigroup (Semigroup (stimes))
-import Protocol.BoundedMessageBox (BoundedMessageBox (BoundedMessageBox))
+import Protocol.LimitedMessageBox (LimitedMessageBox (LimitedMessageBox))
 import Protocol.Command as Command
   ( CallId,
     Command,
@@ -48,7 +48,7 @@ import Protocol.Fresh
     newCounterVar,
   )
 import Protocol.MessageBoxClass (IsInBoxConfig (..), handleMessage, newOutBox2)
-import Protocol.UnboundedMessageBox (UnboundedMessageBox (UnboundedMessageBox))
+import Protocol.UnlimitedMessageBox (UnlimitedMessageBox (UnlimitedMessageBox))
 import RIO
   ( MonadIO (liftIO),
     MonadUnliftIO,
@@ -228,9 +228,9 @@ benchmark =
             )
           | noMessages <- [100_000],
             (mboxImplTitle, impl) <-
-              [ let x = BoundedMessageBox 16 in (show x, onlyCasts mkExampleBook x),
-                let x = UnboundedMessageBox in (show x, onlyCasts mkExampleBook x),
-                let x = BoundedMessageBox 4096 in (show x, onlyCasts mkExampleBook x)
+              [ let x = LimitedMessageBox 16 in (show x, onlyCasts mkExampleBook x),
+                let x = UnlimitedMessageBox in (show x, onlyCasts mkExampleBook x),
+                let x = LimitedMessageBox 4096 in (show x, onlyCasts mkExampleBook x)
               ],
             (senderNo, receiverNo) <-
               [ (1, 1000),
@@ -254,7 +254,7 @@ benchmark =
                 <> show (nCustomers * nGetBooksPerStore * nStores)
             )
             ( nfAppIO
-                (castsAndCalls mkExampleBook UnboundedMessageBox)
+                (castsAndCalls mkExampleBook UnlimitedMessageBox)
                 ((nDonors, nDonationsPerStore), nStores, (nCustomers, nGetBooksPerStore))
             )
           | ((nDonors, nDonationsPerStore), nStores, (nCustomers, nGetBooksPerStore)) <-

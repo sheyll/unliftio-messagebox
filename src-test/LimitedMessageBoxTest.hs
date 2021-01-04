@@ -6,7 +6,7 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 
-module BoundedMessageBoxTest (test) where
+module LimitedMessageBoxTest (test) where
 
 import Control.Monad (forM, forever, replicateM, void)
 import Data.Function (fix)
@@ -14,7 +14,7 @@ import Data.List (sort)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (isJust)
 import Data.Semigroup (All (All, getAll))
-import Protocol.BoundedMessageBox as MessageBox
+import Protocol.LimitedMessageBox as MessageBox
   ( InBox,
     OutBoxNB (..),
     createInBox,
@@ -42,7 +42,7 @@ import UnliftIO.Concurrent (threadDelay)
 test :: Tasty.TestTree
 test =
   Tasty.testGroup
-    "Protocol.BoundedMessageBox"
+    "Protocol.LimitedMessageBox"
     [ Tasty.testGroup
         "Non-Blocking"
         [ Tasty.testCase "receive from an empty queue" $ do

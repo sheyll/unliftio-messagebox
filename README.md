@@ -6,7 +6,7 @@ bad performance in massively concurrent programs.
 
 The library assumes an architecture with a large number 
 of concurrent processes communicating either one-to-one or
-few-to-many using messages passed to bounded queues.
+few-to-many using messages passed to limited queues.
 
 
 Benchmarks

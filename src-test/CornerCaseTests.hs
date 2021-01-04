@@ -16,7 +16,7 @@ import Control.Exception
   ( BlockedIndefinitelyOnMVar (BlockedIndefinitelyOnMVar),
   )
 import Data.Semigroup (Any (Any, getAny), Semigroup (stimes))
-import qualified Protocol.BoundedMessageBox as B
+import qualified Protocol.LimitedMessageBox as B
 import Protocol.Command
   ( CallId (MkCallId),
     Command,
@@ -33,7 +33,7 @@ import Protocol.MessageBoxClass
     OutBox2,
     handleMessage,
   )
-import qualified Protocol.UnboundedMessageBox as U
+import qualified Protocol.UnlimitedMessageBox as U
 import RIO
   ( HasCallStack,
     runRIO,
@@ -66,9 +66,9 @@ test =
     "CornerCaseTests"
     [ testGroup
         "waiting for messages from a dead process"
-        [ testCase "When using the Unbounded Message Box, an exception is thrown" $
+        [ testCase "When using the Unlimited Message Box, an exception is thrown" $
             try @_ @BlockedIndefinitelyOnMVar
-              (waitForMessageFromDeadProcess U.UnboundedMessageBox)
+              (waitForMessageFromDeadProcess U.UnlimitedMessageBox)
               >>= either
                 ( assertEqual
                     "wrong exception thrown: "
@@ -76,30 +76,30 @@ test =
                     . show
                 )
                 (const (assertFailure "Exception expected!")),
-          testCase "When using the Bounded Message Box, the test will timeout" $
-            waitForMessageFromDeadProcess (B.BoundedMessageBox 16)
+          testCase "When using the Limited Message Box, the test will timeout" $
+            waitForMessageFromDeadProcess (B.LimitedMessageBox 16)
               >>= assertEqual "unexpected return value: " SecondReceiveTimedOut
         ],
       testGroup
         "sending messages to a dead process"
-        [ testCase "When using the Unbounded Message Box, sending messages succeeds" $
-            sendMessagesToDeadProcess U.UnboundedMessageBox
+        [ testCase "When using the Unlimited Message Box, sending messages succeeds" $
+            sendMessagesToDeadProcess U.UnlimitedMessageBox
               >>= assertEqual "unexpected result: " SomeMoreMessagesSent,
-          testCase "When using the Blocking Bounded Message Box, sending messages eventually blocks and times out" $
-            sendMessagesToDeadProcess (B.BoundedMessageBox 16)
+          testCase "When using the Blocking Limited Message Box, sending messages eventually blocks and times out" $
+            sendMessagesToDeadProcess (B.LimitedMessageBox 16)
               >>= assertEqual "unexpected result: " SendingMoreMessagesTimedOut
         ],
       testGroup
         "Command"
         [ testGroup
             "waiting for a call reply after the server died"
-            [ testCase "When using the Unbounded Message Box, BlockingCommandTimedOut is returned" $
-                waitForCallReplyFromDeadServer U.UnboundedMessageBox
+            [ testCase "When using the Unlimited Message Box, BlockingCommandTimedOut is returned" $
+                waitForCallReplyFromDeadServer U.UnlimitedMessageBox
                   >>= assertEqual
                     "unexpected result: "
                     (CallFailed (BlockingCommandTimedOut (MkCallId 1))),
-              testCase "When using the Bounded Message Box, BlockingCommandTimedOut is returned" $
-                waitForCallReplyFromDeadServer (B.BoundedMessageBox 16)
+              testCase "When using the Limited Message Box, BlockingCommandTimedOut is returned" $
+                waitForCallReplyFromDeadServer (B.LimitedMessageBox 16)
                   >>= assertEqual
                     "unexpected result: "
                     (CallFailed (BlockingCommandTimedOut (MkCallId 1)))

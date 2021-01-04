@@ -1,6 +1,6 @@
 module Main (main) where
 
-import qualified BoundedMessageBoxTest
+import qualified LimitedMessageBoxTest
 import qualified CommandTest
 import qualified CornerCaseTests
 import qualified FreshTest
@@ -8,7 +8,7 @@ import qualified MessageBoxClassTest
 import qualified ProtocolsTest
 import System.Environment ( setEnv )
 import qualified Test.Tasty as Tasty
-import qualified UnboundedMessageBoxTest
+import qualified UnlimitedMessageBoxTest
 
 main :: IO ()
 main =
@@ -23,8 +23,8 @@ test =
     [ CornerCaseTests.test,
       CommandTest.test,
       MessageBoxClassTest.test,
-      BoundedMessageBoxTest.test,
-      UnboundedMessageBoxTest.test,
+      LimitedMessageBoxTest.test,
+      UnlimitedMessageBoxTest.test,
       ProtocolsTest.test,
       FreshTest.test
     ]

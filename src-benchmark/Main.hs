@@ -30,9 +30,9 @@ import Criterion.Types
     nfAppIO,
   )
 import Data.Semigroup (Semigroup (stimes))
-import Protocol.BoundedMessageBox (BoundedMessageBox (BoundedMessageBox))
+import Protocol.LimitedMessageBox (LimitedMessageBox (LimitedMessageBox))
 import Protocol.MessageBoxClass (newOutBox2, IsInBoxConfig (..), deliver, receive)
-import Protocol.UnboundedMessageBox (UnboundedMessageBox (UnboundedMessageBox))
+import Protocol.UnlimitedMessageBox (UnlimitedMessageBox (UnlimitedMessageBox))
 import RIO (MonadUnliftIO, conc, runConc)
 
 main =
@@ -54,9 +54,9 @@ main =
             )
           | noMessages <- [100_000],
             (mboxImplTitle, impl) <-
-              [ let x = BoundedMessageBox 16 in (show x, unidirectionalMessagePassing mkTestMessage x),
-                let x = UnboundedMessageBox in (show x, unidirectionalMessagePassing mkTestMessage x),
-                let x = BoundedMessageBox 4096 in (show x, unidirectionalMessagePassing mkTestMessage x)
+              [ let x = LimitedMessageBox 16 in (show x, unidirectionalMessagePassing mkTestMessage x),
+                let x = UnlimitedMessageBox in (show x, unidirectionalMessagePassing mkTestMessage x),
+                let x = LimitedMessageBox 4096 in (show x, unidirectionalMessagePassing mkTestMessage x)
               ],
             (senderNo, receiverNo) <-
               [ (1, 1000),

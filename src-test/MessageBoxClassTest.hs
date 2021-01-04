@@ -6,9 +6,9 @@ import Control.Monad (forM, replicateM)
 import Data.Foldable (Foldable (fold))
 import Data.Maybe (isJust)
 import Data.Monoid (All (All, getAll))
-import qualified Protocol.BoundedMessageBox as B
+import qualified Protocol.LimitedMessageBox as B
 import Protocol.MessageBoxClass (IsInBox (..), IsInBoxConfig (..), IsOutBox (..))
-import qualified Protocol.UnboundedMessageBox as U
+import qualified Protocol.UnlimitedMessageBox as U
 import Test.QuickCheck
   ( Positive (Positive),
     Small (Small),
@@ -29,10 +29,10 @@ test =
 
       Tasty.testGroup
         "all n messages of all k outBoxes are received by the inbox"
-        [ realWorldTest U.UnboundedMessageBox,
-          realWorldTest (B.BoundedMessageBox 2),
-          realWorldTest (B.BoundedMessageBox 16),
-          realWorldTest (B.BoundedMessageBox 128)
+        [ realWorldTest U.UnlimitedMessageBox,
+          realWorldTest (B.LimitedMessageBox 2),
+          realWorldTest (B.LimitedMessageBox 16),
+          realWorldTest (B.LimitedMessageBox 128)
         ]
     ]
 

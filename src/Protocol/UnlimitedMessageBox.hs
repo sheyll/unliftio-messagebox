@@ -1,7 +1,7 @@
 -- | Thread safe queues for message passing
 -- between many concurrent processes.
 --
--- This message box is __UNBOUNDED__.
+-- This message box is __UNLIMITED__.
 --
 -- Good single producer/single consumer performance
 --
@@ -10,8 +10,8 @@
 -- consumes messages, use this module.
 --
 -- Otherwise use the more conservative
--- "Protocol.BoundedMessageBox" module.
-module Protocol.UnboundedMessageBox
+-- "Protocol.LimitedMessageBox" module.
+module Protocol.UnlimitedMessageBox
   ( createInBox,
     receive,
     tryReceive,
@@ -19,7 +19,7 @@ module Protocol.UnboundedMessageBox
     deliver,
     InBox (),
     OutBox (),
-    UnboundedMessageBox(..),
+    UnlimitedMessageBox(..),
   )
 where
 
@@ -92,12 +92,12 @@ newtype OutBox a = MkOutBox (Unagi.InChan a)
 
 -- | The (empty) configuration for creating 
 -- 'InBox'es using the 'Class.IsInBoxConfig' methods.
-data UnboundedMessageBox = UnboundedMessageBox
+data UnlimitedMessageBox = UnlimitedMessageBox
   deriving stock Show
 
-instance Class.IsInBoxConfig UnboundedMessageBox InBox where
+instance Class.IsInBoxConfig UnlimitedMessageBox InBox where
   {-# INLINE newInBox #-}
-  newInBox UnboundedMessageBox = createInBox
+  newInBox UnlimitedMessageBox = createInBox
 
 -- | A blocking instance that invokes 'receive'.
 instance Class.IsInBox InBox where
