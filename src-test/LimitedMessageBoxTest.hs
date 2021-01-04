@@ -14,18 +14,18 @@ import Data.List (sort)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (isJust)
 import Data.Semigroup (All (All, getAll))
-import Protocol.LimitedMessageBox as MessageBox
-  ( InBox,
-    OutBoxNB (..),
-    createInBox,
-    createOutBoxForInbox,
+import Protocol.MessageBox.Limited as MessageBox
+  ( MessageBox,
+    InputNB (..),
+    create,
+    newInput,
     deliver,
     receive,
     tryReceive,
     tryToDeliver,
     tryToDeliverAndWait,
   )
-import qualified Protocol.MessageBoxClass as Class
+import qualified Protocol.MessageBox.Class as Class
 import Test.QuickCheck
 import Test.Tasty as Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit as Tasty
@@ -42,19 +42,19 @@ import UnliftIO.Concurrent (threadDelay)
 test :: Tasty.TestTree
 test =
   Tasty.testGroup
-    "Protocol.LimitedMessageBox"
+    "Protocol.MessageBox.Limited"
     [ Tasty.testGroup
         "Non-Blocking"
         [ Tasty.testCase "receive from an empty queue" $ do
-            i <- MessageBox.createInBox 10
+            i <- MessageBox.create 10
             f <- Class.tryReceive i
-            timeout 1_000_000 (Class.takeNow f)
+            timeout 1_000_000 (Class.tryNow f)
               >>= assertEqual "the future must not block and should return be emtpy" (Just (Nothing @Int)),
           Tasty.testCase "send to full queue" $ do
-            i <- MessageBox.createInBox 10
-            o <- MessageBox.createOutBoxForInbox i
+            i <- MessageBox.create 10
+            o <- MessageBox.newInput i
             let sendWhileNotFull = do
-                  success <- Class.deliver (OutBoxNB o) 2
+                  success <- Class.deliver (InputNB o) 2
                   if not success then sendWhileNotFull else pure ()
             timeout 1_000_000 sendWhileNotFull
               >>= assertBool "deliver must not block" . isJust
@@ -62,29 +62,29 @@ test =
       Tasty.testGroup
         "single threaded"
         [ Tasty.testGroup
-            "createInBox and createOutBoxForInbox"
+            "create and newInput"
             [ testProperty "when createBox is applied to a limit > 0, then limit messages can be enqueued" $ \limit ->
                 limit > 0 && limit <= 100
                   ==> ioProperty
                   $ do
-                    i <- MessageBox.createInBox limit :: IO (InBox String)
-                    o <- MessageBox.createOutBoxForInbox i
+                    i <- MessageBox.create limit :: IO (MessageBox String)
+                    o <- MessageBox.newInput i
                     results <- replicateM limit (tryToDeliver o "test message")
                     pure $ last results,
               testProperty "when createBox is applied to a limit <= 0, then no messages can be enqueued" $ \limit ->
                 limit <= 0
                   ==> ioProperty
                   $ do
-                    i <- MessageBox.createInBox limit :: IO (InBox String)
-                    o <- MessageBox.createOutBoxForInbox i
+                    i <- MessageBox.create limit :: IO (MessageBox String)
+                    o <- MessageBox.newInput i
                     results <- replicateM limit (tryToDeliver o "test message")
                     return $ and results,
               testProperty "when the message box is 'full' not more then one more messages can be enqueued" $
                 \(Positive (Small nOfMessagesThatCanBeWritten)) (Positive (Small x)) ->
                   ioProperty $ do
                     let noOfMessagesAttemptedToWrite = nOfMessagesThatCanBeWritten + x
-                    i <- MessageBox.createInBox nOfMessagesThatCanBeWritten
-                    o <- MessageBox.createOutBoxForInbox i
+                    i <- MessageBox.create nOfMessagesThatCanBeWritten
+                    o <- MessageBox.newInput i
                     let messages = replicate noOfMessagesAttemptedToWrite "some test message"
                     results <- traverse (tryToDeliver o) messages
                     let (expectedSuccesses, rest) = splitAt nOfMessagesThatCanBeWritten results
@@ -106,19 +106,19 @@ test =
             [ Tasty.testGroup
                 "tryToDeliver"
                 [ Tasty.testCase "When the message limit is 2, two messages can be enqueued" $ do
-                    i <- MessageBox.createInBox 2
-                    o <- MessageBox.createOutBoxForInbox i
+                    i <- MessageBox.create 2
+                    o <- MessageBox.newInput i
                     r1 <- tryToDeliver o "Messge 1"
                     r1 @?= True
                     r2 <- tryToDeliver o "Messge 2"
                     r2 @?= True,
-                  Tasty.testCase "when writing into an empty OutBox, True is returned" $ do
-                    i <- createInBox 16
-                    o <- createOutBoxForInbox i
+                  Tasty.testCase "when writing into an empty Input, True is returned" $ do
+                    i <- create 16
+                    o <- newInput i
                     tryToDeliver o "Stop the climate crisis" >>= (@?= True),
-                  Tasty.testCase "when writing into a full OutBox tryToDeliver returns False" $ do
-                    i <- createInBox 16
-                    o <- createOutBoxForInbox i
+                  Tasty.testCase "when writing into a full Input tryToDeliver returns False" $ do
+                    i <- create 16
+                    o <- newInput i
                     fix $ \next ->
                       tryToDeliver o "Stop the climate crisis" >>= \case
                         False -> assertBool "expected 'False' when the queue is full" True
@@ -127,15 +127,15 @@ test =
               Tasty.testGroup
                 "tryToDeliverAndWait"
                 [ Tasty.testCase "When the message limit is 2, two messages can be enqueued" $ do
-                    i <- MessageBox.createInBox 2
-                    o <- MessageBox.createOutBoxForInbox i
+                    i <- MessageBox.create 2
+                    o <- MessageBox.newInput i
                     r1 <- tryToDeliverAndWait 1 o "Messge 1"
                     r1 @?= True
                     r2 <- tryToDeliverAndWait 1 o "Messge 2"
                     r2 @?= True,
-                  Tasty.testCase "when writing into a full OutBox tryToDeliver returns False after the timeout" $ do
-                    i <- createInBox 16
-                    o <- createOutBoxForInbox i
+                  Tasty.testCase "when writing into a full Input tryToDeliver returns False after the timeout" $ do
+                    i <- create 16
+                    o <- newInput i
                     fix $ \next ->
                       tryToDeliver o "Stop the climate crisis" >>= \case
                         False -> return ()
@@ -150,26 +150,26 @@ test =
                 \(NonEmpty (ms :: [(Bool, Double, [String])])) (Positive (Small nOfMessagesThatCanBeWritten)) ->
                   withMaxSuccess 20 $
                     ioProperty $ do
-                      i <- MessageBox.createInBox nOfMessagesThatCanBeWritten
-                      o <- MessageBox.createOutBoxForInbox i
+                      i <- MessageBox.create nOfMessagesThatCanBeWritten
+                      o <- MessageBox.newInput i
                       allFine <- forM ms $ \message -> do
                         response <- tryToDeliver o message
                         f <- tryReceive i
-                        receiveResult <- Class.takeNow f
+                        receiveResult <- Class.tryNow f
                         return (response && receiveResult == Just message)
                       return (and allFine),
               testProperty "the future for the first message, receives only the first message" $
                 \(NonEmpty (ms :: [(Bool, Double, [String])])) (Positive (Small nOfMessagesThatCanBeWritten)) ->
                   withMaxSuccess 20 $
                     ioProperty $ do
-                      i <- MessageBox.createInBox nOfMessagesThatCanBeWritten
-                      o <- MessageBox.createOutBoxForInbox i
+                      i <- MessageBox.create nOfMessagesThatCanBeWritten
+                      o <- MessageBox.newInput i
                       futures <- replicateM (length ms) (tryReceive i)
                       allDelivered <- forM ms (fmap All . tryToDeliver o)
                       allReceived <-
                         mapConcurrently
                           ( \(message, future) -> fix $ \notNow -> do
-                              Class.takeNow future >>= maybe notNow (return . All . (== message))
+                              Class.tryNow future >>= maybe notNow (return . All . (== message))
                           )
                           (ms `zip` futures)
                       return (getAll (mconcat allDelivered <> mconcat allReceived)),
@@ -183,22 +183,22 @@ test =
                     $ ioProperty $
                       do
                         let valueGenerator = [0 ..]
-                        i <- MessageBox.createInBox queueSize
-                        o <- MessageBox.createOutBoxForInbox i
+                        i <- MessageBox.create queueSize
+                        o <- MessageBox.newInput i
 
                         -- write queueSize messages
                         let (messages1, ~valueGenerator1) = splitAt queueSize valueGenerator
                         results1 <- traverse (tryToDeliver o) messages1
                         let sendSuccessfully1 = and results1
                         -- read n messages
-                        receivedMessages1 <- replicateM n (tryReceive i >>= Class.takeNow)
+                        receivedMessages1 <- replicateM n (tryReceive i >>= Class.tryNow)
 
                         -- write n messages
                         let (messages2, ~_valueGenerator2) = splitAt n valueGenerator1
                         results2 <- traverse (tryToDeliver o) messages2
                         let sendSuccessfully2 = and results2
                         -- read queueSize messages
-                        receivedMessages2 <- replicateM queueSize (tryReceive i >>= Class.takeNow)
+                        receivedMessages2 <- replicateM queueSize (tryReceive i >>= Class.tryNow)
 
                         let receivedInOrder =
                               receivedMessages1 ++ receivedMessages2
@@ -216,7 +216,7 @@ test =
         [ Tasty.testGroup
             "1 Writer x receivers y messages"
             [ Tasty.testProperty
-                "when using InBoxes with a limit greater than the number\
+                "when using Outputes with a limit greater than the number\
                 \ of messsages in the test, tryToDeliver always succeeds"
                 $ \(Positive (Small nMsgs')) (Positive (Small nReceivers')) ->
                   withMaxSuccess 20 $
@@ -224,8 +224,8 @@ test =
                       let nMsgs = nMsgs' `rem` 100
                       let nReceivers = nReceivers' `rem` 100
                       !outBoxesAndReaders <- replicateM nReceivers $ do
-                        !ib <- createInBox (max 128 nMsgs)
-                        !ob <- createOutBoxForInbox ib
+                        !ib <- create (max 128 nMsgs)
+                        !ob <- newInput ib
                         pure
                           ( ob,
                             fix
@@ -255,14 +255,14 @@ test =
                                 )
                         ),
               Tasty.testCase
-                "when using InBoxes with a limit smaller than half of the number\
+                "when using Outputes with a limit smaller than half of the number\
                 \ of messsages in the test, tryToDeliver first succeeds and then fails"
                 $ do
                   let nGood = 128
                       nAmbigous = 2 * nGood
                       nBad = 123
 
-                  receiverOut <- createInBox nGood >>= createOutBoxForInbox
+                  receiverOut <- create nGood >>= newInput
                   let doReceive = threadDelay 300_000_000
 
                   let good = [("Test-Message GOOD", Just n) | n <- [1 .. nGood :: Int]]
@@ -294,8 +294,8 @@ test =
                       tSend = 500
                       tRecv = 5 * tSend
 
-                  receiverIn <- createInBox nGood
-                  receiverOut <- createOutBoxForInbox receiverIn
+                  receiverIn <- create nGood
+                  receiverOut <- newInput receiverIn
                   let doReceive = void (forever (receive receiverIn >> threadDelay tRecv))
 
                   let !good = [("Test-Message GOOD", Just n) | !n <- [1 .. nGood :: Int]]
@@ -326,8 +326,8 @@ test =
                           tSend = 200
                           tRecv = 5 * tSend
 
-                      receiverIn <- createInBox queueSize
-                      receiverOut <- createOutBoxForInbox receiverIn
+                      receiverIn <- create queueSize
+                      receiverOut <- newInput receiverIn
                       let doReceive =
                             fix $ \continue -> do
                               threadDelay tRecv
@@ -361,8 +361,8 @@ test =
                   let queueSize = nSenders
                       nMsgs = 100
                       nSenders = 1000 :: Int
-                  !receiverIn <- createInBox queueSize
-                  !receiverOut <- createOutBoxForInbox receiverIn
+                  !receiverIn <- create queueSize
+                  !receiverOut <- newInput receiverIn
                   let doReceive = flip fix Map.empty $ \continue !resultMap ->
                         if nSenders == Map.size resultMap
                           && all (== nMsgs) (length <$> Map.elems resultMap)

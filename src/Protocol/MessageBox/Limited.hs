@@ -1,98 +1,100 @@
--- | Thread safe queues for message passing
--- between many concurrent processes.
+-- | Thread safe queues for uni directional message passing
+-- between threads.
 --
--- This message box is __LIMITED__.
+-- This message box has an upper limit.
 --
 -- Use this module if the producer(s) outperform the consumer,
 -- but you want the extra safety that the queue blocks the
--- 'OutBox' after a certain message limit is reached.
+-- 'Input' after a certain message limit is reached.
 --
 -- If you are sure that the producers fire at a slower rate
 -- then the rate at which the consumer consumes messages, use this
 -- module.
-module Protocol.LimitedMessageBox
-  ( createInBox,
+module Protocol.MessageBox.Limited
+  ( create,
     receive,
     tryReceive,
-    createOutBoxForInbox,
+    newInput,
     tryToDeliver,
     tryToDeliverAndWait,
     deliver,
     LimitedMessageBox (..),
-    InBox (),
-    OutBox (),
-    OutBoxNB (..),
+    MessageBox (),
+    Input (),
+    InputNB (..),
   )
 where
 
 import qualified Control.Concurrent.Chan.Unagi.Bounded as Unagi
 import Data.Functor (($>))
 import Data.Maybe (fromMaybe)
-import qualified Protocol.MessageBoxClass as Class
+import qualified Protocol.MessageBox.Class as Class
 import UnliftIO
   ( MonadIO (liftIO),
     MonadUnliftIO,
     timeout,
   )
 
--- | Create an 'InBox' with an underlying
--- message queue with a given message limit.
+-- | Create a message box to which messages can be
+-- enqueued using an 'Input'.
 --
--- From an 'InBox' a corresponding 'OutBox' can
--- be made, that can be passed to some potential
--- communication partners.
-{-# INLINE createInBox #-}
-createInBox :: MonadUnliftIO m => Int -> m (InBox a)
-createInBox !limit = do
+-- The underlying message queue has roughly the
+-- given message limit.
+--
+-- Use 'newInput' to create a corresponding 
+-- 'Input', that can be passed to some potential
+-- communication partners/threads.
+{-# INLINE create #-}
+create :: MonadUnliftIO m => Int -> m (MessageBox a)
+create !limit = do
   (!inChan, !outChan) <- liftIO (Unagi.newChan limit)
-  return $! MkInBox inChan outChan
+  return $! MkOutput inChan outChan
 
--- | Wait for and receive a message from an 'InBox'.
+-- | Wait for and receive a message from an 'MessageBox'.
 {-# INLINE receive #-}
-receive :: MonadUnliftIO m => InBox a -> m a
-receive (MkInBox _ !s) =
+receive :: MonadUnliftIO m => MessageBox a -> m a
+receive (MkOutput _ !s) =
   liftIO (Unagi.readChan s)
 
 -- | Return a 'Future' for the next value that will be received.
 {-# INLINE tryReceive #-}
-tryReceive :: MonadUnliftIO m => InBox a -> m (Class.Future a)
-tryReceive (MkInBox _ !s) = liftIO $ do
+tryReceive :: MonadUnliftIO m => MessageBox a -> m (Class.Future a)
+tryReceive (MkOutput _ !s) = liftIO $ do
   (!promise, _) <- Unagi.tryReadChan s
   return (Class.Future (Unagi.tryRead promise))
 
--- | Create an 'OutBox' to write the items
--- that the given 'InBox' receives.
-{-# INLINE createOutBoxForInbox #-}
-createOutBoxForInbox :: MonadUnliftIO m => InBox a -> m (OutBox a)
-createOutBoxForInbox (MkInBox !s _) = return $! MkOutBox s
+-- | Create an 'Input' to write the items
+-- that the given 'MessageBox' receives.
+{-# INLINE newInput #-}
+newInput :: MonadUnliftIO m => MessageBox a -> m (Input a)
+newInput (MkOutput !s _) = return $! MkInput s
 
--- | Put a message into the 'OutBox'
--- of an 'InBox', such that the process
--- reading the 'InBox' receives the message.
+-- | Put a message into an 'Input', such that the 'MessageBox' 
+-- receives the message.
 --
--- If the 'InBox' is full, wait until the end of time
+-- If the 'MessageBox' is full, wait until the end of time
 -- or that the message box is not full anymore.
 {-# INLINE deliver #-}
-deliver :: MonadUnliftIO m => OutBox a -> a -> m ()
-deliver (MkOutBox !s) !a =
+deliver :: MonadUnliftIO m => Input a -> a -> m ()
+deliver (MkInput !s) !a =
   liftIO $ Unagi.writeChan s a
 
--- | Try to put a message into the 'OutBox'
--- of an 'InBox', such that the process
--- reading the 'InBox' receives the message.
+-- | Try to put a message into the 'Input'
+-- of an 'MessageBox', such that the process
+-- reading the 'MessageBox' receives the message.
 --
--- If the 'InBox' is full return False.
+-- If the 'MessageBox' is full return False.
 {-# INLINE tryToDeliver #-}
-tryToDeliver :: MonadUnliftIO m => OutBox a -> a -> m Bool
-tryToDeliver (MkOutBox !s) !a =
+tryToDeliver :: MonadUnliftIO m => Input a -> a -> m Bool
+tryToDeliver (MkInput !s) !a =
   liftIO $ Unagi.tryWriteChan s a
 
--- | Send a message by putting it into the 'OutBox'
--- of an 'InBox', such that the process
--- reading the 'InBox' receives the message.
+-- | Send a message by putting it into the 'Input'
+-- of an 'MessageBox', such that the process
+-- reading the 'MessageBox' receives the message.
 --
 -- Return False if the
--- 'InBox' has been closed or is full.
+-- 'MessageBox' has been closed or is full.
 --
 -- This assumes that the queue is likely empty, and
 -- tries 'tryToDeliver' first before wasting any
@@ -100,7 +102,7 @@ tryToDeliver (MkOutBox !s) !a =
 tryToDeliverAndWait ::
   MonadUnliftIO m =>
   Int ->
-  OutBox a ->
+  Input a ->
   a ->
   m Bool
 tryToDeliverAndWait !t !o !a =
@@ -124,62 +126,61 @@ tryToDeliverAndWait !t !o !a =
 
 -- | A message queue out of which messages can by 'receive'd.
 --
--- This is the counter part of 'OutBox'. Can be used for reading
+-- This is the counter part of 'Input'. Can be used for reading
 -- messages.
 --
 -- Messages can be received by 'receive' or 'tryReceive'.
-data InBox a
-  = MkInBox
+data MessageBox a
+  = MkOutput
       !(Unagi.InChan a)
       !(Unagi.OutChan a)
 
 -- | A message queue into which messages can be enqued by,
 --   e.g. 'tryToDeliver'.
---   Messages can be received from an 'InBox`.
+--   Messages can be received from an 'MessageBox`.
 --
---   The 'OutBox' is the counter part of an 'InBox'.
-newtype OutBox a = MkOutBox (Unagi.InChan a)
+--   The 'Input' is the counter part of an 'MessageBox'.
+newtype Input a = MkInput (Unagi.InChan a)
 
--- * 'Class.IsInBoxConfig' instances
+-- * 'Class.IsMessageBoxFactory' instances
 
 -- ** Blocking
 
 -- | Contains the (vague) limit of messages that
--- can be enqueued in an 'OutBox' to be read from
--- an 'InBox'. 
+-- can be enqueued in an 'Input' to be read from
+-- an 'MessageBox'. 
 newtype LimitedMessageBox = LimitedMessageBox Int
   deriving stock (Show)
 
-instance Class.IsInBoxConfig LimitedMessageBox InBox where
-  {-# INLINE newInBox #-}
-  newInBox (LimitedMessageBox !limit) = createInBox limit
+instance Class.IsMessageBoxFactory LimitedMessageBox MessageBox where
+  {-# INLINE newMessageBox #-}
+  newMessageBox (LimitedMessageBox !limit) = create limit
 
 -- | A blocking instance that invokes 'receive'.
-instance Class.IsInBox InBox where
-  type OutBox2 InBox = OutBox
+instance Class.IsMessageBox MessageBox where
+  type Input MessageBox = Input
   {-# INLINE receive #-}
   receive !i = Just <$> receive i
   {-# INLINE tryReceive #-}
   tryReceive !i = tryReceive i
-  {-# INLINE newOutBox2 #-}
-  newOutBox2 !i = createOutBoxForInbox i
+  {-# INLINE newInput #-}
+  newInput !i = newInput i
 
 -- | A blocking instance that invokes 'deliver'.
-instance Class.IsOutBox OutBox where
+instance Class.IsInput Input where
   {-# INLINE deliver #-}
   deliver !o !a = deliver o a $> True
 
 --  ** Non-Blocking
 
--- | A wrapper around 'OutBox' to have a
--- non-blocking instance of 'Class.IsInBoxConfig'
+-- | A wrapper around 'Input'
 -- that invokes 'tryToDeliver' instead of 'deliver'.
 --
--- Used in conjunction with 'OutBoxNB'.
-newtype OutBoxNB a = OutBoxNB (OutBox a)
+-- Used in conjunction with 'InputNB'.
+newtype InputNB a = InputNB (Input a)
 
 -- | A non-blocking instance
 -- that invokes 'tryToDeliver'.
-instance Class.IsOutBox OutBoxNB where
+instance Class.IsInput InputNB where
   {-# INLINE deliver #-}
-  deliver (OutBoxNB !o) !a = tryToDeliver o a
+  deliver (InputNB !o) !a = tryToDeliver o a

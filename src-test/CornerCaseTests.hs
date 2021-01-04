@@ -16,24 +16,25 @@ import Control.Exception
   ( BlockedIndefinitelyOnMVar (BlockedIndefinitelyOnMVar),
   )
 import Data.Semigroup (Any (Any, getAny), Semigroup (stimes))
-import qualified Protocol.LimitedMessageBox as B
+import qualified Protocol.MessageBox.Limited as B
+import qualified Protocol.Command.CallId as CallId
+import Protocol.Command.CallId
+  ( CallId (MkCallId) )
 import Protocol.Command
-  ( CallId (MkCallId),
-    Command,
+  ( Command,
     CommandError (BlockingCommandTimedOut),
     Message (Blocking),
     ReturnType (Return),
     call,
-    newCallIdCounter,
   )
-import Protocol.MessageBoxClass
-  ( IsInBox (newOutBox2, receive),
-    IsInBoxConfig (..),
-    IsOutBox (deliver),
-    OutBox2,
+import Protocol.MessageBox.Class
+  ( IsMessageBox (newInput, receive),
+    IsMessageBoxFactory (..),
+    IsInput (deliver),
+    Input,
     handleMessage,
   )
-import qualified Protocol.UnlimitedMessageBox as U
+import qualified Protocol.MessageBox.Unlimited as U
 import RIO
   ( HasCallStack,
     runRIO,
@@ -114,20 +115,20 @@ data WaitForMessageFromDeadProcessResult
   deriving stock (Show, Eq)
 
 waitForMessageFromDeadProcess ::
-  (HasCallStack, IsInBoxConfig cfg inbox) =>
+  (HasCallStack, IsMessageBoxFactory cfg output) =>
   cfg ->
   IO WaitForMessageFromDeadProcessResult
-waitForMessageFromDeadProcess inboxCfg =
+waitForMessageFromDeadProcess outputCfg =
   do
     firstMessageSent <- newEmptyMVar
     let msg1 = 42
-    inbox <- newInBox inboxCfg
+    output <- newMessageBox outputCfg
     _ <- forkIO $ do
-      outbox <- newOutBox2 inbox
-      deliver outbox msg1 >>= assertBool "first message not sent!"
+      input <- newInput output
+      deliver input msg1 >>= assertBool "first message not sent!"
       putMVar firstMessageSent ()
     takeMVar firstMessageSent
-    receive inbox
+    receive output
       >>= maybe
         (assertFailure "failed to receive first message")
         (assertEqual "invalid first message received!" msg1)
@@ -137,7 +138,7 @@ waitForMessageFromDeadProcess inboxCfg =
     threadDelay 10_000
     timeout
       200_000
-      ( receive inbox
+      ( receive output
           >>= maybe
             (return SecondReceiveReturnedNothing)
             ( \r -> do
@@ -156,10 +157,10 @@ data SendMessageToDeadProcessResult
   deriving stock (Show, Eq)
 
 sendMessagesToDeadProcess ::
-  (HasCallStack, IsInBoxConfig cfg inbox) =>
+  (HasCallStack, IsMessageBoxFactory cfg output) =>
   cfg ->
   IO SendMessageToDeadProcessResult
-sendMessagesToDeadProcess inboxCfg =
+sendMessagesToDeadProcess outputCfg =
   do
     ready <- newEmptyMVar
     firstMessageSent <- newEmptyMVar
@@ -167,14 +168,14 @@ sendMessagesToDeadProcess inboxCfg =
     let msg1 = 42
 
     _receiver <- forkIO $ do
-      inbox <- newInBox inboxCfg
-      outbox <- newOutBox2 inbox
-      putMVar ready outbox
+      output <- newMessageBox outputCfg
+      input <- newInput output
+      putMVar ready input
       takeMVar firstMessageSent
-      receive inbox >>= putMVar done
+      receive output >>= putMVar done
 
-    outbox <- takeMVar ready
-    deliver outbox msg1 >>= assertBool "first message not sent!"
+    input <- takeMVar ready
+    deliver input msg1 >>= assertBool "first message not sent!"
     putMVar firstMessageSent ()
     takeMVar done >>= assertEqual "first message invalid" (Just msg1)
     threadDelay 10_000
@@ -184,7 +185,7 @@ sendMessagesToDeadProcess inboxCfg =
 
     timeout
       1_000_000
-      (stimes 100 (Any <$> deliver outbox msg1))
+      (stimes 100 (Any <$> deliver input msg1))
       >>= maybe
         (return SendingMoreMessagesTimedOut)
         ( \r ->
@@ -203,50 +204,50 @@ data WaitForCallReplyFromDeadServerResult
   deriving stock (Show, Eq)
 
 waitForCallReplyFromDeadServer ::
-  (IsInBoxConfig cfg inbox) =>
+  (IsMessageBoxFactory cfg output) =>
   cfg ->
   IO WaitForCallReplyFromDeadServerResult
-waitForCallReplyFromDeadServer inboxCfg =
+waitForCallReplyFromDeadServer outputCfg =
   do
     ready <- newEmptyMVar
     (cr, sr) <-
       concurrently
         (waitForCallReplyFromDeadServerClient ready)
-        (waitForCallReplyFromDeadServerServer inboxCfg ready)
+        (waitForCallReplyFromDeadServerServer outputCfg ready)
     assertEqual "unexpected server process exit: " () sr
     return cr
 
 waitForCallReplyFromDeadServerClient ::
-  (MonadIO m, IsOutBox o) =>
+  (MonadIO m, IsInput o) =>
   MVar (o (Message TestServer)) ->
   m WaitForCallReplyFromDeadServerResult
 waitForCallReplyFromDeadServerClient ready = do
-  outbox <- takeMVar ready
-  cic <- newCallIdCounter
-  runRIO cic (threadDelay 1_000 >> call outbox TestCall 100_000)
+  input <- takeMVar ready
+  cic <- CallId.newCallIdCounter
+  runRIO cic (threadDelay 1_000 >> call input TestCall 100_000)
     >>= either
       (return . CallFailed)
       (const (return WaitForCallReplyFromDeadServerResult))
 
 waitForCallReplyFromDeadServerServer ::
-  (IsInBoxConfig cfg inbox) =>
+  (IsMessageBoxFactory cfg output) =>
   cfg ->
-  MVar (OutBox2 inbox (Message TestServer)) ->
+  MVar (Input output (Message TestServer)) ->
   IO ()
-waitForCallReplyFromDeadServerServer inboxCfg ready = do
-  inbox <- newInBox inboxCfg
-  outbox <- newOutBox2 inbox
-  putMVar ready outbox
+waitForCallReplyFromDeadServerServer outputCfg ready = do
+  output <- newMessageBox outputCfg
+  input <- newInput output
+  putMVar ready input
   -- threadDelay 1_000
-  handleLoop inbox
+  handleLoop output
   where
     handleLoop ::
-      (MonadUnliftIO m, IsInBox inbox) =>
-      inbox (Message TestServer) ->
+      (MonadUnliftIO m, IsMessageBox output) =>
+      output (Message TestServer) ->
       m ()
-    handleLoop inbox =
+    handleLoop output =
       handleMessage
-        inbox
+        output
         ( \case
             Blocking TestCall _r -> do
               _ <- forkIO $ do
@@ -256,7 +257,7 @@ waitForCallReplyFromDeadServerServer inboxCfg ready = do
               return ()
         )
         >>= maybe
-          (yield >> handleLoop inbox)
+          (yield >> handleLoop output)
           return
 
 data TestServer
@@ -270,7 +271,7 @@ deriving stock instance Show (Command TestServer ( 'Return ()))
 
 -- data ServerState protocol model = MkServerState
 --   { state :: model,
---     self :: OutBox protocol
+--     self :: Input protocol
 --   }
 
 -- data ServerLoopResult model where
@@ -291,7 +292,7 @@ deriving stock instance Show (Command TestServer ( 'Return ()))
 --   InitCallback protocol model initErrror m ->
 --   UpdateCallback protocol model m ->
 --   CleanupCallback protocol model m ->
---   m (Either initError (OutBox protocol))
+--   m (Either initError (Input protocol))
 -- forkServer = undefined
 
 -- data Counter

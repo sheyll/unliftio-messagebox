@@ -32,23 +32,25 @@ import Criterion.Types
     nfAppIO,
   )
 import Data.Semigroup (Semigroup (stimes))
-import Protocol.LimitedMessageBox (LimitedMessageBox (LimitedMessageBox))
 import Protocol.Command as Command
-  ( CallId,
-    Command,
-    HasCallIdCounter (getCallIdCounter, putCallIdCounter),
+  ( Command,
     Message (Blocking, NonBlocking),
     ReturnType (FireAndForget, Return),
     call,
     cast,
     replyTo,
   )
+import Protocol.Command.CallId
+  ( CallId,
+    HasCallIdCounter (getCallIdCounter, putCallIdCounter),
+  )
 import Protocol.Fresh
   ( CounterVar,
     newCounterVar,
   )
-import Protocol.MessageBoxClass (IsInBoxConfig (..), handleMessage, newOutBox2)
-import Protocol.UnlimitedMessageBox (UnlimitedMessageBox (UnlimitedMessageBox))
+import Protocol.MessageBox.Class (IsMessageBoxFactory (..), handleMessage, newInput)
+import Protocol.MessageBox.Limited (LimitedMessageBox (LimitedMessageBox))
+import Protocol.MessageBox.Unlimited (UnlimitedMessageBox (UnlimitedMessageBox))
 import RIO
   ( MonadIO (liftIO),
     MonadUnliftIO,
@@ -97,7 +99,7 @@ instance HasCallIdCounter BookStoreEnv where
   putCallIdCounter newFresh MkBookStoreEnv {_fresh} = MkBookStoreEnv {_fresh = newFresh}
 
 onlyCasts ::
-  (MonadUnliftIO m, IsInBoxConfig cfg inbox) =>
+  (MonadUnliftIO m, IsMessageBoxFactory cfg output) =>
   (Int -> Book) ->
   cfg ->
   (Int, Int, Int) ->
@@ -105,17 +107,17 @@ onlyCasts ::
 onlyCasts !msgGen !impl (!nP, !nMTotal, !nC) = do
   freshCounter <- newCounterVar
   runRIO (MkBookStoreEnv {_fresh = freshCounter}) $ do
-    bookStoreInBox <- newInBox impl
-    bookStoreOutBox <- newOutBox2 bookStoreInBox
+    bookStoreOutput <- newMessageBox impl
+    bookStoreInput <- newInput bookStoreOutput
     let producer 0 = pure ()
         producer workLeft = do
-          ok <- cast bookStoreOutBox (Donate $ msgGen 1)
+          ok <- cast bookStoreInput (Donate $ msgGen 1)
           unless ok (error "cast failed!")
           producer (workLeft - 1)
     let consumer 0 = pure ()
         consumer workLeft =
           let handler =
-                handleMessage bookStoreInBox $
+                handleMessage bookStoreOutput $
                   \case
                     NonBlocking _actual -> do
                       return Nothing
@@ -136,7 +138,7 @@ onlyCasts !msgGen !impl (!nP, !nMTotal, !nC) = do
     runConc (producers <> consumers)
 
 castsAndCalls ::
-  (MonadUnliftIO m, IsInBoxConfig cfg inbox) =>
+  (MonadUnliftIO m, IsMessageBoxFactory cfg output) =>
   (Int -> Book) ->
   cfg ->
   ((Int, Int), Int, (Int, Int)) ->
@@ -158,11 +160,11 @@ castsAndCalls
                     . (nStores *)
                     . ((nDonationsPerStore * producerId) +)
                     <$> [0 .. nDonationsPerStore - 1]
-                donateIt (!storeId, !bookStoreOutBox) =
+                donateIt (!storeId, !bookStoreInput) =
                   traverse_
                     ( \ !b ->
                         do
-                          ok <- cast bookStoreOutBox (Donate b)
+                          ok <- cast bookStoreInput (Donate b)
                           unless ok (error "cast failed!")
                     )
                     (books storeId)
@@ -182,8 +184,8 @@ castsAndCalls
 
       let -- handle nMessagesToHandle requests
           bookStore nMessagesToHandle = do
-            bIn <- newInBox impl
-            bOut <- newOutBox2 bIn
+            bIn <- newMessageBox impl
+            bOut <- newInput bIn
             return (bOut, conc (go bIn nMessagesToHandle []))
             where
               go _bIn 0 _myBooks = pure ()
@@ -203,10 +205,10 @@ castsAndCalls
       let nMessagesPerStore =
             nDonationsPerStore * nDonors
               + nRequestsPerStore * nCustomers
-      (bookStoresOutBoxes, bookStoresConc) <-
+      (bookStoresInputes, bookStoresConc) <-
         unzip <$> replicateM nStores (bookStore nMessagesPerStore)
-      let customers = stimes nCustomers (customer bookStoresOutBoxes)
-      let donors = mconcat (donor bookStoresOutBoxes <$> [0 .. nDonors - 1])
+      let customers = stimes nCustomers (customer bookStoresInputes)
+      let donors = mconcat (donor bookStoresInputes <$> [0 .. nDonors - 1])
       runConc (donors <> customers <> mconcat bookStoresConc)
 
 benchmark =

@@ -52,6 +52,7 @@ incrementAndGet (MkCounterVar !atomicCounter) =
 
 
 -- | Create a new 'CounterVar' starting at @0@.
+{-# INLINE newCounterVar #-}
 newCounterVar ::
   forall a m.
   MonadIO m =>

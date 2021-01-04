@@ -10,15 +10,15 @@
 -- consumes messages, use this module.
 --
 -- Otherwise use the more conservative
--- "Protocol.LimitedMessageBox" module.
-module Protocol.UnlimitedMessageBox
-  ( createInBox,
+-- "Protocol.MessageBox.Limited" module.
+module Protocol.MessageBox.Unlimited
+  ( create,
     receive,
     tryReceive,
-    createOutBoxForInbox,
+    newInput,
     deliver,
-    InBox (),
-    OutBox (),
+    MessageBox (),
+    Input (),
     UnlimitedMessageBox(..),
   )
 where
@@ -26,90 +26,90 @@ where
 import qualified Control.Concurrent as IO
 import qualified Control.Concurrent.Chan.Unagi.NoBlocking as Unagi
 import Data.Functor
-import qualified Protocol.MessageBoxClass as Class
+import qualified Protocol.MessageBox.Class as Class
 import UnliftIO
   ( MonadIO (liftIO),
     MonadUnliftIO,
   )
 
--- | Create an 'InBox'.
+-- | Create an 'MessageBox'.
 --
--- From an 'InBox' a corresponding 'OutBox' can
+-- From an 'MessageBox' a corresponding 'Input' can
 -- be made, that can be passed to some potential
 -- communication partners.
-{-# INLINE createInBox #-}
-createInBox :: MonadUnliftIO m => m (InBox a)
-createInBox = do
+{-# INLINE create #-}
+create :: MonadUnliftIO m => m (MessageBox a)
+create = do
   (!inChan, !outChan) <- liftIO Unagi.newChan
-  return $! MkInBox inChan outChan
+  return $! MkOutput inChan outChan
 
--- | Wait for and receive a message from an 'InBox'.
+-- | Wait for and receive a message from an 'MessageBox'.
 {-# INLINE receive #-}
-receive :: MonadUnliftIO m => InBox a -> m a
-receive (MkInBox _ !s) =
+receive :: MonadUnliftIO m => MessageBox a -> m a
+receive (MkOutput _ !s) =
   liftIO (Unagi.readChan IO.yield s)
 
--- | Try to receive a message from an 'InBox',
+-- | Try to receive a message from an 'MessageBox',
 -- return @Nothing@ if the queue is empty.
 {-# INLINE tryReceive #-}
-tryReceive :: MonadUnliftIO m => InBox a -> m (Class.Future a)
-tryReceive (MkInBox _ !s) = liftIO $ do
+tryReceive :: MonadUnliftIO m => MessageBox a -> m (Class.Future a)
+tryReceive (MkOutput _ !s) = liftIO $ do
   !promise <- Unagi.tryReadChan s
   return (Class.Future (Unagi.tryRead promise))
 
--- | Create an 'OutBox' to write the items
--- that the given 'InBox' receives.
-{-# INLINE createOutBoxForInbox #-}
-createOutBoxForInbox :: MonadUnliftIO m => InBox a -> m (OutBox a)
-createOutBoxForInbox (MkInBox !s _) = return $! MkOutBox s
+-- | Create an 'Input' to write the items
+-- that the given 'MessageBox' receives.
+{-# INLINE newInput #-}
+newInput :: MonadUnliftIO m => MessageBox a -> m (Input a)
+newInput (MkOutput !s _) = return $! MkInput s
 
--- | Put a message into the 'OutBox'
--- of an 'InBox', such that the process
--- reading the 'InBox' receives the message.
+-- | Put a message into the 'Input'
+-- of an 'MessageBox', such that the process
+-- reading the 'MessageBox' receives the message.
 {-# INLINE deliver #-}
-deliver :: MonadUnliftIO m => OutBox a -> a -> m ()
-deliver (MkOutBox !s) !a =
+deliver :: MonadUnliftIO m => Input a -> a -> m ()
+deliver (MkInput !s) !a =
   liftIO $ Unagi.writeChan s a
 
 -- | A message queue out of which messages can
 --   by 'receive'd.
 --
--- This is the counter part of 'OutBox'. Can be
+-- This is the counter part of 'Input'. Can be
 -- used for reading messages.
 --
 -- Messages can be received by 'receive' or 'tryReceive'.
-data InBox a
-  = MkInBox
+data MessageBox a
+  = MkOutput
       !(Unagi.InChan a)
       !(Unagi.OutChan a)
 
 -- | A message queue into which messages can be enqued by,
 --   e.g. 'deliver'.
---   Messages can be received from an 'InBox`.
+--   Messages can be received from an 'MessageBox`.
 --
---   The 'OutBox' is the counter part of an 'InBox'.
-newtype OutBox a = MkOutBox (Unagi.InChan a)
+--   The 'Input' is the counter part of an 'MessageBox'.
+newtype Input a = MkInput (Unagi.InChan a)
 
 -- | The (empty) configuration for creating 
--- 'InBox'es using the 'Class.IsInBoxConfig' methods.
+-- 'MessageBox'es using the 'Class.IsMessageBoxFactory' methods.
 data UnlimitedMessageBox = UnlimitedMessageBox
   deriving stock Show
 
-instance Class.IsInBoxConfig UnlimitedMessageBox InBox where
-  {-# INLINE newInBox #-}
-  newInBox UnlimitedMessageBox = createInBox
+instance Class.IsMessageBoxFactory UnlimitedMessageBox MessageBox where
+  {-# INLINE newMessageBox #-}
+  newMessageBox UnlimitedMessageBox = create
 
 -- | A blocking instance that invokes 'receive'.
-instance Class.IsInBox InBox where
-  type OutBox2 InBox = OutBox
+instance Class.IsMessageBox MessageBox where
+  type Input MessageBox = Input
   {-# INLINE receive #-}
   receive !i = Just <$> receive i
   {-# INLINE tryReceive #-}
   tryReceive !i = tryReceive i
-  {-# INLINE newOutBox2 #-}
-  newOutBox2 !i = createOutBoxForInbox i
+  {-# INLINE newInput #-}
+  newInput !i = newInput i
 
 -- | A blocking instance that invokes 'deliver'.
-instance Class.IsOutBox OutBox where
+instance Class.IsInput Input where
   {-# INLINE deliver #-}
   deliver !o !m = deliver o m $> True

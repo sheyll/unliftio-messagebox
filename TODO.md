@@ -39,11 +39,11 @@ TODO
 
 ## Goal: Robust Code
 
-* Add IsInBox/IsOutBox instances that wrap the calls in a `try_` block
+* Add IsMessageBox/IsInput instances that wrap the calls in a `try_` block
 * Add functions that throw runtime exceptions instead of
   returning 'Either', 'Bool' or 'Maybe': 
    'deliverOrThrow' and 'receiveOrThrow' 
-* Add IsInBox/IsOutBox instances through newtype wrappers
+* Add IsMessageBox/IsInput instances through newtype wrappers
   to Handle dead lock exceptions  
 * Make usages of MVars or TVars e.g. `replyTo`, `handleMessage`, `receive`
   dead lock exception safe
@@ -51,5 +51,5 @@ TODO
   and spawning
 * make a variant for 'Conc', 'Async' and plain 'forkIO'
 * make the timeout in handleMessage pluggable
-   (use newtype wrapper for IsInBox instances)
+   (use newtype wrapper for IsMessageBox instances)
 

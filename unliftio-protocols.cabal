@@ -146,10 +146,11 @@ library
   exposed-modules:
     -- Protocol,
     Protocol.Command,
+    Protocol.Command.CallId,
     Protocol.Fresh,
-    Protocol.LimitedMessageBox,
-    Protocol.MessageBoxClass,
-    Protocol.UnlimitedMessageBox,
+    Protocol.MessageBox.Limited,
+    Protocol.MessageBox.Class,
+    Protocol.MessageBox.Unlimited,
     Protocol.WeakThreadId
   other-modules:
   

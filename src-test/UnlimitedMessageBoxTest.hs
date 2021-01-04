@@ -13,10 +13,10 @@ import Data.Foldable (Foldable (fold))
 import Data.Functor (($>))
 import Data.Maybe ()
 import Data.Monoid (All (All, getAll))
-import qualified Protocol.MessageBoxClass as Class
-import Protocol.UnlimitedMessageBox as MessageBox
-  ( createInBox,
-    createOutBoxForInbox,
+import qualified Protocol.MessageBox.Class as Class
+import Protocol.MessageBox.Unlimited as MessageBox
+  ( create,
+    newInput,
     deliver,
     receive,
   )
@@ -33,31 +33,31 @@ import UnliftIO (conc, runConc, timeout)
 test :: Tasty.TestTree
 test =
   Tasty.testGroup
-    "Protocol.UnlimitedMessageBox"
+    "Protocol.MessageBox.Unlimited"
     [ Tasty.testGroup
         "Non-Blocking"
         [ Tasty.testCase "receive from an empty queue" $ do
-            i <- MessageBox.createInBox
+            i <- MessageBox.create
             f <- Class.tryReceive i
-            timeout 1_000_000 (Class.takeNow f)
+            timeout 1_000_000 (Class.tryNow f)
               >>= assertEqual "the future must not block and should return be emtpy" (Just (Nothing @Int))
         ],
-      testProperty "all n messages of all k outBoxes are received by the inbox" $
+      testProperty "all n messages of all k outBoxes are received by the output" $
         \(Positive (Small n)) (Positive (Small k)) ->
           ioProperty $
             getAll . fold <$> do
-              inbox <- MessageBox.createInBox
+              output <- MessageBox.create
               runConc
                 ( (<>)
                     <$> foldMap
                       ( \i ->
                           conc
                             ( do
-                                outbox <- MessageBox.createOutBoxForInbox inbox
-                                forM [0 .. n - 1] (\j -> deliver outbox ("test message: ", i, j) $> All True)
+                                input <- MessageBox.newInput output
+                                forM [0 .. n - 1] (\j -> deliver input ("test message: ", i, j) $> All True)
                             )
                       )
                       [0 .. k - 1]
-                    <*> conc (replicateM (n * k) (receive inbox $> All True))
+                    <*> conc (replicateM (n * k) (receive output $> All True))
                 )
     ]

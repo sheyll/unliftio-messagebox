@@ -6,7 +6,6 @@ module Protocol.Command
   ( Message (..),
     Command,
     ReturnType (..),
-    CallId (MkCallId),
     ReplyBox (),
     CommandError (..),
     cast,
@@ -17,22 +16,29 @@ module Protocol.Command
     PendingReply (),
     waitForReply,
     tryTakeReply,
-    HasCallIdCounter (getCallIdCounter, putCallIdCounter),
-    newCallIdCounter,
-    newCallId,
   )
 where
 
 import Control.Applicative (Alternative ((<|>)))
-import Control.Monad.Reader (MonadReader, asks)
+import Control.Monad.Reader (MonadReader)
 import Data.Kind (Type)
-import Protocol.Fresh
-  ( CounterVar,
-    incrementAndGet,
-    newCounterVar,
+import Protocol.Command.CallId
+  ( CallId (),
+    HasCallIdCounter,
   )
-import qualified Protocol.MessageBoxClass as MessageBox
+import qualified Protocol.Command.CallId as CallId
+import qualified Protocol.MessageBox.Class as MessageBox
 import UnliftIO
+  ( MonadUnliftIO,
+    TMVar,
+    atomically,
+    checkSTM,
+    newEmptyTMVarIO,
+    putTMVar,
+    readTVar,
+    registerDelay,
+    takeTMVar,
+  )
 
 -- | This family allows to encode imperative /commands/.
 --
@@ -61,7 +67,7 @@ import UnliftIO
 -- The second type parameter indicates if a message requires the
 -- receiver to send a reply back to the blocked and waiting
 -- sender, or if no reply is necessary.
-data family Command protocolTag :: ReturnType -> Type
+data family Command apiTag :: ReturnType -> Type
 
 -- | Indicates if a 'Command' requires the
 -- receiver to send a reply or not.
@@ -79,12 +85,12 @@ data ReturnType where
   -- are received wrapped into a 'Blocking'.
   Return :: Type -> ReturnType
 
--- | A message valid for some user defined @api@.
+-- | A message valid for some user defined @apiTag@.
 --
--- The @api@ tag (phantom-) type defines the
+-- The @apiTag@ tag (phantom-) type defines the
 -- messages allowed here, declared by the instance of
--- 'Command' for 'api'.
-data Message api where
+-- 'Command' for 'apiTag'.
+data Message apiTag where
   -- | Wraps a 'Command' with a 'ReturnType' of 'Return' @result@.
   --
   -- Such a message can formed by using 'call'.
@@ -93,27 +99,27 @@ data Message api where
   -- used to send the reply to the other process
   -- blocking on 'call'
   Blocking ::
-    Show (Command api ( 'Return result)) =>
-    Command api ( 'Return result) ->
+    Show (Command apiTag ( 'Return result)) =>
+    Command apiTag ( 'Return result) ->
     ReplyBox result ->
-    Message api
+    Message apiTag
   -- | If the 'Command' has a 'ReturnType' of 'FireAndForget'
   -- it has fire-and-forget semantics.
   --
   -- The smart constructor 'cast' can be used to
   -- this message.
   NonBlocking ::
-    (Show (Command api 'FireAndForget)) =>
-    Command api 'FireAndForget ->
-    Message api
+    (Show (Command apiTag 'FireAndForget)) =>
+    Command apiTag 'FireAndForget ->
+    Message apiTag
 
-instance Show (Message api) where
+instance Show (Message apiTag) where
   showsPrec d (NonBlocking !m) =
     showParen (d >= 9) (showString "NonBlocking " . showsPrec 9 m)
   showsPrec d (Blocking !m (MkReplyBox _ !callId)) =
     showParen (d >= 9) (showString "Blocking " . showsPrec 9 m . showChar ' ' . showsPrec 9 callId)
 
--- | This is like 'OutBox', it can be used
+-- | This is like 'Input', it can be used
 -- by the receiver of a 'Blocking'
 -- to either send a reply using 'reply'
 -- or to fail/abort the request using 'sendRequestError'
@@ -135,7 +141,7 @@ type InternalReply a = (CallId, Either CommandError a)
 -- caller is blocked waiting for.
 data CommandError where
   -- | Failed to enqueue a 'Blocking' 'Command' 'Message' into the corresponding
-  -- 'MessageBox.OutBox'
+  -- 'MessageBox.Input'
   CouldNotEnqueueCommand :: CallId -> CommandError
   -- | The request has failed /for reasons/.
   BlockingCommandFailure :: CallId -> CommandError
@@ -143,45 +149,24 @@ data CommandError where
   BlockingCommandTimedOut :: CallId -> CommandError
   deriving stock (Show, Eq)
 
--- | An identifier value every command send by 'call's.
-newtype CallId = MkCallId Int
-  deriving newtype (Eq, Ord, Show)
-
--- | Class of environment records containing a 'CounterVar' for 'CallId's.
-class HasCallIdCounter env where
-  getCallIdCounter :: env -> CounterVar CallId
-  putCallIdCounter :: CounterVar CallId -> env -> env
-
-instance HasCallIdCounter (CounterVar CallId) where
-  getCallIdCounter = id
-  putCallIdCounter = const
-
--- | Create a new 'CallId' 'CounterVar'.
-newCallIdCounter :: MonadIO m => m (CounterVar CallId)
-newCallIdCounter = newCounterVar
-
--- | Increment and get a new 'CallId'.
-{-# INLINE newCallId #-}
-newCallId :: (MonadReader env m, HasCallIdCounter env, MonadUnliftIO m) => m CallId
-newCallId = asks getCallIdCounter >>= incrementAndGet
-
--- | Enqueue a 'NonBlocking' 'Message' into an 'OutBox'.
+-- | Enqueue a 'NonBlocking' 'Message' into an 'Input'.
 -- This is just for symetry to 'call', this is
 -- equivalent to: @\obox -> MessageBox.tryToDeliver obox . NonBlocking@
 --
 -- The
+{-# INLINE cast #-}
 cast ::
   ( MonadUnliftIO m,
-    MessageBox.IsOutBox o,
-    Show (Command api 'FireAndForget)
+    MessageBox.IsInput o,
+    Show (Command apiTag 'FireAndForget)
   ) =>
-  o (Message api) ->
-  Command api 'FireAndForget ->
+  o (Message apiTag) ->
+  Command apiTag 'FireAndForget ->
   m Bool
 cast obox !msg =
   MessageBox.deliver obox (NonBlocking msg)
 
--- | Enqueue a 'Blocking' 'Message' into an 'MessageBox.IsOutBox' and wait for the
+-- | Enqueue a 'Blocking' 'Message' into an 'MessageBox.IsInput' and wait for the
 -- response.
 --
 -- The receiving process must use 'replyTo'  with the 'ReplyBox'
@@ -190,15 +175,15 @@ call ::
   ( HasCallIdCounter env,
     MonadReader env m,
     MonadUnliftIO m,
-    MessageBox.IsOutBox o,
-    Show (Command api ( 'Return result))
+    MessageBox.IsInput o,
+    Show (Command apiTag ( 'Return result))
   ) =>
-  o (Message api) ->
-  Command api ( 'Return result) ->
+  o (Message apiTag) ->
+  Command apiTag ( 'Return result) ->
   Int ->
   m (Either CommandError result)
 call !obox !pdu !timeoutMicroseconds = do
-  !callId <- newCallId
+  !callId <- CallId.takeNext
   !resultVar <- newEmptyTMVarIO
   !sendSuccessful <- do
     let !rbox = MkReplyBox resultVar callId
@@ -215,7 +200,16 @@ call !obox !pdu !timeoutMicroseconds = do
                   return (Left (BlockingCommandTimedOut callId))
               )
 
--- | Enqueue a 'Blocking' 'Message' into an 'MessageBox.IsOutBox'.
+-- | This is called from the callback passed to 'handleMessage'.
+-- When handling a 'Blocking' 'Message' the 'ReplyBox' contained
+-- in the message contains the 'TMVar' for the result, and this
+-- function puts the result into it.
+{-# INLINE replyTo #-}
+replyTo :: (MonadUnliftIO m) => ReplyBox a -> a -> m ()
+replyTo MkReplyBox {_replyBoxCallId = !callId, _replyBox = !replyBox} !message =
+  atomically $ putTMVar replyBox (callId, Right message)
+
+-- | Enqueue a 'Blocking' 'Message' into an 'MessageBox.IsInput'.
 --
 -- The result can be obtained by 'waitForReply'.
 --
@@ -225,11 +219,11 @@ enqueueCall ::
   ( HasCallIdCounter env,
     MonadReader env m,
     MonadUnliftIO m,
-    MessageBox.IsOutBox o,
-    Show (Command api ( 'Return result))
+    MessageBox.IsInput o,
+    Show (Command apiTag ( 'Return result))
   ) =>
-  o (Message api) ->
-  Command api ( 'Return result) ->
+  o (Message apiTag) ->
+  Command apiTag ( 'Return result) ->
   m (PendingReply result)
 enqueueCall = error "TODO"
 
@@ -242,11 +236,11 @@ enqueueCall = error "TODO"
 {-# INLINE delegateCall #-}
 delegateCall ::
   ( MonadUnliftIO m,
-    MessageBox.IsOutBox o,
-    Show (Command api ( 'Return r))
+    MessageBox.IsInput o,
+    Show (Command apiTag ( 'Return r))
   ) =>
-  o (Message api) ->
-  Command api ( 'Return r) ->
+  o (Message apiTag) ->
+  Command apiTag ( 'Return r) ->
   ReplyBox r ->
   m Bool
 delegateCall !o !c !r =
@@ -276,11 +270,3 @@ tryTakeReply ::
   PendingReply r ->
   m (Maybe (Either CommandError result))
 tryTakeReply = error "TODO"
-
--- | This is called from the callback passed to 'handleMessage'.
--- When handling a 'Blocking' 'Message' the 'ReplyBox' contained
--- in the message contains the 'TMVar' for the result, and this
--- function puts the result into it.
-replyTo :: (MonadUnliftIO m) => ReplyBox a -> a -> m ()
-replyTo MkReplyBox {_replyBoxCallId = !callId, _replyBox = !replyBox} !message =
-  atomically $ putTMVar replyBox (callId, Right message)
