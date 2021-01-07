@@ -63,6 +63,7 @@ import UnliftIO
     try,
   )
 import UnliftIO.Concurrent (forkIO, yield)
+import Control.Exception (SomeException(SomeException))
 
 test :: TestTree
 test =
@@ -71,7 +72,7 @@ test =
     [ testGroup
         "waiting for messages from a dead process"
         [ testCase "When using the Unlimited Message BlockingBox, an exception is thrown" $
-            try @_ @BlockedIndefinitelyOnMVar
+            try @_ @SomeException
               (waitForMessageFromDeadProcess U.UnlimitedMessageBox)
               >>= either
                 ( assertEqual
@@ -79,31 +80,53 @@ test =
                     (show BlockedIndefinitelyOnMVar)
                     . show
                 )
-                (const (assertFailure "Exception expected!")),
+                (assertFailure  . ("Exception expected, instead of: " <> ) . show ),
           testCase "When using the Limited Message BlockingBox, the test will timeout" $
             waitForMessageFromDeadProcess (B.BlockingBoxLimit B.MessageLimit_16)
+              >>= assertEqual "unexpected return value: " SecondReceiveTimedOut,
+          testCase "When using the Limited Waiting Box, the test will timeout" $
+            waitForMessageFromDeadProcess (B.WaitingBoxLimit Nothing 1_000_000 B.MessageLimit_16)
+              >>= assertEqual "unexpected return value: " SecondReceiveTimedOut,
+          testCase "When using the Limited NonBlocking Box, the test will timeout" $
+            waitForMessageFromDeadProcess (B.NonBlockingBoxLimit B.MessageLimit_16)
               >>= assertEqual "unexpected return value: " SecondReceiveTimedOut
         ],
       testGroup
         "sending messages to a dead process"
-        [ testCase "When using the Unlimited Message BlockingBox, sending messages succeeds" $
+        [ testCase "When using the UnlimitedMessageBox, sending messages succeeds" $
             sendMessagesToDeadProcess U.UnlimitedMessageBox
               >>= assertEqual "unexpected result: " SomeMoreMessagesSent,
-          testCase "When using the Blocking Limited Message BlockingBox, sending messages eventually blocks and times out" $
+          testCase "When using the BlockingBoxLimit, sending messages eventually blocks and times out" $
             sendMessagesToDeadProcess (B.BlockingBoxLimit B.MessageLimit_16)
-              >>= assertEqual "unexpected result: " SendingMoreMessagesTimedOut
+              >>= assertEqual "unexpected result: " SendingMoreMessagesTimedOut,
+          testCase "When using the NonBlockingBoxLimit, sending messages eventually returns False" $
+            sendMessagesToDeadProcess (B.NonBlockingBoxLimit B.MessageLimit_16)
+              >>= assertEqual "unexpected result: " SomeMoreMessagesSent,
+          testCase "When using the WaitingBoxLimit Nothing, sending messages eventually blocks and times out" $
+            sendMessagesToDeadProcess (B.WaitingBoxLimit Nothing 1_000 B.MessageLimit_16)
+              >>= assertEqual "unexpected result: " SomeMoreMessagesSent
         ],
       testGroup
         "Command"
         [ testGroup
             "waiting for a call reply after the server died"
-            [ testCase "When using the Unlimited Message BlockingBox, BlockingCommandTimedOut is returned" $
+            [ testCase "When using the UnlimitedMessageBox, BlockingCommandTimedOut is returned" $
                 waitForCallReplyFromDeadServer U.UnlimitedMessageBox
                   >>= assertEqual
                     "unexpected result: "
                     (CallFailed (BlockingCommandTimedOut (MkCallId 1))),
-              testCase "When using the Limited Message BlockingBox, BlockingCommandTimedOut is returned" $
+              testCase "When using the BlockingBoxLimit, BlockingCommandTimedOut is returned" $
                 waitForCallReplyFromDeadServer (B.BlockingBoxLimit B.MessageLimit_16)
+                  >>= assertEqual
+                    "unexpected result: "
+                    (CallFailed (BlockingCommandTimedOut (MkCallId 1))),
+              testCase "When using the NonBlockingBoxLimit, BlockingCommandTimedOut is returned" $
+                waitForCallReplyFromDeadServer (B.NonBlockingBoxLimit B.MessageLimit_16)
+                  >>= assertEqual
+                    "unexpected result: "
+                    (CallFailed (BlockingCommandTimedOut (MkCallId 1))),
+              testCase "When using WaitingBoxLimit Nothing, BlockingCommandTimedOut is returned" $
+                waitForCallReplyFromDeadServer (B.WaitingBoxLimit Nothing 123_456 B.MessageLimit_16)
                   >>= assertEqual
                     "unexpected result: "
                     (CallFailed (BlockingCommandTimedOut (MkCallId 1)))
@@ -124,7 +147,7 @@ waitForMessageFromDeadProcess ::
 waitForMessageFromDeadProcess outputCfg =
   do
     firstMessageSent <- newEmptyMVar
-    let msg1 = Just 42
+    let msg1 = Right 42
     output <- newMessageBox outputCfg
     _ <- forkIO $ do
       input <- newInput output
@@ -139,19 +162,12 @@ waitForMessageFromDeadProcess outputCfg =
     liftIO performMinorGC
     liftIO performMajorGC
     threadDelay 10_000
-    receiveAfter output 200_000 (return (Just Nothing))
+    receiveAfter output 10_000_000 (return (Just (Left "receiveAfter timeout")))
       >>= maybe
         (return SecondReceiveReturnedNothing ) 
         ( \case
-            Nothing -> return SecondReceiveTimedOut
-            (Just _) -> return SecondReceiveUnexpectedSuccess)
-        -- ( maybe
-        --     (return SecondReceiveTimedOut)
-        --     ( \r -> do
-        --         liftIO (assertEqual "unexpected second message received!" msg1 r)
-        --         return SecondReceiveUnexpectedSuccess
-        --     )
-        -- )
+            (Left _) -> return SecondReceiveTimedOut
+            (Right _) -> return SecondReceiveUnexpectedSuccess)
 
 data SendMessageToDeadProcessResult
   = NoMoreMessagesSent
@@ -178,16 +194,18 @@ sendMessagesToDeadProcess outputCfg =
       receive output >>= putMVar done
 
     input <- takeMVar ready
-    deliver input msg1 >>= assertBool "first message not sent!"
+    deliver input msg1 
+      >>= assertBool "first message not sent!"
     putMVar firstMessageSent ()
-    takeMVar done >>= assertEqual "first message invalid" (Just msg1)
+    takeMVar done 
+      >>= assertEqual "first message invalid" (Just msg1)
     threadDelay 10_000
     liftIO performMinorGC
     liftIO performMajorGC
     threadDelay 10_000
 
     timeout
-      1_000_000
+      2_000_000
       (stimes 100 (Any <$> deliver input msg1))
       >>= maybe
         (return SendingMoreMessagesTimedOut)
