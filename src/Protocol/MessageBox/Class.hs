@@ -5,27 +5,34 @@ module Protocol.MessageBox.Class
   ( IsMessageBoxFactory (..),
     IsMessageBox (..),
     IsInput (..),
-    Future(..),
+    Future (..),
     tryNow,
-    WithTimeout (..),
+    awaitFuture,
+    -- WithTimeout (..),
+    -- WithTimeoutCfg (..),
     handleMessage,
   )
 where
 
-import Control.Exception (BlockedIndefinitelyOnMVar, BlockedIndefinitelyOnSTM)
 import Data.Kind (Type)
-import UnliftIO (liftIO, MonadUnliftIO, timeout, try)
+import UnliftIO (MonadUnliftIO, liftIO, timeout)
+import UnliftIO.Concurrent (threadDelay)
 
 -- | Create 'IsMessageBox' instances from a parameter.
 -- Types that determine 'MessageBox' values.
 --
 -- For a limited message box this might be the limit of
 -- the message queue.
-class IsMessageBox msgBox => IsMessageBoxFactory cfg msgBox | cfg -> msgBox where
+class
+  (IsMessageBox (MessageBox cfg), IsInput (Input (MessageBox cfg))) =>
+  IsMessageBoxFactory cfg
+  where
+  type MessageBox cfg :: Type -> Type
+
   -- | Create a new @msgBox@.
   -- This is required to receive a message.
   -- NOTE: Only one process may receive on an msgBox.
-  newMessageBox :: MonadUnliftIO m => cfg -> m (msgBox a)
+  newMessageBox :: MonadUnliftIO m => cfg -> m (MessageBox cfg a)
 
 -- | A type class for msgBox types.
 -- A common interface for receiving messages.
@@ -34,7 +41,7 @@ class IsInput (Input msgBox) => IsMessageBox msgBox where
   type Input msgBox :: Type -> Type
 
   -- | Receive a message. Take whatever time it takes.
-  -- Return 'Just' the value or 'Nothing' when an error 
+  -- Return 'Just' the value or 'Nothing' when an error
   -- occurred.
   receive :: MonadUnliftIO m => msgBox a -> m (Maybe a)
 
@@ -45,27 +52,60 @@ class IsInput (Input msgBox) => IsMessageBox msgBox where
   -- and if that future value is dropped, that message will be lost!
   tryReceive :: MonadUnliftIO m => msgBox a -> m (Future a)
 
+  -- | Wait for an incoming message or run a timeout action if no message arrives.
+  --
+  -- The default implementation uses 'tryReceive' to get a 
+  -- 'Future' on which 'awaitFuture' inside a 'timeout' is called.
+  --
+  -- Instances might override this with more performant implementations
+  -- especially non-blocking Unagi channel based implementation.
+  --
+  -- TODO exception handling: indefinitely blocked in mvar... is it really necessary to catch here?
+  -- TODO benchmark
+  -- TODO test
+  receiveAfter ::
+    MonadUnliftIO m =>
+    -- | Message box
+    msgBox a ->
+    -- | Time in micro seconds to wait until the 
+    -- action is invoked.
+    Int ->
+    -- | The action to run after the time ran out.
+    m (Maybe a) ->
+    m (Maybe a)
+  receiveAfter !mbox !t !onAfter =
+    tryReceive mbox
+      >>= timeout t . awaitFuture
+      >>= maybe onAfter (return . Just)
+
   -- | Create a new @input@ that enqueus messages,
   -- which are received by the @msgBox@
   newInput :: MonadUnliftIO m => msgBox a -> m (Input msgBox a)
 
--- | A wrapper around an IO action that returns value 
+-- | A wrapper around an IO action that returns value
 -- in the future.
-newtype Future a = Future { 
-  -- | Return 'Just' the value or 'Nothing', 
-  --   when the value is not available yet.
-  fromFuture :: IO (Maybe a) 
+newtype Future a = Future
+  { -- | Return 'Just' the value or 'Nothing',
+    --   when the value is not available yet.
+    fromFuture :: IO (Maybe a) -- TODO add a blockUntilAvailable for efficient timeout reading
   }
 
--- | Return 'Just' the value or 'Nothing', 
+-- | Return 'Just' the value or 'Nothing',
 --   when the value is not available yet.
 --
 --   Once the value is available, that value
 --   will be returned everytime this function is
 --   invoked.
+-- TODO: test for dead lock exceptions
 {-# INLINE tryNow #-}
-tryNow :: MonadUnliftIO m => Future a -> m (Maybe a) 
+tryNow :: MonadUnliftIO m => Future a -> m (Maybe a)
 tryNow = liftIO . fromFuture
+
+-- | Poll a Future until the value is present.
+-- TODO: test for dead lock exceptions
+awaitFuture :: MonadUnliftIO m => Future b -> m b
+awaitFuture !f =
+  tryNow f >>= maybe (threadDelay 10 >> awaitFuture f) return
 
 -- | A type class for input types.
 -- A common interface for delivering messages.
@@ -76,7 +116,7 @@ class IsInput input where
   -- Return if the operation was successful.
   deliver :: MonadUnliftIO m => input a -> a -> m Bool
 
--- * Receiving Messages
+-- ** Utility Functions for Receiving Messages
 
 -- | Receive a message and apply a function to it.
 --  TODO exception handling: indefinitely blocked in mvar... is it really necessary to catch here?
@@ -92,79 +132,49 @@ handleMessage !msgBox !onMessage = do
     Just !message -> do
       Just <$> onMessage message
 
--- * Message Box Modifiers
+-- -- * Message BlockingBox Modifiers
 
--- ** Timeouts
+-- -- ** Timeouts
 
--- | A generic wrapper for 'IsInput' or 'IsMessageBox' instances
--- that uses 'timeout' around 'deliver' and 'receive'.
--- TODO tests
-data WithTimeout box msg = WithTimeout !Int !(box msg)
+-- -- | A generic wrapper for 'IsInput' or 'IsMessageBox' instances
+-- -- that uses 'timeout' around 'deliver' and 'receive'.
+-- -- TODO tests
+-- data WithTimeout box msg = WithTimeout !Int !(box msg)
 
--- | A generic wrapper for 'IsMessageBox' instances
--- that uses 'timeout' around 'receive'.
-instance IsMessageBox box => IsMessageBox (WithTimeout box) where -- TODO tests
-  type Input (WithTimeout box) = WithTimeout (Input box)
-  {-# INLINE receive #-}
-  receive (WithTimeout !t !o) =
-    timeout t (receive o)
-      >>= maybe
-        (pure Nothing)
-        return
-  {-# INLINE newInput #-}
-  newInput (WithTimeout !t !o) =
-    WithTimeout t <$> newInput o
+-- -- | A generic wrapper for the 'IsMessageBoxFactory' instances
+-- -- that produce 'WithTimeout' message boxes reflecting
+-- -- a giving timeout in milliseconds.
+-- data WithTimeoutCfg box cfg = WithTimeoutCfg !Int !cfg
+--   deriving stock (Show)
 
--- | A generic wrapper for 'IsInput' instances
--- that uses 'timeout' around 'deliver'.
-instance IsInput box => IsInput (WithTimeout box) where
-  {-# INLINE deliver #-}
-  deliver (WithTimeout !t !o) !m =
-    timeout t (deliver o m)
-      >>= maybe
-        (pure False)
-        return
+-- instance
+--   (MessageBox cfg ~ box, IsMessageBoxFactory cfg) =>
+--   IsMessageBoxFactory (WithTimeoutCfg box cfg)
+--   where
+--   type MessageBox (WithTimeoutCfg box cfg) = WithTimeout box
+--   newMessageBox (WithTimeoutCfg !t !cfg) =
+--     WithTimeout t <$> newMessageBox cfg
 
--- ** Exception safety
+-- instance IsMessageBox box => IsMessageBox (WithTimeout box) where -- TODO tests
+--   type Input (WithTimeout box) = WithTimeout (Input box)
+--   {-# INLINE receive #-}
+--   receive (WithTimeout !t !o) =
+--     timeout t (receive o)
+--       >>= maybe
+--         (pure Nothing)
+--         return
+--   tryReceive (WithTimeout _ !o) =
+--     tryReceive o
+--   {-# INLINE newInput #-}
+--   newInput (WithTimeout !t !o) =
+--     WithTimeout t <$> newInput o
 
--- | A generic wrapper for 'IsInput' or 'IsMessageBox' instances
--- that uses 'try' to catch 'BlockedIndefinitelyOnSTM'
--- or 'BlockedIndefinitelyOnMVar' thrown
--- from the underlying 'deliver' and 'receive'.
-newtype CatchExceptions box msg = CatchExceptions (box msg)
-
--- | A generic wrapper for 'IsMessageBox' instances
--- that uses 'try' around 'receive' and returns 'Nothing'
--- if an exception is caught.
-instance IsMessageBox box => IsMessageBox (CatchExceptions box) where -- TODO tests
-  type Input (CatchExceptions box) = CatchExceptions (Input box)
-  {-# INLINE receive #-}
-  receive (CatchExceptions !o) =
-    try @_ @BlockedIndefinitelyOnSTM
-      ( try @_ @BlockedIndefinitelyOnMVar (receive o)
-          >>= either
-            (const (pure Nothing))
-            return
-      )
-      >>= either
-        (const (pure Nothing))
-        return
-
-  newInput (CatchExceptions !o) =
-    CatchExceptions <$> newInput o
-
--- | A generic wrapper for 'IsInput' instances
--- that uses 'try' around 'deliver' and returns 'False'
--- if an exception is caught.
-instance IsInput box => IsInput (CatchExceptions box) where
-  {-# INLINE deliver #-}
-  deliver (CatchExceptions !o) !m =
-    try @_ @BlockedIndefinitelyOnSTM
-      ( try @_ @BlockedIndefinitelyOnMVar (deliver o m)
-          >>= either
-            (const (pure False))
-            return
-      )
-      >>= either
-        (const (pure False))
-        return
+-- -- | A generic wrapper for 'IsInput' instances
+-- -- that uses 'timeout' around 'deliver'.
+-- instance IsInput box => IsInput (WithTimeout box) where
+--   {-# INLINE deliver #-}
+--   deliver (WithTimeout !t !o) !m =
+--     timeout t (deliver o m)
+--       >>= maybe
+--         (pure False)
+--         return

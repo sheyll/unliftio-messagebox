@@ -200,7 +200,8 @@ call !obox !pdu !timeoutMicroseconds = do
                   return (Left (BlockingCommandTimedOut callId))
               )
 
--- | This is called from the callback passed to 'handleMessage'.
+-- | This is called from the callback contained in the 'Blocking' 'Message'.
+--
 -- When handling a 'Blocking' 'Message' the 'ReplyBox' contained
 -- in the message contains the 'TMVar' for the result, and this
 -- function puts the result into it.

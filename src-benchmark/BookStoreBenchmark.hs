@@ -27,7 +27,7 @@ module BookStoreBenchmark (benchmark) where
 
 import Control.Monad (replicateM)
 import Criterion.Types
-  ( bench,
+  (Benchmark,  bench,
     bgroup,
     nfAppIO,
   )
@@ -48,9 +48,10 @@ import Protocol.Fresh
   ( CounterVar,
     newCounterVar,
   )
-import Protocol.MessageBox.Class (IsMessageBoxFactory (..), handleMessage, newInput)
-import Protocol.MessageBox.Limited (LimitedMessageBox (LimitedMessageBox))
-import Protocol.MessageBox.Unlimited (UnlimitedMessageBox (UnlimitedMessageBox))
+import Protocol.MessageBox.Class
+    ( IsMessageBox(newInput, receive),
+      IsMessageBoxFactory(newMessageBox),
+      handleMessage )
 import RIO
   ( MonadIO (liftIO),
     MonadUnliftIO,
@@ -99,7 +100,7 @@ instance HasCallIdCounter BookStoreEnv where
   putCallIdCounter newFresh MkBookStoreEnv {_fresh} = MkBookStoreEnv {_fresh = newFresh}
 
 onlyCasts ::
-  (MonadUnliftIO m, IsMessageBoxFactory cfg output) =>
+  (MonadUnliftIO m, IsMessageBoxFactory cfg) =>
   (Int -> Book) ->
   cfg ->
   (Int, Int, Int) ->
@@ -117,13 +118,16 @@ onlyCasts !msgGen !impl (!nP, !nMTotal, !nC) = do
     let consumer 0 = pure ()
         consumer workLeft =
           let handler =
-                handleMessage bookStoreOutput $
-                  \case
-                    NonBlocking _actual -> do
-                      return Nothing
-                    a -> do
-                      liftIO $ putStrLn "blocking case called"
-                      pure (Just ("did not expect message: " <> show a))
+                receive bookStoreOutput
+                  >>= maybe
+                    (return Nothing)
+                    ( \case
+                        NonBlocking _actual -> do
+                          return (Just Nothing)
+                        a -> do
+                          liftIO $ putStrLn "blocking case called"
+                          pure (Just (Just ("did not expect message: " <> show a)))
+                    )
            in handler
                 >>= maybe
                   (error "HandleMessage failed!")
@@ -138,7 +142,7 @@ onlyCasts !msgGen !impl (!nP, !nMTotal, !nC) = do
     runConc (producers <> consumers)
 
 castsAndCalls ::
-  (MonadUnliftIO m, IsMessageBoxFactory cfg output) =>
+  (MonadUnliftIO m, IsMessageBoxFactory cfg) =>
   (Int -> Book) ->
   cfg ->
   ((Int, Int), Int, (Int, Int)) ->
@@ -211,29 +215,24 @@ castsAndCalls
       let donors = mconcat (donor bookStoresInputes <$> [0 .. nDonors - 1])
       runConc (donors <> customers <> mconcat bookStoresConc)
 
-benchmark =
+benchmark :: IsMessageBoxFactory cfg => cfg -> Benchmark
+benchmark cfg =
   bgroup
     "BookStore"
     [ bgroup
         "cast"
         [ bench
-            ( mboxImplTitle <> " "
-                <> show noMessages
+            (      show noMessages
                 <> " "
                 <> show senderNo
                 <> " >>= "
                 <> show receiverNo
             )
             ( nfAppIO
-                impl
+                (onlyCasts mkExampleBook cfg)
                 (senderNo, noMessages, receiverNo)
             )
           | noMessages <- [100_000],
-            (mboxImplTitle, impl) <-
-              [ let x = LimitedMessageBox 16 in (show x, onlyCasts mkExampleBook x),
-                let x = UnlimitedMessageBox in (show x, onlyCasts mkExampleBook x),
-                let x = LimitedMessageBox 4096 in (show x, onlyCasts mkExampleBook x)
-              ],
             (senderNo, receiverNo) <-
               [ (1, 1000),
                 (10, 100),
@@ -256,7 +255,7 @@ benchmark =
                 <> show (nCustomers * nGetBooksPerStore * nStores)
             )
             ( nfAppIO
-                (castsAndCalls mkExampleBook UnlimitedMessageBox)
+                (castsAndCalls mkExampleBook cfg)
                 ((nDonors, nDonationsPerStore), nStores, (nCustomers, nGetBooksPerStore))
             )
           | ((nDonors, nDonationsPerStore), nStores, (nCustomers, nGetBooksPerStore)) <-

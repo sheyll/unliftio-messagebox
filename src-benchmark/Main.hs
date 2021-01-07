@@ -22,7 +22,7 @@
 module Main (main) where
 
 import qualified CommandBenchmark
-import Control.Monad (replicateM)
+import Control.Monad (replicateM, unless)
 import Criterion.Main (defaultMain)
 import Criterion.Types
   ( bench,
@@ -30,9 +30,16 @@ import Criterion.Types
     nfAppIO,
   )
 import Data.Semigroup (Semigroup (stimes))
-import Protocol.MessageBox.Limited (LimitedMessageBox (LimitedMessageBox))
-import Protocol.MessageBox.Class (newInput, IsMessageBoxFactory (..), deliver, receive)
-import Protocol.MessageBox.Unlimited (UnlimitedMessageBox (UnlimitedMessageBox))
+import Protocol.MessageBox.Class
+  ( IsInput (..),
+    IsMessageBox (..),
+    IsMessageBoxFactory (..),
+    deliver,
+    newInput,
+    receive,
+  )
+import qualified Protocol.MessageBox.Limited as L
+import qualified Protocol.MessageBox.Unlimited as U
 import RIO (MonadUnliftIO, conc, runConc)
 
 main =
@@ -53,18 +60,29 @@ main =
                 (senderNo, noMessages, receiverNo)
             )
           | noMessages <- [100_000],
-            (mboxImplTitle, impl) <-
-              [ let x = LimitedMessageBox 16 in (show x, unidirectionalMessagePassing mkTestMessage x),
-                let x = UnlimitedMessageBox in (show x, unidirectionalMessagePassing mkTestMessage x),
-                let x = LimitedMessageBox 4096 in (show x, unidirectionalMessagePassing mkTestMessage x)
+            (isNonBlocking, mboxImplTitle, impl) <-
+              [ let x = U.UnlimitedMessageBox
+                 in (False, show x, unidirectionalMessagePassing mkTestMessage x),
+                let x = L.BlockingBoxLimit L.MessageLimit_16
+                 in (False, show x, unidirectionalMessagePassing mkTestMessage x),
+                let x = L.BlockingBoxLimit L.MessageLimit_64
+                 in (False, show x, unidirectionalMessagePassing mkTestMessage x),
+                let x = L.BlockingBoxLimit L.MessageLimit_4096
+                 in (False, show x, unidirectionalMessagePassing mkTestMessage x),
+                let x = L.NonBlockingBoxLimit L.MessageLimit_512
+                 in (True, show x, unidirectionalMessagePassing mkTestMessage x),
+                let x = L.WaitingBoxLimit Nothing 5_000_000 L.MessageLimit_128
+                 in (False, show x, unidirectionalMessagePassing mkTestMessage x),
+                let x = L.WaitingBoxLimit (Just 60_000_000) 5_000_000 L.MessageLimit_128
+                 in (True, show x, unidirectionalMessagePassing mkTestMessage x)
               ],
             (senderNo, receiverNo) <-
               [ (1, 1000),
                 (10, 100),
                 (1, 1),
-                --
                 (1000, 1)
-              ]
+              ],
+            not isNonBlocking || senderNo == 1 && receiverNo > 1 
         ]
     ]
 
@@ -85,7 +103,7 @@ newtype TestMessage = MkTestMessage (String, String, String, (String, String, Bo
   deriving newtype (Show)
 
 unidirectionalMessagePassing ::
-  (MonadUnliftIO m, IsMessageBoxFactory cfg output) =>
+  (MonadUnliftIO m, IsMessageBoxFactory cfg) =>
   (Int -> TestMessage) ->
   cfg ->
   (Int, Int, Int) ->
@@ -99,7 +117,10 @@ unidirectionalMessagePassing !msgGen !impl (!nP, !nM, !nC) = do
       where
         producer =
           mapM_
-            (uncurry (flip deliver))
+            ( \(!msg, !cons) -> do
+                !ok <- deliver cons msg
+                unless ok (error ("producer failed to deliver: " <> show msg))
+            )
             ((,) <$> (msgGen <$> [0 .. (nM `div` (nC * nP)) - 1]) <*> cs)
     consumers = do
       cis <- replicateM nC (newMessageBox impl)
@@ -109,5 +130,7 @@ unidirectionalMessagePassing !msgGen !impl (!nP, !nM, !nC) = do
       where
         consume 0 _inBox = return ()
         consume workLeft inBox = do
-          !_msg <- receive inBox
-          consume (workLeft - 1) inBox
+          receive inBox
+            >>= maybe
+              (error "consumer failed to receive")
+              (const (consume (workLeft - 1) inBox))

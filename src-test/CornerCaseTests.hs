@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE EmptyDataDecls #-}
@@ -16,10 +17,6 @@ import Control.Exception
   ( BlockedIndefinitelyOnMVar (BlockedIndefinitelyOnMVar),
   )
 import Data.Semigroup (Any (Any, getAny), Semigroup (stimes))
-import qualified Protocol.MessageBox.Limited as B
-import qualified Protocol.Command.CallId as CallId
-import Protocol.Command.CallId
-  ( CallId (MkCallId) )
 import Protocol.Command
   ( Command,
     CommandError (BlockingCommandTimedOut),
@@ -27,13 +24,19 @@ import Protocol.Command
     ReturnType (Return),
     call,
   )
-import Protocol.MessageBox.Class
-  ( IsMessageBox (newInput, receive),
-    IsMessageBoxFactory (..),
-    IsInput (deliver),
-    Input,
-    handleMessage,
+import Protocol.Command.CallId
+  ( CallId (MkCallId),
   )
+import qualified Protocol.Command.CallId as CallId
+import Protocol.MessageBox.Class
+  ( Input,
+    IsInput (deliver),
+    IsMessageBox (newInput, receive),
+    IsMessageBoxFactory (..),
+    handleMessage,
+    receiveAfter,
+  )
+import qualified Protocol.MessageBox.Limited as B
 import qualified Protocol.MessageBox.Unlimited as U
 import RIO
   ( HasCallStack,
@@ -67,7 +70,7 @@ test =
     "CornerCaseTests"
     [ testGroup
         "waiting for messages from a dead process"
-        [ testCase "When using the Unlimited Message Box, an exception is thrown" $
+        [ testCase "When using the Unlimited Message BlockingBox, an exception is thrown" $
             try @_ @BlockedIndefinitelyOnMVar
               (waitForMessageFromDeadProcess U.UnlimitedMessageBox)
               >>= either
@@ -77,30 +80,30 @@ test =
                     . show
                 )
                 (const (assertFailure "Exception expected!")),
-          testCase "When using the Limited Message Box, the test will timeout" $
-            waitForMessageFromDeadProcess (B.LimitedMessageBox 16)
+          testCase "When using the Limited Message BlockingBox, the test will timeout" $
+            waitForMessageFromDeadProcess (B.BlockingBoxLimit B.MessageLimit_16)
               >>= assertEqual "unexpected return value: " SecondReceiveTimedOut
         ],
       testGroup
         "sending messages to a dead process"
-        [ testCase "When using the Unlimited Message Box, sending messages succeeds" $
+        [ testCase "When using the Unlimited Message BlockingBox, sending messages succeeds" $
             sendMessagesToDeadProcess U.UnlimitedMessageBox
               >>= assertEqual "unexpected result: " SomeMoreMessagesSent,
-          testCase "When using the Blocking Limited Message Box, sending messages eventually blocks and times out" $
-            sendMessagesToDeadProcess (B.LimitedMessageBox 16)
+          testCase "When using the Blocking Limited Message BlockingBox, sending messages eventually blocks and times out" $
+            sendMessagesToDeadProcess (B.BlockingBoxLimit B.MessageLimit_16)
               >>= assertEqual "unexpected result: " SendingMoreMessagesTimedOut
         ],
       testGroup
         "Command"
         [ testGroup
             "waiting for a call reply after the server died"
-            [ testCase "When using the Unlimited Message Box, BlockingCommandTimedOut is returned" $
+            [ testCase "When using the Unlimited Message BlockingBox, BlockingCommandTimedOut is returned" $
                 waitForCallReplyFromDeadServer U.UnlimitedMessageBox
                   >>= assertEqual
                     "unexpected result: "
                     (CallFailed (BlockingCommandTimedOut (MkCallId 1))),
-              testCase "When using the Limited Message Box, BlockingCommandTimedOut is returned" $
-                waitForCallReplyFromDeadServer (B.LimitedMessageBox 16)
+              testCase "When using the Limited Message BlockingBox, BlockingCommandTimedOut is returned" $
+                waitForCallReplyFromDeadServer (B.BlockingBoxLimit B.MessageLimit_16)
                   >>= assertEqual
                     "unexpected result: "
                     (CallFailed (BlockingCommandTimedOut (MkCallId 1)))
@@ -115,13 +118,13 @@ data WaitForMessageFromDeadProcessResult
   deriving stock (Show, Eq)
 
 waitForMessageFromDeadProcess ::
-  (HasCallStack, IsMessageBoxFactory cfg output) =>
+  (HasCallStack, IsMessageBoxFactory cfg) =>
   cfg ->
   IO WaitForMessageFromDeadProcessResult
 waitForMessageFromDeadProcess outputCfg =
   do
     firstMessageSent <- newEmptyMVar
-    let msg1 = 42
+    let msg1 = Just 42
     output <- newMessageBox outputCfg
     _ <- forkIO $ do
       input <- newInput output
@@ -136,19 +139,19 @@ waitForMessageFromDeadProcess outputCfg =
     liftIO performMinorGC
     liftIO performMajorGC
     threadDelay 10_000
-    timeout
-      200_000
-      ( receive output
-          >>= maybe
-            (return SecondReceiveReturnedNothing)
-            ( \r -> do
-                liftIO (assertEqual "unexpected second message received!" msg1 r)
-                return SecondReceiveUnexpectedSuccess
-            )
-      )
+    receiveAfter output 200_000 (return (Just Nothing))
       >>= maybe
-        (return SecondReceiveTimedOut)
-        return
+        (return SecondReceiveReturnedNothing ) 
+        ( \case
+            Nothing -> return SecondReceiveTimedOut
+            (Just _) -> return SecondReceiveUnexpectedSuccess)
+        -- ( maybe
+        --     (return SecondReceiveTimedOut)
+        --     ( \r -> do
+        --         liftIO (assertEqual "unexpected second message received!" msg1 r)
+        --         return SecondReceiveUnexpectedSuccess
+        --     )
+        -- )
 
 data SendMessageToDeadProcessResult
   = NoMoreMessagesSent
@@ -157,7 +160,7 @@ data SendMessageToDeadProcessResult
   deriving stock (Show, Eq)
 
 sendMessagesToDeadProcess ::
-  (HasCallStack, IsMessageBoxFactory cfg output) =>
+  (HasCallStack, IsMessageBoxFactory cfg) =>
   cfg ->
   IO SendMessageToDeadProcessResult
 sendMessagesToDeadProcess outputCfg =
@@ -204,7 +207,7 @@ data WaitForCallReplyFromDeadServerResult
   deriving stock (Show, Eq)
 
 waitForCallReplyFromDeadServer ::
-  (IsMessageBoxFactory cfg output) =>
+  (IsMessageBoxFactory cfg) =>
   cfg ->
   IO WaitForCallReplyFromDeadServerResult
 waitForCallReplyFromDeadServer outputCfg =
@@ -230,9 +233,9 @@ waitForCallReplyFromDeadServerClient ready = do
       (const (return WaitForCallReplyFromDeadServerResult))
 
 waitForCallReplyFromDeadServerServer ::
-  (IsMessageBoxFactory cfg output) =>
+  (IsMessageBoxFactory cfg) =>
   cfg ->
-  MVar (Input output (Message TestServer)) ->
+  MVar (Input (MessageBox cfg) (Message TestServer)) ->
   IO ()
 waitForCallReplyFromDeadServerServer outputCfg ready = do
   output <- newMessageBox outputCfg

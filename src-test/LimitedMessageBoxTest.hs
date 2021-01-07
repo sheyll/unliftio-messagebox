@@ -1,6 +1,9 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NumericUnderscores #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StrictData #-}
 {-# LANGUAGE TupleSections #-}
@@ -8,398 +11,568 @@
 
 module LimitedMessageBoxTest (test) where
 
-import Control.Monad (forM, forever, replicateM, void)
+import Control.Exception (ErrorCall (ErrorCall))
+import Control.Monad (forM, forM_, forever, replicateM, unless, void, when)
+import Data.Foldable (traverse_)
 import Data.Function (fix)
-import Data.List (sort)
+import Data.Functor ((<&>))
+import qualified Data.IntSet as Set
 import qualified Data.Map.Strict as Map
-import Data.Maybe (isJust)
-import Data.Semigroup (All (All, getAll))
-import Protocol.MessageBox.Limited as MessageBox
-  ( MessageBox,
-    InputNB (..),
-    create,
-    newInput,
-    deliver,
-    receive,
-    tryReceive,
-    tryToDeliver,
-    tryToDeliverAndWait,
+import Data.Maybe
+  ( fromMaybe,
+    isNothing,
   )
-import qualified Protocol.MessageBox.Class as Class
+import Data.Semigroup (All (All, getAll))
+import Protocol.MessageBox.Class
+  ( IsInput (deliver),
+    IsMessageBox (newInput, receive, tryReceive),
+    IsMessageBoxFactory (MessageBox, newMessageBox),
+    receiveAfter,
+    tryNow,
+  )
+import Protocol.MessageBox.Limited
+  ( BlockingBoxLimit (..),
+    MessageLimit (..),
+    NonBlockingBoxLimit (..),
+    WaitingBoxLimit (..),
+    messageLimitToInt,
+  )
+import QCOrphans ()
 import Test.QuickCheck
+  ( NonEmptyList (NonEmpty),
+    Positive (Positive),
+    Small (Small),
+    ioProperty,
+    withMaxSuccess,
+    (==>),
+  )
 import Test.Tasty as Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit as Tasty
   ( assertBool,
     assertEqual,
+    assertFailure,
     testCase,
     (@?=),
   )
 import Test.Tasty.QuickCheck as Tasty (testProperty)
 import Text.Printf (printf)
-import UnliftIO
-import UnliftIO.Concurrent (threadDelay)
+import UnliftIO (concurrently, mapConcurrently, race, throwTo, timeout)
+import UnliftIO.Concurrent (forkIO, myThreadId, threadDelay)
 
 test :: Tasty.TestTree
 test =
-  Tasty.testGroup
+  testGroup
     "Protocol.MessageBox.Limited"
-    [ Tasty.testGroup
-        "Non-Blocking"
-        [ Tasty.testCase "receive from an empty queue" $ do
-            i <- MessageBox.create 10
-            f <- Class.tryReceive i
-            timeout 1_000_000 (Class.tryNow f)
-              >>= assertEqual "the future must not block and should return be emtpy" (Just (Nothing @Int)),
-          Tasty.testCase "send to full queue" $ do
-            i <- MessageBox.create 10
-            o <- MessageBox.newInput i
-            let sendWhileNotFull = do
-                  success <- Class.deliver (InputNB o) 2
-                  if not success then sendWhileNotFull else pure ()
-            timeout 1_000_000 sendWhileNotFull
-              >>= assertBool "deliver must not block" . isJust
-        ],
-      Tasty.testGroup
-        "single threaded"
-        [ Tasty.testGroup
-            "create and newInput"
-            [ testProperty "when createBox is applied to a limit > 0, then limit messages can be enqueued" $ \limit ->
-                limit > 0 && limit <= 100
-                  ==> ioProperty
-                  $ do
-                    i <- MessageBox.create limit :: IO (MessageBox String)
-                    o <- MessageBox.newInput i
-                    results <- replicateM limit (tryToDeliver o "test message")
-                    pure $ last results,
-              testProperty "when createBox is applied to a limit <= 0, then no messages can be enqueued" $ \limit ->
-                limit <= 0
-                  ==> ioProperty
-                  $ do
-                    i <- MessageBox.create limit :: IO (MessageBox String)
-                    o <- MessageBox.newInput i
-                    results <- replicateM limit (tryToDeliver o "test message")
-                    return $ and results,
-              testProperty "when the message box is 'full' not more then one more messages can be enqueued" $
-                \(Positive (Small nOfMessagesThatCanBeWritten)) (Positive (Small x)) ->
-                  ioProperty $ do
-                    let noOfMessagesAttemptedToWrite = nOfMessagesThatCanBeWritten + x
-                    i <- MessageBox.create nOfMessagesThatCanBeWritten
-                    o <- MessageBox.newInput i
-                    let messages = replicate noOfMessagesAttemptedToWrite "some test message"
-                    results <- traverse (tryToDeliver o) messages
-                    let (expectedSuccesses, rest) = splitAt nOfMessagesThatCanBeWritten results
-                        (_ambuiguos, expectedFailures) = splitAt nOfMessagesThatCanBeWritten rest
-                    let expectSomeFailures = noOfMessagesAttemptedToWrite > 2 * nOfMessagesThatCanBeWritten
+    [ testBlockingBox,
+      testWaitingBox,
+      testNonBlockingBox,
+      testCommon BlockingBoxLimit,
+      testCommon NonBlockingBoxLimit,
+      testCommon (WaitingBoxLimit Nothing 5_000_000),
+      testCommon (WaitingBoxLimit (Just (48 * 3600_000_000)) 5_000_000)
+    ]
 
-                    return
-                      ( label "all isRight expectedSuccesses" (and expectedSuccesses)
-                          .&&. label "all isLeft expectedSuccesses" (not $ or expectedFailures)
-                          .&&. cover
-                            100.0
-                            expectSomeFailures
-                            "noOfMessagesAttemptedToWrite > 2 * nOfMessagesThatCanBeWritten"
-                            (expectSomeFailures ==> not (null expectedFailures))
+testCommon ::
+  forall boxCfg cfg.
+  ( IsMessageBoxFactory boxCfg,
+    Show boxCfg,
+    cfg ~ MessageBox boxCfg
+  ) =>
+  (MessageLimit -> boxCfg) ->
+  Tasty.TestTree
+testCommon mkCfg =
+  let mkBox :: MessageLimit -> IO (cfg a)
+      mkBox = newMessageBox . mkCfg
+   in Tasty.testGroup
+        ("Common Functionality for " <> show (mkCfg MessageLimit_64) <> " Note: Tests may vary the limit")
+        [ testProperty "when createBox is applied to a limit > 0, then limit messages can be enqueued" $ \limit ->
+            limit <= MessageLimit_128
+              ==> ioProperty
+              $ do
+                i <- mkBox limit :: IO (cfg String)
+                o <- newInput i
+                results <- replicateM (messageLimitToInt limit) (deliver o "test message")
+                pure $ last results,
+          testProperty "when the message box is 'full' not more then one more messages can be enqueued" $
+            \limit ->
+              ioProperty $ do
+                let nOfMessagesThatCanBeWritten = messageLimitToInt limit
+                i <- mkBox limit
+                o <- newInput i
+                let countDeliveries n =
+                      timeout 10_000 (deliver o "some test message")
+                        >>= maybe (return n) (\ok -> if ok then countDeliveries (n + 1) else return n)
+                nDelivered <- countDeliveries 0
+                assertBool
+                  ( "at least "
+                      <> show nDelivered
+                      <> " messages should be delivered, in a queue of minimum size "
+                      <> show nOfMessagesThatCanBeWritten
+                  )
+                  (nDelivered >= nOfMessagesThatCanBeWritten)
+                assertBool
+                  ( "at most "
+                      <> show nDelivered
+                      <> " messages may be delivered, in a queue of minimum size "
+                      <> show nOfMessagesThatCanBeWritten
+                  )
+                  (nDelivered <= 2 * nOfMessagesThatCanBeWritten),
+          Tasty.testCase "When the message limit is 2, two messages can be enqueued" $ do
+            i <- mkBox MessageLimit_2
+            o <- newInput i
+            r1 <- deliver o "Messge 1"
+            r1 @?= True
+            r2 <- deliver o "Messge 2"
+            r2 @?= True,
+          Tasty.testCase "when writing into an empty Input, True is returned" $ do
+            i <- mkBox MessageLimit_32
+            o <- newInput i
+            deliver o "Stop the climate crisis" >>= (@?= True),
+          Tasty.testCase "when writing into a full Input deliver returns False or blocks forever" $ do
+            i <- mkBox MessageLimit_64
+            o <- newInput i
+            fix $ \next ->
+              timeout 100_000 (deliver o "Stop the climate crisis") >>= \case
+                Just False -> assertBool "expected 'False' when the queue is full" True
+                Just True -> next
+                Nothing -> return (),
+          testProperty "all messages that were succecssfully sent are received in order" $
+            \(NonEmpty (ms :: [(Bool, Double, [String])])) limit ->
+              withMaxSuccess 20 $
+                ioProperty $ do
+                  i <- mkBox limit
+                  o <- newInput i
+                  allFine <- forM ms $ \message -> do
+                    response <- deliver o message
+                    f <- tryReceive i
+                    receiveResult <- tryNow f
+                    return (response && receiveResult == Just message)
+                  return (and allFine),
+          testProperty "the future for the first message, receives only the first message" $
+            \(NonEmpty (ms :: [(Bool, Double, [String])])) limit ->
+              withMaxSuccess 20 $
+                ioProperty $ do
+                  i <- mkBox limit
+                  o <- newInput i
+                  futures <- replicateM (length ms) (tryReceive i)
+                  allDelivered <- forM ms (fmap All . deliver o)
+                  allReceived <-
+                    mapConcurrently
+                      ( \(message, future) -> fix $ \notNow ->
+                          tryNow future >>= maybe notNow (return . All . (== message))
                       )
-            ],
-          Tasty.testGroup
-            "create and send messages without receiving"
-            [ Tasty.testGroup
-                "tryToDeliver"
-                [ Tasty.testCase "When the message limit is 2, two messages can be enqueued" $ do
-                    i <- MessageBox.create 2
-                    o <- MessageBox.newInput i
-                    r1 <- tryToDeliver o "Messge 1"
-                    r1 @?= True
-                    r2 <- tryToDeliver o "Messge 2"
-                    r2 @?= True,
-                  Tasty.testCase "when writing into an empty Input, True is returned" $ do
-                    i <- create 16
-                    o <- newInput i
-                    tryToDeliver o "Stop the climate crisis" >>= (@?= True),
-                  Tasty.testCase "when writing into a full Input tryToDeliver returns False" $ do
-                    i <- create 16
-                    o <- newInput i
-                    fix $ \next ->
-                      tryToDeliver o "Stop the climate crisis" >>= \case
-                        False -> assertBool "expected 'False' when the queue is full" True
-                        True -> next
-                ],
-              Tasty.testGroup
-                "tryToDeliverAndWait"
-                [ Tasty.testCase "When the message limit is 2, two messages can be enqueued" $ do
-                    i <- MessageBox.create 2
-                    o <- MessageBox.newInput i
-                    r1 <- tryToDeliverAndWait 1 o "Messge 1"
-                    r1 @?= True
-                    r2 <- tryToDeliverAndWait 1 o "Messge 2"
-                    r2 @?= True,
-                  Tasty.testCase "when writing into a full Input tryToDeliver returns False after the timeout" $ do
-                    i <- create 16
-                    o <- newInput i
-                    fix $ \next ->
-                      tryToDeliver o "Stop the climate crisis" >>= \case
-                        False -> return ()
-                        True -> next
-                    tryToDeliverAndWait 123 o "foo bar"
-                      >>= assertBool "expect tryToDeliverAndWait to return False (timeout)" . not
-                ]
-            ],
-          Tasty.testGroup
-            "create, send and receive messages"
-            [ testProperty "all messages that were succecssfully sent are received in order" $
-                \(NonEmpty (ms :: [(Bool, Double, [String])])) (Positive (Small nOfMessagesThatCanBeWritten)) ->
-                  withMaxSuccess 20 $
-                    ioProperty $ do
-                      i <- MessageBox.create nOfMessagesThatCanBeWritten
-                      o <- MessageBox.newInput i
-                      allFine <- forM ms $ \message -> do
-                        response <- tryToDeliver o message
-                        f <- tryReceive i
-                        receiveResult <- Class.tryNow f
-                        return (response && receiveResult == Just message)
-                      return (and allFine),
-              testProperty "the future for the first message, receives only the first message" $
-                \(NonEmpty (ms :: [(Bool, Double, [String])])) (Positive (Small nOfMessagesThatCanBeWritten)) ->
-                  withMaxSuccess 20 $
-                    ioProperty $ do
-                      i <- MessageBox.create nOfMessagesThatCanBeWritten
-                      o <- MessageBox.newInput i
-                      futures <- replicateM (length ms) (tryReceive i)
-                      allDelivered <- forM ms (fmap All . tryToDeliver o)
-                      allReceived <-
-                        mapConcurrently
-                          ( \(message, future) -> fix $ \notNow -> do
-                              Class.tryNow future >>= maybe notNow (return . All . (== message))
-                          )
-                          (ms `zip` futures)
-                      return (getAll (mconcat allDelivered <> mconcat allReceived)),
-              testProperty
-                "At least 'queueSize' messages can be written before without loosing\
-                \ any message, and after n messages have been read, upto n messages \
-                \ can be written again, all messages are in FIFO order"
-                $ \(Positive (Small queueSize)) (Positive (Small n)) ->
-                  n < queueSize
-                    ==> withMaxSuccess 20
-                    $ ioProperty $
-                      do
-                        let valueGenerator = [0 ..]
-                        i <- MessageBox.create queueSize
-                        o <- MessageBox.newInput i
+                      (ms `zip` futures)
+                  return (getAll (mconcat allDelivered <> mconcat allReceived)),
+          testProperty
+            "when messages are send until the limit is reached,\
+            \and when x, x < limit messages are received, then \
+            \x more messages can be delivered again, and all \
+            \messages are in FIFO order"
+            $ \limit (Positive (Small x)) ->
+              x < messageLimitToInt limit
+                ==> withMaxSuccess 20
+                $ ioProperty $
+                  do
+                    i <- mkBox limit
+                    -- write until the real limit is reached
+                    nFirstMessages <- do
+                      o <- newInput i
+                      let go msgId
+                            | msgId < messageLimitToInt limit = do
+                              success <-
+                                fromMaybe False
+                                  <$> timeout
+                                    50_000
+                                    (deliver o msgId)
 
-                        -- write queueSize messages
-                        let (messages1, ~valueGenerator1) = splitAt queueSize valueGenerator
-                        results1 <- traverse (tryToDeliver o) messages1
-                        let sendSuccessfully1 = and results1
-                        -- read n messages
-                        receivedMessages1 <- replicateM n (tryReceive i >>= Class.tryNow)
+                              if success
+                                then go (msgId + 1)
+                                else return msgId
+                            | otherwise = return msgId
+                      go 0
 
-                        -- write n messages
-                        let (messages2, ~_valueGenerator2) = splitAt n valueGenerator1
-                        results2 <- traverse (tryToDeliver o) messages2
-                        let sendSuccessfully2 = and results2
-                        -- read queueSize messages
-                        receivedMessages2 <- replicateM queueSize (tryReceive i >>= Class.tryNow)
+                    assertBool
+                      ( "internal error less than 'limit' messages could be delivered: "
+                          <> show nFirstMessages
+                          <> " < "
+                          <> show limit
+                      )
+                      (nFirstMessages >= messageLimitToInt limit)
 
-                        let receivedInOrder =
-                              receivedMessages1 ++ receivedMessages2
-                                == (Just <$> take (queueSize + n) valueGenerator)
-
-                        return $
-                          sendSuccessfully1
-                            .&&. sendSuccessfully2
-                            .&&. receivedInOrder
-            ]
-            --TODO: Test for queue is empty after all values were read
-        ],
-      Tasty.testGroup
-        "multi threaded"
-        [ Tasty.testGroup
-            "1 Writer x receivers y messages"
-            [ Tasty.testProperty
-                "when using Outputes with a limit greater than the number\
-                \ of messsages in the test, tryToDeliver always succeeds"
-                $ \(Positive (Small nMsgs')) (Positive (Small nReceivers')) ->
-                  withMaxSuccess 20 $
-                    ioProperty $ do
-                      let nMsgs = nMsgs' `rem` 100
-                      let nReceivers = nReceivers' `rem` 100
-                      !outBoxesAndReaders <- replicateM nReceivers $ do
-                        !ib <- create (max 128 nMsgs)
-                        !ob <- newInput ib
-                        pure
-                          ( ob,
-                            fix
-                              ( \ !next !noMsgs ->
-                                  receive ib
-                                    >>= ( \case
-                                            (!_testMsg, Just _) -> next (noMsgs + 1)
-                                            (!_testMsg, Nothing) -> return noMsgs
-                                        )
-                              )
-                              0
-                          )
-
-                      let (!outBoxes, !receivers) = unzip outBoxesAndReaders
-                      let ms = [("Test-Message", Just n) | n <- [1 .. nMsgs :: Int]] ++ [("Stop-Message", Nothing)]
-                      let doSend = traverse (uncurry tryToDeliver) ((,) <$> outBoxes <*> ms)
-
-                      result <-
-                        concurrently
-                          (forConcurrently receivers id)
-                          doSend
-
-                      return
-                        ( result
-                            === ( replicate nReceivers nMsgs,
-                                  replicate ((nMsgs + 1) * nReceivers) True
-                                )
-                        ),
-              Tasty.testCase
-                "when using Outputes with a limit smaller than half of the number\
-                \ of messsages in the test, tryToDeliver first succeeds and then fails"
-                $ do
-                  let nGood = 128
-                      nAmbigous = 2 * nGood
-                      nBad = 123
-
-                  receiverOut <- create nGood >>= newInput
-                  let doReceive = threadDelay 300_000_000
-
-                  let good = [("Test-Message GOOD", Just n) | n <- [1 .. nGood :: Int]]
-                      ambigous = [("Test-Message ambigous", Just n) | n <- [1 .. nAmbigous :: Int]]
-                      bad = [("Test-Message Base", Just n) | n <- [1 .. nBad :: Int]]
-
-                  let doSend =
-                        traverse (tryToDeliver receiverOut) good
-                          <> traverse (fmap (const True) . tryToDeliver receiverOut) ambigous
-                          <> traverse (tryToDeliver receiverOut) bad
-                  result <-
-                    race
-                      doReceive
-                      doSend
-
-                  result
-                    @?= Right
-                      ( replicate nGood True
-                          <> replicate nAmbigous True
-                          <> replicate nBad False
-                      ),
-              Tasty.testCase
-                "when sending 5 times faster then receiving, then tryToDeliver \
-                \will begin to fail after some time"
-                $ do
-                  let nGood = 256
-                      nAmbigous = 2 * nGood + 1
-                      nBad = nGood
-                      tSend = 500
-                      tRecv = 5 * tSend
-
-                  receiverIn <- create nGood
-                  receiverOut <- newInput receiverIn
-                  let doReceive = void (forever (receive receiverIn >> threadDelay tRecv))
-
-                  let !good = [("Test-Message GOOD", Just n) | !n <- [1 .. nGood :: Int]]
-                      !ambigous = [("Test-Message ambigous", Just n) | !n <- [1 .. nAmbigous :: Int]]
-                      !bad = [("Test-Message Base", Just n) | !n <- [1 .. nBad :: Int]]
-
-                  let doSend =
-                        traverse (\ !m -> threadDelay tSend >> tryToDeliver receiverOut m) good
-                          <> traverse (\ !m -> threadDelay tSend >> tryToDeliver receiverOut m >> return True) ambigous
-                          <> traverse (\ !m -> threadDelay tSend >> tryToDeliver receiverOut m) bad
-                  Right result <-
-                    race
-                      doReceive
-                      doSend
-                  let !resultGoodPart = take nGood result
-                      !resultBad = drop (nGood + nAmbigous) result
-
-                  assertBool "first messages succeed" (and resultGoodPart)
-                  assertBool "last messages fail" (not $ and resultBad),
-              Tasty.testProperty
-                "when sending faster than receiving using deliver\
-                \ with a very high timeout will succeed\
-                \ to send all messages, irrespective of the queue size"
-                $ \(Positive (Small queueSize)) -> withMaxSuccess 20 $
-                  ioProperty $
+                    firstXReceived <- replicateM x (receive i)
+                    assertEqual "could not receive x messages" (Just <$> [0 .. x -1]) firstXReceived
                     do
-                      let nGood = 256
-                          tSend = 200
-                          tRecv = 5 * tSend
-
-                      receiverIn <- create queueSize
-                      receiverOut <- newInput receiverIn
-                      let doReceive =
-                            fix $ \continue -> do
-                              threadDelay tRecv
-                              receive receiverIn
-                                >>= maybe
-                                  (return ())
-                                  (const continue)
-
-                      let ms = replicate nGood (Just "Test-Message")
-                      let doSend = do
-                            res <- forM ms $ \m -> do
-                              threadDelay tSend
-                              tryToDeliverAndWait 5_000_000 receiverOut m
-                            threadDelay tSend
-                            lr <- tryToDeliverAndWait 5_000_000 receiverOut Nothing
-                            return (lr : res)
-
-                      concurrently
-                        doReceive
-                        doSend
-                        >>= \case
-                          (_, actual) -> do
-                            let expected =
-                                  True :
-                                  replicate (nGood + 1 - 1) True
-                            assertEqual "messages succeed" expected actual,
-              Tasty.testCase
-                "when 1000 senders send 100 messages to 1 receiver using \
-                \tryToDeliverAndWait, all messages will be received"
+                      nNextMessages <- do
+                        o <- newInput i
+                        maybe 0 length
+                          <$> timeout
+                            5_000_000
+                            (mapM (deliver o) [nFirstMessages .. nFirstMessages + x - 1])
+                      assertEqual
+                        "unexpected number of messages delivered"
+                        x
+                        nNextMessages
+                    nextReceived <- replicateM nFirstMessages (receive i)
+                    assertEqual
+                      "could not receive x messages"
+                      (Just <$> [x .. x + nFirstMessages -1])
+                      nextReceived,
+          Tasty.testGroup
+            "lock contention robustness"
+            [ Tasty.testCase
+                "when many concurrent senders send many messages to one receiver,\
+                \ and when every failed deliver is retried indefinitely, \
+                \ all messages will be received"
                 $ do
-                  let queueSize = nSenders
+                  let queueSize = MessageLimit_1024
                       nMsgs = 100
-                      nSenders = 1000 :: Int
-                  !receiverIn <- create queueSize
-                  !receiverOut <- newInput receiverIn
-                  let doReceive = flip fix Map.empty $ \continue !resultMap ->
-                        if nSenders == Map.size resultMap
-                          && all (== nMsgs) (length <$> Map.elems resultMap)
-                          then return resultMap
-                          else do
-                            (!senderId, !msg) <- receive receiverIn
-                            let !nextResultMap =
-                                  Map.alter
-                                    (maybe (Just [msg]) (Just . (msg :)))
-                                    senderId
-                                    resultMap
-                            continue nextResultMap
+                      nSenders = messageLimitToInt queueSize :: Int
+                  !receiverIn <- mkBox queueSize :: IO (cfg (Int, Int))
+                  let doReceive = go Map.empty
+                        where
+                          go acc =
+                            ( timeout 2_000_000 (receive receiverIn)
+                                <&> fromMaybe Nothing
+                            )
+                              >>= maybe
+                                (return acc)
+                                ( \(sId, msg) ->
+                                    go
+                                      ( Map.alter
+                                          ( Just
+                                              . maybe
+                                                (Set.singleton msg)
+                                                (Set.insert msg)
+                                          )
+                                          sId
+                                          acc
+                                      )
+                                )
 
-                  let mkMsgs !senderId =
-                        [ (senderId, printf "%i" mId :: String)
-                          | !mId <- [0 .. nMsgs - 1]
-                        ]
-
-                  let mkSender !senderId = do
-                        forM (mkMsgs senderId) $ \ !m -> do
-                          deliver receiverOut m
-
-                  (!receiverResult, !_senderResults) <-
-                    concurrently
-                      doReceive
-                      (mapConcurrently mkSender [0 .. nSenders - 1])
-                  assertEqual "expect that messages from all senders are received" nSenders (Map.size receiverResult)
-                  mapM_
-                    ( \(!senderId, !msgs) ->
-                        assertEqual
-                          ("expect that message receiving for sender " ++ show senderId ++ " succeeded")
-                          (sort (mkMsgs senderId))
-                          (sort ((senderId,) <$> msgs))
+                  let allMessages =
+                        let msgIds = Set.fromList [0 .. nMsgs - 1]
+                         in Map.fromList [(sId, msgIds) | sId <- [0 .. nSenders - 1]]
+                  receiverOut <- newInput receiverIn
+                  mainThread <- myThreadId
+                  forM_
+                    (Map.assocs allMessages)
+                    ( \(sId, msgs) ->
+                        void $
+                          forkIO $ do
+                            -- printf "Sender %i starting!\n" sId
+                            -- printf "Sender %i started!\n" sId
+                            traverse_
+                              ( \msgId ->
+                                  timeout
+                                    20_000_000
+                                    ( fix
+                                        ( \again -> do
+                                            ok <- deliver receiverOut (sId, msgId)
+                                            if ok then return True else do 
+                                              threadDelay (10 * msgId + sId)
+                                              again
+                                        )
+                                    )
+                                    >>= maybe
+                                      ( throwTo
+                                          mainThread
+                                          ( ErrorCall
+                                              ( "deliver for "
+                                                  <> show (sId, msgId)
+                                                  <> " timed out!"
+                                              )
+                                          )
+                                      )
+                                      ( `unless`
+                                          throwTo
+                                            mainThread
+                                            ( ErrorCall
+                                                ( "deliver for "
+                                                    <> show (sId, msgId)
+                                                    <> " failed!"
+                                                )
+                                            )
+                                      )
+                              )
+                              (Set.toList msgs)
+                              -- printf "Sender %i done!\n" sId
                     )
-                    (Map.toList receiverResult)
+                  receivedMessages <- doReceive
+                  assertEqual
+                    "failed to correctly receive all test messages"
+                    allMessages
+                    receivedMessages
             ]
         ]
-        -- [0 -> 2, 1 -> 3, 2 -> 4, 2 -> 5, 3 -> 5]
-        -- y = mx + b
+
+testBlockingBox :: TestTree
+testBlockingBox =
+  Tasty.testGroup
+    "BlockingBox"
+    [ Tasty.testCase "receive on an empty queue blocks forever" $ do
+        i <- newMessageBox (BlockingBoxLimit MessageLimit_16)
+        let foreverInMicros = 100_000
+        receiveAfter i foreverInMicros (return (Just "Expected Timeout Happened"))
+          >>= assertEqual
+            "timeout expected"
+            (Just "Expected Timeout Happened"),
+      Tasty.testCase "tryReceive from an empty queue returns future that returns Nothing" $ do
+        i <- newMessageBox (BlockingBoxLimit MessageLimit_16)
+        f <- tryReceive i
+        timeout 1_000_000 (tryNow f)
+          >>= assertEqual "the future must not block and should return Nothing" (Just (Nothing @Int)),
+      Tasty.testCase "when a message box is full, deliver will block forever" $ do
+        i <- newMessageBox (BlockingBoxLimit MessageLimit_16)
+        o <- newInput i
+        let sendWhileNotFull = do
+              success <- deliver o 666
+              when success sendWhileNotFull
+        timeout 1_000_000 sendWhileNotFull
+          >>= assertBool "deliver must block" . isNothing,
+      Tasty.testProperty
+        "when sending faster than receiving all messages must be received"
+        $ \queueSize -> withMaxSuccess 20 $
+          ioProperty $
+            do
+              let nGood = 256
+                  tSend = 200
+                  tRecv = 5 * tSend
+
+              receiverIn <- newMessageBox (BlockingBoxLimit queueSize)
+              receiverOut <- newInput receiverIn
+              let doReceive =
+                    replicateM
+                      nGood
+                      ( threadDelay tRecv
+                          *> receive receiverIn
+                      )
+
+              let doSend =
+                    replicateM
+                      nGood
+                      ( threadDelay tSend
+                          *> deliver receiverOut ("Test Message" :: String)
+                      )
+
+              (received, sendResults) <- concurrently doReceive doSend
+              assertEqual "not all messages could be sent" (replicate nGood True) sendResults
+              assertEqual "not all messages could be received" (replicate nGood (Just "Test Message")) received
+    ]
+
+testWaitingBox :: TestTree
+testWaitingBox =
+  testGroup
+    "WaitingBox"
+    [ Tasty.testCase "when the receive timeout is Nothing receive blocks forever" $ do
+        i <- newMessageBox (WaitingBoxLimit Nothing 123 MessageLimit_16)
+        let foreverInMicros = 100_000
+        timeout foreverInMicros (receive i)
+          >>= assertEqual
+            "receive did not block"
+            (Nothing :: Maybe (Maybe Int)),
+      Tasty.testCase "when the receive timeout is Just x, receive returns Nothing after x micro seconds" $ do
+        i <- newMessageBox (WaitingBoxLimit (Just 234) 123 MessageLimit_16)
+        let foreverInMicros = 100_000
+        timeout foreverInMicros (receive i)
+          >>= assertEqual
+            "receive did not timeout"
+            (Just (Nothing :: Maybe Int)),
+      Tasty.testCase
+        "when the receive timeout is Just x, and another thread waits 2*x and delivers a message, receive returns Nothing"
+        $ do
+          let m1 = "Message 1" :: String
+          mbox <- newMessageBox (WaitingBoxLimit (Just 150_000) 1_000 MessageLimit_16)
+          input <- newInput mbox
+          (senderOk, receiverOK) <-
+            concurrently
+              ( do
+                  threadDelay 300_000
+                  s1Ok <- deliver input m1
+                  return
+                    ( assertBool "delivering message failed" s1Ok
+                    )
+              )
+              ( do
+                  r <- receive mbox
+                  return $
+                    assertEqual "wrong message received!" Nothing r
+              )
+          senderOk
+          receiverOK,
+      Tasty.testCase
+        "when the receive timeout is Just 150_000, and another thread waits 1000 and delivers a message, receive returns Just that message"
+        $ do
+          let m1 = "Message 1" :: String
+          mbox <- newMessageBox (WaitingBoxLimit (Just 150_000) 1_000 MessageLimit_16)
+          input <- newInput mbox
+          (senderOk, receiverOK) <-
+            concurrently
+              ( do
+                  threadDelay 1000
+                  s1Ok <- deliver input m1
+                  return
+                    ( assertBool "delivering message failed" s1Ok
+                    )
+              )
+              ( do
+                  r <- receive mbox
+                  return $
+                    assertEqual "wrong message received!" (Just m1) r
+              )
+          senderOk
+          receiverOK,
+      Tasty.testCase "tryReceive from an empty queue returns a future that returns Nothing" $ do
+        i <- newMessageBox (WaitingBoxLimit (Just 234) 123 MessageLimit_16)
+        f <- tryReceive i
+        timeout 1_000_000 (tryNow f)
+          >>= assertEqual "the future must not block and should return Nothing" (Just (Nothing @Int)),
+      Tasty.testCase "when a message box is full, deliver return False after the timeout elapsed" $ do
+        i <- newMessageBox (WaitingBoxLimit (Just 234) 123 MessageLimit_16)
+        o <- newInput i
+        let sendWhileNotFull = do
+              success <- deliver o (666 :: Int)
+              when success sendWhileNotFull
+        timeout 1_000_000 (sendWhileNotFull >> deliver o (666 :: Int))
+          >>= assertEqual "deliver must return False after the timeout has elapsed" (Just False),
+      Tasty.testProperty
+        "when sending faster than receiving\
+        \ and when the timeout is sufficiently large, all messages must be received"
+        $ \limit -> withMaxSuccess 20 $
+          ioProperty $
+            do
+              let nGood = 256
+                  tSend = 200
+                  tRecv = 5 * tSend
+
+              receiverIn <- newMessageBox (WaitingBoxLimit Nothing 5_000_000 limit)
+              receiverOut <- newInput receiverIn
+              let doReceive =
+                    replicateM
+                      nGood
+                      ( threadDelay tRecv
+                          *> receive receiverIn
+                      )
+
+              let doSend =
+                    replicateM
+                      nGood
+                      ( threadDelay tSend
+                          *> deliver receiverOut ("Test Message" :: String)
+                      )
+
+              (received, sendResults) <- concurrently doReceive doSend
+              assertEqual "not all messages could be sent" (replicate nGood True) sendResults
+              assertEqual "not all messages could be received" (replicate nGood (Just "Test Message")) received,
+      Tasty.testCase "When the message limit is 2, two messages can be enqueued" $ do
+        i <- newMessageBox (WaitingBoxLimit Nothing 5_000_000 MessageLimit_2)
+        o <- newInput i
+        r1 <- deliver o "Messge 1"
+        r1 @?= True
+        r2 <- deliver o "Messge 2"
+        r2 @?= True,
+      Tasty.testCase "when writing into a full box, deliver returns False after the timeout" $ do
+        i <- newMessageBox (WaitingBoxLimit Nothing 123 MessageLimit_32)
+        o <- newInput i
+        fix $ \next ->
+          deliver o "Stop the climate crisis" >>= \case
+            False -> return ()
+            True -> next
+        deliver o "foo bar"
+          >>= assertBool "expect tryToDeliverAndWait to return False (timeout)" . not,
+      testGroup
+        "receive with/without timeout"
+        [ Tasty.testCase "when a receive timeout is Just t, and no message is delivered, receive returns Nothing after the timeout" $ do
+            i <- newMessageBox (WaitingBoxLimit (Just 10) 123 MessageLimit_8)
+            receive i
+              >>= assertEqual "timeout expected" (Nothing :: Maybe String),
+          Tasty.testCase "when a receive timeout is Nothing, and no message is delivered, receive never returns" $ do
+            i <- newMessageBox (WaitingBoxLimit Nothing 123 MessageLimit_8)
+            let foreverInMicros = 100_000
+            timeout foreverInMicros (receive i)
+              >>= assertEqual "expected receive to block forever" (Nothing :: Maybe (Maybe String))
+        ]
+    ]
+
+testNonBlockingBox :: TestTree
+testNonBlockingBox =
+  Tasty.testGroup
+    "NonBlockingBox"
+    [ Tasty.testCase
+        "only delivery is non-blocking, when a message box has no inputs then receive blocks forever"
+        $ do
+          mbox <- newMessageBox (NonBlockingBoxLimit MessageLimit_16)
+          r <- timeout 100_000 (receive mbox)
+          assertEqual "receive must not return" (Nothing :: Maybe (Maybe String)) r,
+      Tasty.testCase "when writing into a full Input deliver returns False " $ do
+        i <- newMessageBox (NonBlockingBoxLimit MessageLimit_16)
+        o <- newInput i
+        fix $ \next ->
+          deliver o "Stop the climate crisis" >>= \case
+            False -> return ()
+            True -> next
+        deliver o "foo bar"
+          >>= assertBool "deliver should not have succeeded" . not,
+      Tasty.testCase
+        "when using a limit smaller than half of the number\
+        \ of messsages in the test, deliver first succeeds and then fails"
+        $ do
+          let lGood = MessageLimit_128
+              nGood = messageLimitToInt lGood
+              nAmbigous = 2 * nGood
+              nBad = 123
+
+          receiverOut <- newMessageBox (NonBlockingBoxLimit lGood) >>= newInput
+          let doReceive = threadDelay 300_000_000
+
+          let good = [("Test-Message GOOD", Just n) | n <- [1 .. nGood :: Int]]
+              ambigous = [("Test-Message ambigous", Just n) | n <- [1 .. nAmbigous :: Int]]
+              bad = [("Test-Message Base", Just n) | n <- [1 .. nBad :: Int]]
+
+          let doSend =
+                traverse (deliver receiverOut) good
+                  <> traverse (fmap (const True) . deliver receiverOut) ambigous
+                  <> traverse (deliver receiverOut) bad
+          result <-
+            race
+              doReceive
+              doSend
+
+          result
+            @?= Right
+              ( replicate nGood True
+                  <> replicate nAmbigous True
+                  <> replicate nBad False
+              ),
+      Tasty.testCase
+        "when sending 5 times faster then receiving, then deliver \
+        \will begin to fail after some time"
+        $ do
+          let lGood = MessageLimit_128
+              nGood = messageLimitToInt lGood
+              nAmbigous = 2 * nGood + 1
+              nBad = nGood
+              tSend = 500
+              tRecv = 5 * tSend
+
+          receiverIn <- newMessageBox (NonBlockingBoxLimit lGood)
+          receiverOut <- newInput receiverIn
+          let doReceive = void (forever (receive receiverIn >> threadDelay tRecv))
+
+          let !good = [("Test-Message GOOD", Just n) | !n <- [1 .. nGood :: Int]]
+              !ambigous = [("Test-Message ambigous", Just n) | !n <- [1 .. nAmbigous :: Int]]
+              !bad = [("Test-Message Base", Just n) | !n <- [1 .. nBad :: Int]]
+
+          let doSend =
+                traverse (\ !m -> threadDelay tSend >> deliver receiverOut m) good
+                  <> traverse (\ !m -> threadDelay tSend >> deliver receiverOut m >> return True) ambigous
+                  <> traverse (\ !m -> threadDelay tSend >> deliver receiverOut m) bad
+          Right result <-
+            race
+              doReceive
+              doSend
+          let !resultGoodPart = take nGood result
+              !resultBad = drop (nGood + nAmbigous) result
+
+          assertBool "first messages succeed" (and resultGoodPart)
+          assertBool "last messages fail" (not $ and resultBad)
     ]

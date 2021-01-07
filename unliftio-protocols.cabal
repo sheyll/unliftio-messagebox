@@ -177,6 +177,7 @@ test-suite unliftio-protocols-test
     CornerCaseTests,
     MessageBoxClassTest,
     ProtocolsTest,
+    QCOrphans,
     UnlimitedMessageBoxTest
   ghc-options: 
     -Wno-missing-signatures

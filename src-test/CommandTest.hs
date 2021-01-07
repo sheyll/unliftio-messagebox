@@ -16,10 +16,9 @@
 module CommandTest where
 
 import Data.Functor (Functor ((<$)), void, ($>), (<$>))
+import Data.Maybe ( Maybe(Just, Nothing), fromMaybe, isJust )
 import Data.Semigroup (All (All, getAll))
 import GHC.IO.Exception (userError)
-import qualified Protocol.Command.CallId as CallId
-import Protocol.Command.CallId (CallId(MkCallId))
 import Protocol.Command
   ( Command,
     CommandError (BlockingCommandTimedOut),
@@ -29,11 +28,17 @@ import Protocol.Command
     cast,
     replyTo,
   )
+import Protocol.Command.CallId (CallId (MkCallId))
+import qualified Protocol.Command.CallId as CallId
 import Protocol.Fresh (CounterVar, fresh, newCounterVar)
 import Protocol.MessageBox.Class
   ( IsMessageBoxFactory (newMessageBox),
     handleMessage,
     newInput,
+  )
+import Protocol.MessageBox.Limited
+  ( BlockingBoxLimit (BlockingBoxLimit),
+    MessageLimit (..),
   )
 import Protocol.MessageBox.Unlimited (UnlimitedMessageBox (UnlimitedMessageBox))
 import RIO
@@ -59,6 +64,7 @@ import RIO
     runRIO,
     threadDelay,
     throwTo,
+    timeout,
     tryReadMVar,
     ($),
     (.),
@@ -81,7 +87,6 @@ import Test.Tasty.QuickCheck
     testProperty,
   )
 import UnliftIO.Concurrent (forkIO)
-import Data.Maybe
 
 test :: Tasty.TestTree
 test =
@@ -209,38 +214,66 @@ test =
             case clientResult of
               (Right actualBooks) -> assertEqual "call should return the right books: " actualBooks []
               other -> assertFailure $ "unexpected call result: " <> show other,
-      testCase "when the server sends a reply after the call timeout has elapsed, the call function \
-              \returns 'Left BlockingCommandTimedOut', and the replyTo function returns False" $ do
-        freshCounter <- newCounterVar
-        runRIO (MkBookStoreEnv {_fresh = freshCounter}) $ do
-          bookStoreOutput <- newMessageBox UnlimitedMessageBox
-          bookStoreInput <- newInput bookStoreOutput
-          let client = do
-                result <- call bookStoreInput GetBooks 100_000
-                case result of
-                  Left (BlockingCommandTimedOut _) ->
-                    -- this is the error we expected
-                    return $ return ()
-                  unexpectedOther ->
-                    return $ assertFailure
-                      ( "call result should match (Left (BlockingCommandTimedOut _)), unexpected: "
-                          <> show unexpectedOther
-                      )
-              server =
-                handleMessage bookStoreOutput $ \case
-                  Blocking GetBooks replyBox -> do
-                    threadDelay 500_000 -- artificial delay to cause the client to 
-                                        -- loose patience and timeout
-                    void (replyTo replyBox [])
-                    return (return ())
-                  NonBlocking a ->
-                    return (assertFailure ("unexpected message: " <> show a))
-          (clientAssertion, serverAssertion) <-
-            concurrently client server
-          liftIO $ do
-            clientAssertion  
-            fromMaybe (assertFailure "book store server died unexpectedly") serverAssertion
-         
+      testCase
+        "when the server sends a reply after the call timeout has elapsed, the call function \
+        \returns 'Left BlockingCommandTimedOut', and the replyTo function returns False"
+        $ do
+          freshCounter <- newCounterVar
+          runRIO (MkBookStoreEnv {_fresh = freshCounter}) $ do
+            bookStoreOutput <- newMessageBox UnlimitedMessageBox
+            bookStoreInput <- newInput bookStoreOutput
+            let client = do
+                  result <- call bookStoreInput GetBooks 100_000
+                  case result of
+                    Left (BlockingCommandTimedOut _) ->
+                      -- this is the error we expected
+                      return $ return ()
+                    unexpectedOther ->
+                      return $
+                        assertFailure
+                          ( "call result should match (Left (BlockingCommandTimedOut _)), unexpected: "
+                              <> show unexpectedOther
+                          )
+                server =
+                  handleMessage bookStoreOutput $ \case
+                    Blocking GetBooks replyBox -> do
+                      threadDelay 500_000 -- artificial delay to cause the client to
+                      -- loose patience and timeout
+                      void (replyTo replyBox [])
+                      return (return ())
+                    NonBlocking a ->
+                      return (assertFailure ("unexpected message: " <> show a))
+            (clientAssertion, serverAssertion) <-
+              concurrently client server
+            liftIO $ do
+              clientAssertion
+              fromMaybe (assertFailure "book store server died unexpectedly") serverAssertion,
+      testCase
+        "when the server receives the call and does not send a reply and immediately \
+        \exits, the call function returns a timeout error"
+        $ do
+          freshCounter <- newCounterVar
+          let env = MkBookStoreEnv {_fresh = freshCounter}
+          (serverResult, clientResult) <- runRIO env $ do
+            bookStoreOutput <- newMessageBox (BlockingBoxLimit MessageLimit_16)
+            bookStoreInput <- newInput bookStoreOutput
+            concurrently
+              ( handleMessage bookStoreOutput $ \case
+                  Blocking GetBooks _replyBox -> return Nothing
+                  u -> return (Just ("unexpected message: " <> show u))
+              )
+              ( timeout
+                  1_000_000
+                  (call bookStoreInput GetBooks 100_000)
+              )
+          assertEqual
+            "unexpected serverResult"
+            (Just Nothing)
+            serverResult
+          assertEqual
+            "unexpected clientResult"
+            (Just (Left (BlockingCommandTimedOut (MkCallId 1))))
+            clientResult
     ]
 
 newtype BookStoreEnv = MkBookStoreEnv

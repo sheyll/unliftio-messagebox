@@ -32,9 +32,9 @@ import UnliftIO
     MonadUnliftIO,
   )
 
--- | Create an 'MessageBox'.
+-- | Create a 'MessageBox'.
 --
--- From an 'MessageBox' a corresponding 'Input' can
+-- From a 'MessageBox' a corresponding 'Input' can
 -- be made, that can be passed to some potential
 -- communication partners.
 {-# INLINE create #-}
@@ -43,13 +43,13 @@ create = do
   (!inChan, !outChan) <- liftIO Unagi.newChan
   return $! MkOutput inChan outChan
 
--- | Wait for and receive a message from an 'MessageBox'.
+-- | Wait for and receive a message from a 'MessageBox'.
 {-# INLINE receive #-}
 receive :: MonadUnliftIO m => MessageBox a -> m a
 receive (MkOutput _ !s) =
   liftIO (Unagi.readChan IO.yield s)
 
--- | Try to receive a message from an 'MessageBox',
+-- | Try to receive a message from a 'MessageBox',
 -- return @Nothing@ if the queue is empty.
 {-# INLINE tryReceive #-}
 tryReceive :: MonadUnliftIO m => MessageBox a -> m (Class.Future a)
@@ -64,7 +64,7 @@ newInput :: MonadUnliftIO m => MessageBox a -> m (Input a)
 newInput (MkOutput !s _) = return $! MkInput s
 
 -- | Put a message into the 'Input'
--- of an 'MessageBox', such that the process
+-- of a 'MessageBox', such that the process
 -- reading the 'MessageBox' receives the message.
 {-# INLINE deliver #-}
 deliver :: MonadUnliftIO m => Input a -> a -> m ()
@@ -87,7 +87,7 @@ data MessageBox a
 --   e.g. 'deliver'.
 --   Messages can be received from an 'MessageBox`.
 --
---   The 'Input' is the counter part of an 'MessageBox'.
+--   The 'Input' is the counter part of a 'MessageBox'.
 newtype Input a = MkInput (Unagi.InChan a)
 
 -- | The (empty) configuration for creating 
@@ -95,7 +95,8 @@ newtype Input a = MkInput (Unagi.InChan a)
 data UnlimitedMessageBox = UnlimitedMessageBox
   deriving stock Show
 
-instance Class.IsMessageBoxFactory UnlimitedMessageBox MessageBox where
+instance Class.IsMessageBoxFactory UnlimitedMessageBox where
+  type MessageBox UnlimitedMessageBox = MessageBox
   {-# INLINE newMessageBox #-}
   newMessageBox UnlimitedMessageBox = create
 

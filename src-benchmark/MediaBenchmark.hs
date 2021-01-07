@@ -28,7 +28,8 @@ module MediaBenchmark (benchmark) where
 
 import Control.Monad (forM, forM_, replicateM_, unless, void)
 import Criterion.Types
-  ( bench,
+  ( Benchmark,
+    bench,
     bgroup,
     nfAppIO,
   )
@@ -52,12 +53,12 @@ import Protocol.Fresh
     newCounterVar,
   )
 import Protocol.MessageBox.Class
-  ( IsInput (deliver),
-    IsMessageBox (receive),
+  ( IsInput (..),
+    IsMessageBox (..),
     IsMessageBoxFactory (..),
-    WithTimeout (WithTimeout),
     handleMessage,
     newInput,
+    receiveAfter,
   )
 import qualified Protocol.MessageBox.Unlimited as Unlimited
 import RIO
@@ -77,10 +78,11 @@ import UnliftIO
   )
 import UnliftIO.Concurrent (forkIO)
 
-benchmark =
+benchmark :: (IsMessageBoxFactory cfg) => cfg -> Benchmark
+benchmark cfg =
   bgroup
     "Media"
-    $ [ bench ("Mixing/" ++ show p) (nfAppIO mediaAppBenchmark p)
+    $ [ bench ("Mixing/" ++ show p) (nfAppIO (mediaAppBenchmark cfg) p)
         | p <-
             [ Param 100 500 4,
               Param 100 1000 4
@@ -93,15 +95,20 @@ benchmark =
                  ++ show nC
                  ++ "clients"
              )
-             (nfAppIO fetchDspsBench (nF, nC))
+             (nfAppIO (fetchDspsBench cfg) (nF, nC))
            | (nF, nC) <-
                [(100000, 1), (100000, 1000)]
          ]
 
 -- | Run @nClients@ processes that each call 'FetchDsps' so many times
 -- that globally @nFetchesTotal@ times 'FetchDsps' is called.
-fetchDspsBench :: (Int, Int) -> IO ()
-fetchDspsBench (nFetchesTotal, nClients) =
+fetchDspsBench ::
+  forall cfg.
+  (IsMessageBoxFactory cfg) =>
+  cfg ->
+  (Int, Int) ->
+  IO ()
+fetchDspsBench cfg (nFetchesTotal, nClients) =
   let startClients serverOut =
         stimes nClients (conc (client perClientWork))
         where
@@ -115,18 +122,18 @@ fetchDspsBench (nFetchesTotal, nClients) =
       startServer ::
         RIO
           (CounterVar CallId)
-          ( Unlimited.Input (Message MediaApi),
+          ( Input (MessageBox cfg) (Message MediaApi),
             Conc (RIO (CounterVar CallId)) ()
           )
       startServer = do
-        serverIn <- newMessageBox Unlimited.UnlimitedMessageBox
+        serverIn <- newMessageBox cfg
         serverOut <- newInput serverIn
         let dspSet = Set.fromList [0 .. 4096]
         return (serverOut, conc (server serverWork serverIn dspSet))
         where
           server ::
             Int ->
-            Unlimited.MessageBox (Message MediaApi) ->
+            MessageBox cfg (Message MediaApi) ->
             Set DspId ->
             RIO (CounterVar CallId) ()
           server 0 _ _ = return ()
@@ -190,8 +197,13 @@ fetchDspsBench (nFetchesTotal, nClients) =
 --
 -- When all clients have finished, send a shutdown message to the media process,
 -- and wait for every process to finish.
-mediaAppBenchmark :: HasCallStack => Param -> IO ()
-mediaAppBenchmark param = do
+mediaAppBenchmark ::
+  forall cfg.
+  (HasCallStack, IsMessageBoxFactory cfg) =>
+  cfg ->
+  Param ->
+  IO ()
+mediaAppBenchmark cfg param = do
   (mixingOut, c1) <- do
     (mediaInput, mediaConc) <- spawnMediaApi
     (mixingOut, mixingConc) <- spawnMixingBroker mediaInput
@@ -201,8 +213,8 @@ mediaAppBenchmark param = do
   runRIO appCounters (runConc (c1 <> clients))
   where
     spawnMediaApi = do
-      mediaOutput <- Unlimited.create
-      mediaInput <- Unlimited.newInput mediaOutput
+      mediaOutput <- newMessageBox cfg
+      mediaInput <- newInput mediaOutput
       let startMediaServer =
             void $ mediaServerLoop (mkMediaSimSt (toDspConfig param))
           mediaServerLoop st = do
@@ -221,13 +233,13 @@ mediaAppBenchmark param = do
       return (mediaInput, conc startMediaServer)
 
     spawnMixingBroker ::
-      Unlimited.Input (Message MediaApi) ->
-      IO (Unlimited.Input (Message MixingApi), Conc (RIO AppCounters) ())
+      Input (MessageBox cfg) (Message MediaApi) ->
+      IO (Input (MessageBox cfg) (Message MixingApi), Conc (RIO AppCounters) ())
     spawnMixingBroker mediaBoxOut = do
-      mixingOutput <- Unlimited.create
-      mixingInput <- Unlimited.newInput mixingOutput
+      mixingOutput <- newMessageBox cfg
+      mixingInput <- newInput mixingOutput
       let startMixingServer =
-            let groupMap :: Map MixingGroupId (Unlimited.Input (Message MixingApi))
+            let groupMap :: Map MixingGroupId (Input (MessageBox cfg) (Message MixingApi))
                 groupMap = Map.empty
              in mixingServerLoop (0, groupMap)
           mixingServerLoop !groupMap =
@@ -251,9 +263,9 @@ mediaAppBenchmark param = do
                     )
                 )
           dispatchMixingApi ::
-            (Int, Map MixingGroupId (Unlimited.Input (Message MixingApi))) ->
+            (Int, Map MixingGroupId (Input (MessageBox cfg) (Message MixingApi))) ->
             Message MixingApi ->
-            RIO AppCounters (Int, Map MixingGroupId (Unlimited.Input (Message MixingApi)))
+            RIO AppCounters (Int, Map MixingGroupId (Input (MessageBox cfg) (Message MixingApi)))
           dispatchMixingApi (!nDestroyed, !st) =
             \case
               Blocking cm@(CreateMixingGroup !mgId) !r -> do
@@ -290,11 +302,11 @@ mediaAppBenchmark param = do
                     return (nDestroyed, st)
       return (mixingInput, conc startMixingServer)
     spawnMixingGroup ::
-      Unlimited.Input (Message MediaApi) ->
-      RIO AppCounters (Unlimited.Input (Message MixingApi))
+      Input (MessageBox cfg) (Message MediaApi) ->
+      RIO AppCounters (Input (MessageBox cfg) (Message MixingApi))
     spawnMixingGroup !mediaInput = do
-      !mgOutput <- Unlimited.create
-      !mgInput <- Unlimited.newInput mgOutput
+      !mgOutput <- newMessageBox cfg
+      !mgInput <- newInput mgOutput
       let mgLoop (!mgId, !groupMap) =
             try
               ( handleMessage
@@ -423,7 +435,7 @@ mediaAppBenchmark param = do
                 (error ("Failed to cast: " ++ show (UnJoin mixingGroupId memberId eventsOut)))
             replicateM_
               (nMembers param)
-              ( receive (WithTimeout 500_000 eventsIn)
+              ( receiveAfter eventsIn 500_000 (pure Nothing)
                   >>= \case
                     Just (MemberUnJoined _ _) ->
                       return ()
