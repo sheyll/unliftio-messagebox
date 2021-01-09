@@ -9,11 +9,14 @@ import Control.Monad (forM, replicateM)
 import Data.Foldable (Foldable (fold))
 import Data.Maybe (isJust)
 import Data.Monoid (All (All, getAll))
+import Protocol.Future (tryNow)
 import Protocol.MessageBox.Class
-  (receiveAfter,  IsInput (..),
+  ( IsInput (..),
     IsMessageBox (..),
     IsMessageBoxFactory (..),
-    tryNow,
+    deliver,
+    newInput,
+    receive,
   )
 import qualified Protocol.MessageBox.Limited as B
 import qualified Protocol.MessageBox.Unlimited as U
@@ -38,7 +41,9 @@ test =
       -- TODO CatchExceptions tests
 
       testWith U.UnlimitedMessageBox,
-      testWith (B.BlockingBoxLimit B.MessageLimit_64)
+      testWith (B.BlockingBoxLimit B.MessageLimit_64),
+      testWith $ CatchAllFactory U.UnlimitedMessageBox,
+      testWith $ CatchAllFactory (B.BlockingBoxLimit B.MessageLimit_64)
     ]
 
 testWith ::

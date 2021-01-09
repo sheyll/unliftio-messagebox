@@ -31,7 +31,7 @@ import Criterion.Types
   )
 import Data.Semigroup (Semigroup (stimes))
 import Protocol.MessageBox.Class
-  (CatchAllFactory(..), CatchAllBox(..), CatchAllInput(..), IsInput (..),
+  ( IsInput (..),
     IsMessageBox (..),
     IsMessageBoxFactory (..),
     deliver,
@@ -40,6 +40,11 @@ import Protocol.MessageBox.Class
   )
 import qualified Protocol.MessageBox.Limited as L
 import qualified Protocol.MessageBox.Unlimited as U
+import Prototol.MessageBox.CatchAll
+  ( CatchAllBox (..),
+    CatchAllFactory (..),
+    CatchAllInput (..),
+  )
 import RIO (MonadUnliftIO, conc, runConc)
 
 main =
@@ -74,6 +79,20 @@ main =
                 let x = L.WaitingBoxLimit Nothing 5_000_000 L.MessageLimit_128
                  in (False, show x, unidirectionalMessagePassing mkTestMessage x),
                 let x = L.WaitingBoxLimit (Just 60_000_000) 5_000_000 L.MessageLimit_128
+                 in (True, show x, unidirectionalMessagePassing mkTestMessage x),
+                let x = U.UnlimitedMessageBox
+                 in (False, show x, unidirectionalMessagePassing mkTestMessage x),
+                let x = CatchAllFactory (L.BlockingBoxLimit L.MessageLimit_16)
+                 in (False, show x, unidirectionalMessagePassing mkTestMessage x),
+                let x = CatchAllFactory (L.BlockingBoxLimit L.MessageLimit_64)
+                 in (False, show x, unidirectionalMessagePassing mkTestMessage x),
+                let x = CatchAllFactory (L.BlockingBoxLimit L.MessageLimit_4096)
+                 in (False, show x, unidirectionalMessagePassing mkTestMessage x),
+                let x = CatchAllFactory (L.NonBlockingBoxLimit L.MessageLimit_512)
+                 in (True, show x, unidirectionalMessagePassing mkTestMessage x),
+                let x = CatchAllFactory (L.WaitingBoxLimit Nothing 5_000_000 L.MessageLimit_128)
+                 in (False, show x, unidirectionalMessagePassing mkTestMessage x),
+                let x = CatchAllFactory (L.WaitingBoxLimit (Just 60_000_000) 5_000_000 L.MessageLimit_128)
                  in (True, show x, unidirectionalMessagePassing mkTestMessage x)
               ],
             (senderNo, receiverNo) <-
@@ -82,7 +101,7 @@ main =
                 (1, 1),
                 (1000, 1)
               ],
-            not isNonBlocking || senderNo == 1 && receiverNo > 1 
+            not isNonBlocking || senderNo == 1 && receiverNo > 1
         ]
     ]
 
@@ -123,7 +142,7 @@ unidirectionalMessagePassing !msgGen !impl (!nP, !nM, !nC) = do
             )
             ((,) <$> (msgGen <$> [0 .. (nM `div` (nC * nP)) - 1]) <*> cs)
     consumers = do
-      cis <- replicateM nC (fmap CatchAllBox (newMessageBox impl))
+      cis <- replicateM nC (newMessageBox impl)
       let ccs = foldMap (conc . consume (nM `div` nC)) cis
       cs <- traverse newInput cis
       return (ccs, cs)
