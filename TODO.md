@@ -49,6 +49,7 @@ TODO
 
 ## Goal: Robust Code
 
+* **NOW** Fix 'Command.call': Even when the result is there the call waits for the timeout
 * Make sure that no messages are lost through async exceptions (e.g. timeout)
   when receiving
   * **DONE** Nothing that can be done! Make your application robust.
