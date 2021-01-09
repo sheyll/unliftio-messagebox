@@ -7,22 +7,27 @@ TODO
   conditions like shutdown races that
   provokes ThreadBlockedIndefinitelyOnMVar
   * **DONE** Not much to gain here... Unagi never seems to throw stuff the way we use it. 
-  * make a `NoExc` newtype wrapper that catches all exceptions for `IsMessageBox` and `IsInput` 
-* Write unit tests for untested code
+  * **DONE** make a `NoExc` newtype wrapper that catches all exceptions for `IsMessageBox` and `IsInput` 
+* **NOW** Write unit tests for untested code
+  * Protocol.Command
+  * Protocol.Command.CallId
+  * Protocol.Fresh
+  * Protocol.MessageBox.CatchAll
+  * Protocol.MessageBox.Limited
 * Remove unused code
-* Write missing Documentation 
+* Write missing Documentation
 
 ## Goal: Automatic Report Generation
-* Write script to commit the results of benchmarks, tests, 
+* **UP NEXT** Write script to commit the results of benchmarks, tests, 
   test profiling and test code coverage reports
   to a branch of the git repo
-* Add Weeder script
-* Add Haddock script
-* Add graphmod script  
-* Add profiling test case execution script
-* Reduce the number of benchmarks
-* Make a profiling report based on a subset of the benchmarks
-* Link to the benchmarks and reports from the README.md
+* **UP NEXT** Add Weeder script
+* **UP NEXT** Add Haddock script
+* **UP NEXT** Add graphmod script  
+* **UP NEXT** Add profiling test case execution script
+* **UP NEXT** Reduce the number of benchmarks
+* **UP NEXT** Make a profiling report based on a subset of the benchmarks
+* **UP NEXT** Link to the benchmarks and reports from the README.md
 * Make a benchmark for the Erlang code
 * Make Erlang part of the nix-based environment
 
@@ -30,30 +35,39 @@ TODO
 
 * Try to reduce SYSTEM time
 * benchmark TMVar vs MVar for reply box 
-  * DONE: TMVar are faster because the timeout is based on registerDelay 
+  * **DONE**: TMVar are faster because the timeout is based on registerDelay 
 * benchmark type class methods vs. direct function calls
-  * DONE: No big difference
+  * **DONE**: No big difference
 
 ## Goal: No Space Leaks
 
-* Extract the media benchmark and create a long
+* **UP NEXT** Extract the media benchmark and create a long
   running example program that checks for memory leaks
-* Use Weak References Code
-  in combination with catching ThreadBlockedIndefinitelyInMVarOperation)
+* Use Weak References for `Input`s
+  * Add 'isActive'
+  * Catch `ThreadBlockedIndefinitelyInMVarOperation` 
 
 ## Goal: Robust Code
 
+* Make sure that no messages are lost through async exceptions (e.g. timeout)
+  when receiving
+  * **DONE** Nothing that can be done! Make your application robust.
+* **UP NEXT** Allow logging/cleanup of messages receive were to drop when an 
+  async exception is received.
 * Add IsMessageBox/IsInput instances that wrap the calls in a `try_` block
+  * **DONE**
 * Add functions that throw runtime exceptions instead of
   returning 'Either', 'Bool' or 'Maybe': 
    'deliverOrThrow' and 'receiveOrThrow' 
 * Add IsMessageBox/IsInput instances through newtype wrappers
-  to Handle dead lock exceptions  
+  to Handle dead lock exceptions
+  * **DONE**  
 * Make usages of MVars or TVars e.g. `replyTo`, `handleMessage`, `receive`
   dead lock exception safe
+  * **DONE**
 * Add thread safe code to combine message box creation
-  and spawning
-* make a variant for 'Conc', 'Async' and plain 'forkIO'
+  and spawning.
+  * make a variant for 'Conc', 'Async' and plain 'forkIO'
 * make the timeout in handleMessage pluggable
    (use newtype wrapper for IsMessageBox instances)
-
+   * **DONE** With Waiting..
