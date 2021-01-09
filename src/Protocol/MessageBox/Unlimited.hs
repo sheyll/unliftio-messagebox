@@ -25,12 +25,13 @@ where
 
 import qualified Control.Concurrent as IO
 import qualified Control.Concurrent.Chan.Unagi.NoBlocking as Unagi
-import Data.Functor
+import Data.Functor ( ($>) )
 import qualified Protocol.MessageBox.Class as Class
 import UnliftIO
   ( MonadIO (liftIO),
     MonadUnliftIO,
   )
+import Protocol.Future ( Future(..) )
 
 -- | Create a 'MessageBox'.
 --
@@ -52,10 +53,10 @@ receive (MkOutput _ !s) =
 -- | Try to receive a message from a 'MessageBox',
 -- return @Nothing@ if the queue is empty.
 {-# INLINE tryReceive #-}
-tryReceive :: MonadUnliftIO m => MessageBox a -> m (Class.Future a)
+tryReceive :: MonadUnliftIO m => MessageBox a -> m (Future a)
 tryReceive (MkOutput _ !s) = liftIO $ do
   !promise <- Unagi.tryReadChan s
-  return (Class.Future (Unagi.tryRead promise))
+  return (Future (Unagi.tryRead promise))
 
 -- | Create an 'Input' to write the items
 -- that the given 'MessageBox' receives.

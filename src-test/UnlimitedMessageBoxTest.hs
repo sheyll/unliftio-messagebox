@@ -29,6 +29,7 @@ import Test.Tasty as Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit as Tasty (assertEqual, testCase)
 import Test.Tasty.QuickCheck as Tasty (testProperty)
 import UnliftIO (conc, runConc, timeout)
+import Protocol.Future
 
 test :: Tasty.TestTree
 test =
@@ -39,7 +40,7 @@ test =
         [ Tasty.testCase "receive from an empty queue" $ do
             i <- MessageBox.create
             f <- Class.tryReceive i
-            timeout 1_000_000 (Class.tryNow f)
+            timeout 1_000_000 (tryNow f)
               >>= assertEqual "the future must not block and should return be emtpy" (Just (Nothing @Int))
         ],
       testProperty "all n messages of all k outBoxes are received by the output" $

@@ -30,6 +30,9 @@ import Criterion.Types
     nfAppIO,
   )
 import Data.Semigroup (Semigroup (stimes))
+import Protocol.MessageBox.CatchAll
+  ( CatchAllFactory (..),
+  )
 import Protocol.MessageBox.Class
   ( IsInput (..),
     IsMessageBox (..),
@@ -40,11 +43,6 @@ import Protocol.MessageBox.Class
   )
 import qualified Protocol.MessageBox.Limited as L
 import qualified Protocol.MessageBox.Unlimited as U
-import Prototol.MessageBox.CatchAll
-  ( CatchAllBox (..),
-    CatchAllFactory (..),
-    CatchAllInput (..),
-  )
 import RIO (MonadUnliftIO, conc, runConc)
 
 main =

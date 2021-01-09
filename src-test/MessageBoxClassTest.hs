@@ -30,6 +30,7 @@ import Test.Tasty.HUnit
 import Test.Tasty.QuickCheck as Tasty (testProperty)
 import UnliftIO (conc, concurrently, runConc)
 import UnliftIO.Concurrent (threadDelay)
+import Protocol.MessageBox.CatchAll
 
 test :: Tasty.TestTree
 test =

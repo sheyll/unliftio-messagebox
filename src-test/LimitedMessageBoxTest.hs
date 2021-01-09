@@ -28,7 +28,6 @@ import Protocol.MessageBox.Class
     IsMessageBox (newInput, receive, tryReceive),
     IsMessageBoxFactory (MessageBox, newMessageBox),
     receiveAfter,
-    tryNow,
   )
 import Protocol.MessageBox.Limited
   ( BlockingBoxLimit (..),
@@ -56,6 +55,7 @@ import Test.Tasty.HUnit as Tasty
 import Test.Tasty.QuickCheck as Tasty (testProperty)
 import UnliftIO (concurrently, mapConcurrently, race, throwTo, timeout)
 import UnliftIO.Concurrent (forkIO, myThreadId, threadDelay)
+import Protocol.Future
 
 test :: Tasty.TestTree
 test =
@@ -222,8 +222,8 @@ testCommon mkCfg =
                 \ and when every failed deliver is retried indefinitely, \
                 \ all messages will be received"
                 $ do
-                  let queueSize = MessageLimit_1024
-                      nMsgs = 100
+                  let queueSize = MessageLimit_512
+                      nMsgs = 50
                       nSenders = messageLimitToInt queueSize :: Int
                   !receiverIn <- mkBox queueSize :: IO (cfg (Int, Int))
                   let doReceive = go Map.empty
@@ -262,12 +262,12 @@ testCommon mkCfg =
                             traverse_
                               ( \msgId ->
                                   timeout
-                                    20_000_000
+                                    30_000_000
                                     ( fix
                                         ( \again -> do
                                             ok <- deliver receiverOut (sId, msgId)
                                             if ok then return True else do 
-                                              threadDelay (10 * msgId + sId)
+                                              threadDelay (msgId + sId)
                                               again
                                         )
                                     )

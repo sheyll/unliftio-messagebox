@@ -13,10 +13,6 @@
 -- | Test race conditions
 module CornerCaseTests (test) where
 
-import Control.Exception
-  ( BlockedIndefinitelyOnMVar (BlockedIndefinitelyOnMVar),
-    SomeException (),
-  )
 import Data.Semigroup (Any (Any, getAny), Semigroup (stimes))
 import Protocol.Command
   ( Command,
@@ -61,7 +57,6 @@ import UnliftIO
     putMVar,
     takeMVar,
     timeout,
-    try,
   )
 import UnliftIO.Concurrent (forkIO, yield)
 
@@ -71,8 +66,7 @@ test =
     "CornerCaseTests"
     [ testGroup
         "waiting for messages from a dead process"
-        [
-          --  testCase "When using the Unlimited Message BlockingBox, an exception is thrown" $
+        [ --  testCase "When using the Unlimited Message BlockingBox, an exception is thrown" $
           --   try @_ @SomeException
           --     (waitForMessageFromDeadProcess U.UnlimitedMessageBox)
           --     >>= either
@@ -166,7 +160,7 @@ waitForMessageFromDeadProcess outputCfg =
     liftIO performMinorGC
     liftIO performMajorGC
     threadDelay 10_000
-    receiveAfter output 10_000_000 (return (Just (Left "receiveAfter timeout")))
+    receiveAfter output 3_000_000 (return (Just (Left "receiveAfter timeout")))
       >>= maybe
         (return SecondReceiveReturnedNothing)
         ( \case

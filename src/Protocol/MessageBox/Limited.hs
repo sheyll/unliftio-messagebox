@@ -36,6 +36,7 @@ import UnliftIO
     MonadUnliftIO,
     timeout,
   )
+import Protocol.Future ( Future(..) )
 
 -- | Message Limit
 --
@@ -250,10 +251,10 @@ receive (MkBlockingBox _ !s) =
 
 -- | Return a 'Future' for the next value that will be received.
 {-# INLINE tryReceive #-}
-tryReceive :: MonadUnliftIO m => BlockingBox a -> m (Class.Future a)
+tryReceive :: MonadUnliftIO m => BlockingBox a -> m (Future a)
 tryReceive (MkBlockingBox _ !s) = liftIO $ do
   (!promise, _) <- Unagi.tryReadChan s
-  return (Class.Future (Unagi.tryRead promise))
+  return (Future (Unagi.tryRead promise))
 
 {-# INLINE newInput #-}
 newInput :: MonadUnliftIO m => BlockingBox a -> m (BlockingInput a)
