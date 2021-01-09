@@ -27,9 +27,17 @@ import Criterion.Types
     bgroup,
   )
 import qualified MediaBenchmark
-import Protocol.MessageBox.Class (CatchAllFactory(..), IsMessageBoxFactory)
+import Protocol.MessageBox.Class (IsMessageBoxFactory)
 import qualified Protocol.MessageBox.Limited as L
 import qualified Protocol.MessageBox.Unlimited as U
+import Protocol.MessageBox.Class
+  ( IsInput (..),
+    IsMessageBox (..),
+    IsMessageBoxFactory (..),
+    deliver,
+    newInput,
+    receive,
+  )
 
 benchmark =
   bgroup
@@ -43,9 +51,13 @@ benchmark =
   where
     go :: SomeBench -> [Benchmark]
     go (SomeBench b) =
-      [ (\x -> bgroup (show x) [b (CatchAllFactory x)]) U.UnlimitedMessageBox,
+      [ 
+        (\x -> bgroup (show x) [b (CatchAllFactory x)]) U.UnlimitedMessageBox,
         (\x -> bgroup (show x) [b (CatchAllFactory x)]) (L.BlockingBoxLimit L.MessageLimit_64),
-        (\x -> bgroup (show x) [b (CatchAllFactory x)]) (L.WaitingBoxLimit Nothing 5_000_000 L.MessageLimit_64)
+        (\x -> bgroup (show x) [b (CatchAllFactory x)]) (L.WaitingBoxLimit Nothing 5_000_000 L.MessageLimit_64),
+        (\x -> bgroup (show x) [b x]) U.UnlimitedMessageBox,
+        (\x -> bgroup (show x) [b x]) (L.BlockingBoxLimit L.MessageLimit_64),
+        (\x -> bgroup (show x) [b x]) (L.WaitingBoxLimit Nothing 5_000_000 L.MessageLimit_64)
      -- TODO   (\x -> bgroup (show x) [b x]) (L.WaitingBoxLimit (Just 60_000_000) 5_000_000 L.MessageLimit_64)
       ]
 
