@@ -5,18 +5,13 @@ module Protocol.MessageBox.Class
   ( IsMessageBoxFactory (..),
     IsMessageBox (..),
     IsInput (..),
-    Future (..),
-    tryNow,
-    awaitFuture,
-    -- WithTimeout (..),
-    -- WithTimeoutCfg (..),
     handleMessage,
   )
 where
 
 import Data.Kind (Type)
-import UnliftIO (MonadUnliftIO, liftIO, timeout)
-import UnliftIO.Concurrent (threadDelay)
+import UnliftIO (MonadUnliftIO, timeout)
+import Protocol.Future ( Future, awaitFuture )
 
 -- | Create 'IsMessageBox' instances from a parameter.
 -- Types that determine 'MessageBox' values.
@@ -54,7 +49,7 @@ class IsInput (Input msgBox) => IsMessageBox msgBox where
 
   -- | Wait for an incoming message or run a timeout action if no message arrives.
   --
-  -- The default implementation uses 'tryReceive' to get a 
+  -- The default implementation uses 'tryReceive' to get a
   -- 'Future' on which 'awaitFuture' inside a 'timeout' is called.
   --
   -- Instances might override this with more performant implementations
@@ -67,7 +62,7 @@ class IsInput (Input msgBox) => IsMessageBox msgBox where
     MonadUnliftIO m =>
     -- | Message box
     msgBox a ->
-    -- | Time in micro seconds to wait until the 
+    -- | Time in micro seconds to wait until the
     -- action is invoked.
     Int ->
     -- | The action to run after the time ran out.
@@ -81,31 +76,6 @@ class IsInput (Input msgBox) => IsMessageBox msgBox where
   -- | Create a new @input@ that enqueus messages,
   -- which are received by the @msgBox@
   newInput :: MonadUnliftIO m => msgBox a -> m (Input msgBox a)
-
--- | A wrapper around an IO action that returns value
--- in the future.
-newtype Future a = Future
-  { -- | Return 'Just' the value or 'Nothing',
-    --   when the value is not available yet.
-    fromFuture :: IO (Maybe a) -- TODO add a blockUntilAvailable for efficient timeout reading
-  }
-
--- | Return 'Just' the value or 'Nothing',
---   when the value is not available yet.
---
---   Once the value is available, that value
---   will be returned everytime this function is
---   invoked.
--- TODO: test for dead lock exceptions
-{-# INLINE tryNow #-}
-tryNow :: MonadUnliftIO m => Future a -> m (Maybe a)
-tryNow = liftIO . fromFuture
-
--- | Poll a Future until the value is present.
--- TODO: test for dead lock exceptions
-awaitFuture :: MonadUnliftIO m => Future b -> m b
-awaitFuture !f =
-  tryNow f >>= maybe (threadDelay 10 >> awaitFuture f) return
 
 -- | A type class for input types.
 -- A common interface for delivering messages.

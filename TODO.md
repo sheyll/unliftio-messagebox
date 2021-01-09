@@ -7,8 +7,8 @@ TODO
   conditions like shutdown races that
   provokes ThreadBlockedIndefinitelyOnMVar
   * **DONE** Not much to gain here... Unagi never seems to throw stuff the way we use it. 
-  * `call`  
-* Write unit tests for untested code 
+  * make a `NoExc` newtype wrapper that catches all exceptions for `IsMessageBox` and `IsInput` 
+* Write unit tests for untested code
 * Remove unused code
 * Write missing Documentation 
 

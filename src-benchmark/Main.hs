@@ -31,7 +31,7 @@ import Criterion.Types
   )
 import Data.Semigroup (Semigroup (stimes))
 import Protocol.MessageBox.Class
-  ( IsInput (..),
+  (CatchAllFactory(..), CatchAllBox(..), CatchAllInput(..), IsInput (..),
     IsMessageBox (..),
     IsMessageBoxFactory (..),
     deliver,
@@ -123,7 +123,7 @@ unidirectionalMessagePassing !msgGen !impl (!nP, !nM, !nC) = do
             )
             ((,) <$> (msgGen <$> [0 .. (nM `div` (nC * nP)) - 1]) <*> cs)
     consumers = do
-      cis <- replicateM nC (newMessageBox impl)
+      cis <- replicateM nC (fmap CatchAllBox (newMessageBox impl))
       let ccs = foldMap (conc . consume (nM `div` nC)) cis
       cs <- traverse newInput cis
       return (ccs, cs)
