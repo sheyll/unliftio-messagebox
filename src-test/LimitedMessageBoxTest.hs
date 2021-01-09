@@ -50,12 +50,10 @@ import Test.Tasty as Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit as Tasty
   ( assertBool,
     assertEqual,
-    assertFailure,
     testCase,
     (@?=),
   )
 import Test.Tasty.QuickCheck as Tasty (testProperty)
-import Text.Printf (printf)
 import UnliftIO (concurrently, mapConcurrently, race, throwTo, timeout)
 import UnliftIO.Concurrent (forkIO, myThreadId, threadDelay)
 

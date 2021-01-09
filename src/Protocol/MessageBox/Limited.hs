@@ -167,7 +167,7 @@ instance Class.IsMessageBox NonBlockingBox where
   receiveAfter (NonBlockingBox !b) !rto !defaultAction =
     Class.receiveAfter b rto defaultAction
   {-# INLINE newInput #-}
-  newInput (NonBlockingBox !i) = NonBlockingInput <$> newInput i  
+  newInput (NonBlockingBox !i) = NonBlockingInput <$> newInput i
 
 -- | A wrapper around 'BlockingInput' with a non-blocking 'Class.IsInput' instance.
 --
@@ -185,9 +185,9 @@ instance Class.IsInput NonBlockingInput where
 -- | A 'Class.IsMessageBoxFactory' instance wrapping the 'BlockingBox'
 --  with independently configurable timeouts for 'receive' and 'deliver'.
 data WaitingBoxLimit = WaitingBoxLimit
-  { receiveTimeout :: Maybe Int,
-    deliverTimeout :: Int,
-    messageLimit :: MessageLimit
+  { receiveTimeout :: !(Maybe Int),
+    deliverTimeout :: !Int,
+    messageLimit :: !MessageLimit
   }
   deriving stock (Show, Eq)
 
@@ -218,7 +218,7 @@ instance Class.IsMessageBox WaitingBox where
   receiveAfter (WaitingBox _ !b) !rto !defaultAction =
     Class.receiveAfter b rto defaultAction
   {-# INLINE tryReceive #-}
-  tryReceive (WaitingBox !_ !m) = tryReceive m
+  tryReceive (WaitingBox _ !m) = tryReceive m
   {-# INLINE newInput #-}
   newInput (WaitingBox (WaitingBoxLimit _ !dto _) !m) =
     WaitingInput dto <$> newInput m

@@ -5,7 +5,9 @@ TODO
 
 * Write property tests exhibiting race
   conditions like shutdown races that
-  provokes ThreadBlockedIndefinitelyOnMVar 
+  provokes ThreadBlockedIndefinitelyOnMVar
+  * **DONE** Not much to gain here... Unagi never seems to throw stuff the way we use it. 
+  * `call`  
 * Write unit tests for untested code 
 * Remove unused code
 * Write missing Documentation 
@@ -28,7 +30,9 @@ TODO
 
 * Try to reduce SYSTEM time
 * benchmark TMVar vs MVar for reply box 
+  * DONE: TMVar are faster because the timeout is based on registerDelay 
 * benchmark type class methods vs. direct function calls
+  * DONE: No big difference
 
 ## Goal: No Space Leaks
 

@@ -15,6 +15,7 @@ module CornerCaseTests (test) where
 
 import Control.Exception
   ( BlockedIndefinitelyOnMVar (BlockedIndefinitelyOnMVar),
+    SomeException (),
   )
 import Data.Semigroup (Any (Any, getAny), Semigroup (stimes))
 import Protocol.Command
@@ -63,24 +64,27 @@ import UnliftIO
     try,
   )
 import UnliftIO.Concurrent (forkIO, yield)
-import Control.Exception (SomeException(SomeException))
 
 test :: TestTree
 test =
-  testGroup
+  testGroup -- TODO test with Async Exceptions
     "CornerCaseTests"
     [ testGroup
         "waiting for messages from a dead process"
-        [ testCase "When using the Unlimited Message BlockingBox, an exception is thrown" $
-            try @_ @SomeException
-              (waitForMessageFromDeadProcess U.UnlimitedMessageBox)
-              >>= either
-                ( assertEqual
-                    "wrong exception thrown: "
-                    (show BlockedIndefinitelyOnMVar)
-                    . show
-                )
-                (assertFailure  . ("Exception expected, instead of: " <> ) . show ),
+        [
+          --  testCase "When using the Unlimited Message BlockingBox, an exception is thrown" $
+          --   try @_ @SomeException
+          --     (waitForMessageFromDeadProcess U.UnlimitedMessageBox)
+          --     >>= either
+          --       ( assertEqual
+          --           "wrong exception thrown: "
+          --           (show BlockedIndefinitelyOnMVar)
+          --           . show
+          --       )
+          --       (assertFailure . ("Exception expected, instead of: " <>) . show),
+          testCase "When using the UnlimitedMessageBox, receive will timeout" $
+            waitForMessageFromDeadProcess U.UnlimitedMessageBox
+              >>= assertEqual "unexpected return value: " SecondReceiveTimedOut,
           testCase "When using the Limited Message BlockingBox, the test will timeout" $
             waitForMessageFromDeadProcess (B.BlockingBoxLimit B.MessageLimit_16)
               >>= assertEqual "unexpected return value: " SecondReceiveTimedOut,
@@ -164,10 +168,11 @@ waitForMessageFromDeadProcess outputCfg =
     threadDelay 10_000
     receiveAfter output 10_000_000 (return (Just (Left "receiveAfter timeout")))
       >>= maybe
-        (return SecondReceiveReturnedNothing ) 
+        (return SecondReceiveReturnedNothing)
         ( \case
             (Left _) -> return SecondReceiveTimedOut
-            (Right _) -> return SecondReceiveUnexpectedSuccess)
+            (Right _) -> return SecondReceiveUnexpectedSuccess
+        )
 
 data SendMessageToDeadProcessResult
   = NoMoreMessagesSent
@@ -194,10 +199,10 @@ sendMessagesToDeadProcess outputCfg =
       receive output >>= putMVar done
 
     input <- takeMVar ready
-    deliver input msg1 
+    deliver input msg1
       >>= assertBool "first message not sent!"
     putMVar firstMessageSent ()
-    takeMVar done 
+    takeMVar done
       >>= assertEqual "first message invalid" (Just msg1)
     threadDelay 10_000
     liftIO performMinorGC
