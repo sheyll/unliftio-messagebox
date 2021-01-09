@@ -16,7 +16,7 @@
 module CommandTest where
 
 import Data.Functor (Functor ((<$)), void, ($>), (<$>))
-import Data.Maybe ( Maybe(Just, Nothing), fromMaybe, isJust )
+import Data.Maybe (Maybe (Just, Nothing), fromMaybe, isJust)
 import Data.Semigroup (All (All, getAll))
 import GHC.IO.Exception (userError)
 import Protocol.Command
@@ -58,6 +58,7 @@ import RIO
     conc,
     concurrently,
     error,
+    flip,
     newEmptyMVar,
     putMVar,
     runConc,
@@ -87,12 +88,47 @@ import Test.Tasty.QuickCheck
     testProperty,
   )
 import UnliftIO.Concurrent (forkIO)
+import Prelude (Show (showsPrec))
 
 test :: Tasty.TestTree
 test =
   Tasty.testGroup
     "Protocol.Command"
-    [ testProperty
+    [ testCase "Show instance of the Message data family works" $
+        CallId.newCallIdCounter
+          >>= \cv -> runRIO cv $ do
+            bookStoreOutput <- newMessageBox UnlimitedMessageBox
+            bookStoreInput <- newInput bookStoreOutput
+            let blockingMsg = GetBooks
+                nonblockingMsg =
+                  Donate
+                    (Donor (PersonName "A" "B") 1)
+                    ( Book
+                        "Unsere Welt neu denken: Eine Einladung"
+                        (Author (PersonName "Maya" "Goepel") 208)
+                        (Publisher "Ullstein")
+                        (Year 2020)
+                        []
+                    )
+            (_, shownBlockingMsg) <-
+              concurrently
+                (call bookStoreInput blockingMsg 1_000_000)
+                (handleMessage bookStoreOutput (return . show))
+            (_, shownNonBlockingMsg) <-
+              concurrently
+                (cast bookStoreInput nonblockingMsg)
+                (handleMessage bookStoreOutput (return . show))
+            liftIO $
+              assertEqual
+                "bad Show instance"
+                (Just ("Blocking " <> showsPrec 9 blockingMsg " 1"))
+                shownBlockingMsg
+            liftIO $
+              assertEqual
+                "bad Show instance"
+                (Just ("NonBlocking " <> showsPrec 9 nonblockingMsg ""))
+                shownNonBlockingMsg,
+      testProperty
         "all books that many donors concurrently donate into the book store end up in the bookstore"
         allDonatedBooksAreInTheBookStore,
       testCase "handling a cast succeeds" $ do
