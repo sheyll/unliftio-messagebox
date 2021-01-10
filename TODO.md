@@ -16,6 +16,12 @@ TODO
   * Protocol.MessageBox.Limited
 * Remove unused code
 * Write missing Documentation
+  * **DONE** Document that in 'call' the timeout is not for message delivery, but only for 
+    waiting for the reply.
+* **NOW** receiveAfter tests
+* **NOW** receiveAfter benchmarks
+* **NOW** Implement async call API
+  * Use the async call API in the sync call API 
 
 ## Goal: Automatic Report Generation
 * **UP NEXT** Write script to commit the results of benchmarks, tests, 
@@ -55,6 +61,8 @@ TODO
   * **DONE** Nothing that can be done! Make your application robust.
 * **UP NEXT** Allow logging/cleanup of messages receive were to drop when an 
   async exception is received.
+* Allow logging/cleanup of messages that are lost when an Async exception 
+  was raised after a reply was taken from the reply box, but before it was returned.  
 * Add IsMessageBox/IsInput instances that wrap the calls in a `try_` block
   * **DONE**
 * Add functions that throw runtime exceptions instead of

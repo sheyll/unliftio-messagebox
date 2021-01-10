@@ -123,17 +123,13 @@ instance Show (Message apiTag) where
 -- by the receiver of a 'Blocking'
 -- to either send a reply using 'reply'
 -- or to fail/abort the request using 'sendRequestError'
--- data ReplyBox a = MkReplyBox
---   { _replyBox :: MVar (InternalReply a),
---     _replyBoxCallId :: CallId
---   }
-data ReplyBox a = MkReplyBox
-  { _replyBox :: TMVar (InternalReply a),
-    _replyBoxCallId :: CallId
-  }
+data ReplyBox a
+  = MkReplyBox
+      (TMVar (InternalReply a))
+      CallId
 
 -- | This is the reply to a 'Blocking' sent through the 'ReplyBox'.
-type InternalReply a = (CallId, Either CommandError a)
+type InternalReply a = (Either CommandError a)
 
 -- | The failures that the receiver of a 'Return' 'Command', i.e. a 'Blocking',
 -- can communicate to the /caller/, in order to indicate that
@@ -169,8 +165,17 @@ cast obox !msg =
 -- | Enqueue a 'Blocking' 'Message' into an 'MessageBox.IsInput' and wait for the
 -- response.
 --
--- The receiving process must use 'replyTo'  with the 'ReplyBox'
--- received along side the 'Command' in the 'Blocking'.
+-- If message 'deliver'y failed, return @Left 'CouldNotEnqueueCommand'@. 
+--
+-- If no reply was given by the receiving process (using 'replyTo') within
+-- a given duration, return @Left 'BlockingCommandTimedOut'@.
+--
+-- Important: The given timeout starts __after__ 'deliver' has returned,
+-- if 'deliver' blocks and delays, 'call' might take longer than the 
+-- specified timeout.
+--
+-- The receiving process can either delegate the call using 
+-- 'delegateCall' or reply to the call by using: 'replyTo'.
 call ::
   ( HasCallIdCounter env,
     MonadReader env m,
@@ -194,7 +199,7 @@ call !obox !pdu !timeoutMicroseconds = do
     else do
       timedOutVar <- registerDelay timeoutMicroseconds
       atomically $
-        snd <$> takeTMVar resultVar
+        takeTMVar resultVar
           <|> ( do
                   readTVar timedOutVar >>= checkSTM
                   return (Left (BlockingCommandTimedOut callId))
@@ -207,26 +212,8 @@ call !obox !pdu !timeoutMicroseconds = do
 -- function puts the result into it.
 {-# INLINE replyTo #-}
 replyTo :: (MonadUnliftIO m) => ReplyBox a -> a -> m ()
-replyTo MkReplyBox {_replyBoxCallId = !callId, _replyBox = !replyBox} !message =
-  atomically $ putTMVar replyBox (callId, Right message)
-
--- | Enqueue a 'Blocking' 'Message' into an 'MessageBox.IsInput'.
---
--- The result can be obtained by 'waitForReply'.
---
--- The receiving process must use 'replyTo'  with the 'ReplyBox'
--- received along side the 'Command' in the 'Blocking'.
-enqueueCall ::
-  ( HasCallIdCounter env,
-    MonadReader env m,
-    MonadUnliftIO m,
-    MessageBox.IsInput o,
-    Show (Command apiTag ( 'Return result))
-  ) =>
-  o (Message apiTag) ->
-  Command apiTag ( 'Return result) ->
-  m (PendingReply result)
-enqueueCall = error "TODO"
+replyTo (MkReplyBox !replyBox !_callId) !message =
+  atomically $ putTMVar replyBox (Right message)
 
 -- | Pass on the call to another process.
 --
@@ -246,6 +233,26 @@ delegateCall ::
   m Bool
 delegateCall !o !c !r =
   MessageBox.deliver o (Blocking c r)
+
+-- ** Non-Blocking call API
+
+-- | Enqueue a 'Blocking' 'Message' into an 'MessageBox.IsInput'.
+--
+-- The result can be obtained by 'waitForReply'.
+--
+-- The receiving process must use 'replyTo'  with the 'ReplyBox'
+-- received along side the 'Command' in the 'Blocking'.
+enqueueCall ::
+  ( HasCallIdCounter env,
+    MonadReader env m,
+    MonadUnliftIO m,
+    MessageBox.IsInput o,
+    Show (Command apiTag ( 'Return result))
+  ) =>
+  o (Message apiTag) ->
+  Command apiTag ( 'Return result) ->
+  m (PendingReply result)
+enqueueCall = error "TODO"
 
 -- | The result of 'enqueueCall'.
 -- Use 'waitForReply' or 'tryTakeReply'.

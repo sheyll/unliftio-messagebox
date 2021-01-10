@@ -9,6 +9,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE NumericUnderscores #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE NoImplicitPrelude #-}
@@ -16,25 +17,28 @@
 module CommandTest where
 
 import Data.Functor (Functor ((<$)), void, ($>), (<$>))
-import Data.Maybe (Maybe (Just, Nothing), fromMaybe, isJust)
+import Data.Maybe (Maybe (), fromMaybe, isJust)
 import Data.Semigroup (All (All, getAll))
 import GHC.IO.Exception (userError)
 import Protocol.Command
   ( Command,
-    CommandError (BlockingCommandTimedOut),
+    CommandError (..),
     Message (Blocking, NonBlocking),
     ReturnType (FireAndForget, Return),
     call,
     cast,
+    delegateCall,
     replyTo,
   )
 import Protocol.Command.CallId (CallId (MkCallId))
 import qualified Protocol.Command.CallId as CallId
 import Protocol.Fresh (CounterVar, fresh, newCounterVar)
+import Protocol.Future (Future (Future))
 import Protocol.MessageBox.Class
-  ( IsMessageBoxFactory (newMessageBox),
+  ( IsInput (..),
+    IsMessageBox (..),
+    IsMessageBoxFactory (..),
     handleMessage,
-    newInput,
   )
 import Protocol.MessageBox.Limited
   ( BlockingBoxLimit (BlockingBoxLimit),
@@ -43,29 +47,36 @@ import Protocol.MessageBox.Limited
 import Protocol.MessageBox.Unlimited (UnlimitedMessageBox (UnlimitedMessageBox))
 import RIO
   ( Applicative (pure, (<*>)),
-    Bool (True),
+    Bool (..),
     Either (Left, Right),
     Eq ((==)),
     Foldable (foldMap),
     Int,
+    Maybe (..),
     Monad (return, (>>=)),
     MonadIO (liftIO),
+    MonadUnliftIO,
     Num ((*), (+)),
-    Ord,
+    Ord ((>=)),
     Semigroup ((<>)),
     Show (..),
     String,
+    Traversable (traverse),
     conc,
     concurrently,
+    const,
     error,
     flip,
     newEmptyMVar,
     putMVar,
+    readTVarIO,
+    registerDelay,
     runConc,
     runRIO,
     threadDelay,
     throwTo,
     timeout,
+    traverse_,
     tryReadMVar,
     ($),
     (.),
@@ -87,14 +98,29 @@ import Test.Tasty.QuickCheck
     ioProperty,
     testProperty,
   )
+import UnliftIO ()
 import UnliftIO.Concurrent (forkIO)
-import Prelude (Show (showsPrec))
+import Prelude (Show (showsPrec), showParen, showString)
 
 test :: Tasty.TestTree
 test =
   Tasty.testGroup
     "Protocol.Command"
-    [ testCase "Show instance of the Message data family works" $
+    [ callTests,
+      testCase "Show instances of CommandError exist" $ do
+        assertEqual
+          "Show instance broken"
+          "CouldNotEnqueueCommand 1"
+          (show (CouldNotEnqueueCommand (MkCallId 1)))
+        assertEqual
+          "Show instance broken"
+          "BlockingCommandFailure 1"
+          (show (BlockingCommandFailure (MkCallId 1)))
+        assertEqual
+          "Show instance broken"
+          "BlockingCommandTimedOut 1"
+          (show (BlockingCommandTimedOut (MkCallId 1))),
+      testCase "Show instance of the Message data family works" $
         CallId.newCallIdCounter
           >>= \cv -> runRIO cv $ do
             bookStoreOutput <- newMessageBox UnlimitedMessageBox
@@ -229,7 +255,8 @@ test =
               callId' <- runRIO freshCounter fresh
               assertEqual "no message other than GetBooks received" (Just Nothing) handleResult
               case callResult of
-                (Left (BlockingCommandTimedOut (MkCallId c))) | MkCallId (c + 1) == callId' -> pure ()
+                (Left (BlockingCommandTimedOut (MkCallId c)))
+                  | MkCallId (c + 1) == callId' -> pure ()
                 _ -> assertFailure "call result should match (Left (BlockingCommandTimedOut _))",
       testCase "replying to call within the given timeout is successful" $ do
         freshCounter <- newCounterVar
@@ -412,3 +439,194 @@ instance Arbitrary Book where
       <*> arbitrary
       <*> arbitrary
       <*> (getNonEmpty <$> arbitrary)
+
+-- --------------------------------------------------------
+-- Test for Blocking commands: aka calls
+-- --------------------------------------------------------
+
+callTests :: TestTree
+callTests =
+  let go f = CallId.newCallIdCounter >>= flip runRIO f
+   in testGroup
+        "call tests"
+        [ testCase
+            "when deliver returns False, BlockingCommandFailed\
+            \ should be returned"
+            $ do
+              res <-
+                go $
+                  timeout 1_000_000 $
+                    call
+                      ( Deliver
+                          Nothing
+                          (const (return False))
+                      )
+                      (Echo "123")
+                      2_000_000
+              assertEqual
+                "bad call result"
+                ( Just
+                    (Left (CouldNotEnqueueCommand (MkCallId 1)))
+                )
+                res,
+          testCase
+            "when deliver blocks forever, call also blocks forever\
+            \ regardles of the timeout parameter"
+            $ do
+              res <-
+                go $
+                  timeout 10_000 $
+                    call
+                      ( Deliver
+                          (Just 3600_000_000)
+                          (const (return False))
+                      )
+                      (Echo "123")
+                      1
+              assertEqual "bad call result" Nothing res,
+          testCase
+            "when deliver succeeds, but the reply box is ignored \
+            \and no replyTo invokation is done, BlockingCommandTimedOut\
+            \ should be returned"
+            $ do
+              res <-
+                go $
+                  call
+                    (Deliver Nothing (const (return True)))
+                    (Echo "123")
+                    10_000
+              assertEqual
+                "bad call result"
+                (Left (BlockingCommandTimedOut (MkCallId 1)))
+                res,
+          testCase
+            "when the reply box is passed to a new process, but\
+            \ replyTo is delayed very much,\
+            \ BlockingCommandTimedOut should be returned"
+            $ do
+              res <-
+                go $
+                  call
+                    ( Deliver
+                        Nothing
+                        ( \(Blocking (Echo x) rbox) -> do
+                            void $
+                              forkIO $ do
+                                threadDelay 3600_000_000
+                                replyTo rbox x
+                            return True
+                        )
+                    )
+                    (Echo "123")
+                    10_000
+              assertEqual
+                "bad call result"
+                (Left (BlockingCommandTimedOut (MkCallId 1)))
+                res,
+          testCase
+            "when the reply box is passed to a new process, that calls\
+            \ replyTo after x seconds, where x < rt (the receive timeou),\
+            \ then before y seconds have passed, where x <= y < rt,\
+            \ call returns the value passed to the reply box."
+            $ do
+              let x = 20_000
+                  rt = 1_000_000
+                  y = 500_000
+              res <-
+                go $
+                  timeout y $
+                    call
+                      ( Deliver
+                          Nothing
+                          ( \(Blocking (Echo value) rbox) -> do
+                              void $
+                                forkIO $ do
+                                  threadDelay x
+                                  replyTo rbox value
+                              return True
+                          )
+                      )
+                      (Echo "123")
+                      rt
+              assertEqual
+                "bad call result"
+                (Just (Right "123"))
+                res,
+          testCase
+            "when a call is delegated to, and replied by, another process, \
+            \ call should return that reply"
+            $ do
+              res <- go $ do
+                call
+                  ( Deliver
+                      Nothing
+                      ( \(Blocking (Echo value) rbox) ->
+                          delegateCall
+                            ( Deliver
+                                Nothing
+                                ( \(Blocking (Echo value') rbox') -> do
+                                    replyTo rbox' value'
+                                    return True
+                                )
+                            )
+                            (Echo value)
+                            rbox
+                      )
+                  )
+                  (Echo "123")
+                  1_000
+              assertEqual
+                "bad call result"
+                (Right "123")
+                res
+        ]
+
+-- Echo Protocol for callTest
+
+data Echo
+
+data instance Command Echo _ where
+  Echo :: a -> Command Echo ( 'Return a)
+
+instance (Show a) => Show (Command Echo ( 'Return a)) where
+  showsPrec d (Echo x) = showParen (d >= 9) (showString "Echo " . showsPrec 9 x)
+
+-- IsMessageBox.* instance(s) for callTest
+
+data NoOpFactory
+  = NoOpFactory
+  deriving stock (Show)
+
+data NoOpInput a
+  = Deliver (Maybe Int) (forall m. MonadUnliftIO m => a -> m Bool)
+
+data NoOpBox a
+  = Receive (Maybe Int) (Maybe a)
+  deriving stock (Show)
+
+instance IsMessageBoxFactory NoOpFactory where
+  type MessageBox NoOpFactory = NoOpBox
+  newMessageBox NoOpFactory = return (Receive Nothing Nothing)
+
+instance IsMessageBox NoOpBox where
+  type Input NoOpBox = NoOpInput
+  newInput _ = return $ Deliver Nothing (const (return False))
+  receive (Receive t r) = do
+    traverse_ threadDelay t
+    return r
+  tryReceive (Receive t r) = do
+    timeoutVar <- traverse registerDelay t
+    return
+      ( Future
+          ( do
+              isOver <- fromMaybe True <$> traverse readTVarIO timeoutVar
+              if isOver
+                then return r
+                else return Nothing
+          )
+      )
+
+instance IsInput NoOpInput where
+  deliver (Deliver t react) m = do
+    traverse_ threadDelay t
+    react m
