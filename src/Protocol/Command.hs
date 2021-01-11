@@ -8,12 +8,13 @@ module Protocol.Command
     ReturnType (..),
     ReplyBox (),
     CommandError (..),
+    DuplicateReply(..),
     cast,
     call,
     replyTo,
-    enqueueCall,
+    callAsync,
     delegateCall,
-    PendingReply (),
+    AsyncReply (),
     waitForReply,
     tryTakeReply,
   )
@@ -22,6 +23,7 @@ where
 import Control.Applicative (Alternative ((<|>)))
 import Control.Monad.Reader (MonadReader)
 import Data.Kind (Type)
+import Data.Typeable (Proxy (..), typeRep)
 import Protocol.Command.CallId
   ( CallId (),
     HasCallIdCounter,
@@ -29,16 +31,20 @@ import Protocol.Command.CallId
 import qualified Protocol.Command.CallId as CallId
 import qualified Protocol.MessageBox.Class as MessageBox
 import UnliftIO
-  ( MonadUnliftIO,
+  (throwIO, tryPutTMVar, Exception,  MonadUnliftIO,
     TMVar,
+    Typeable,
     atomically,
     checkSTM,
     newEmptyTMVarIO,
     putTMVar,
+    readTMVar,
     readTVar,
     registerDelay,
     takeTMVar,
+    tryReadTMVar,
   )
+import Control.Monad (unless)
 
 -- | This family allows to encode imperative /commands/.
 --
@@ -147,7 +153,7 @@ data CommandError where
 
 -- | Enqueue a 'NonBlocking' 'Message' into an 'Input'.
 -- This is just for symetry to 'call', this is
--- equivalent to: @\obox -> MessageBox.tryToDeliver obox . NonBlocking@
+-- equivalent to: @\input -> MessageBox.tryToDeliver input . NonBlocking@
 --
 -- The
 {-# INLINE cast #-}
@@ -159,41 +165,41 @@ cast ::
   o (Message apiTag) ->
   Command apiTag 'FireAndForget ->
   m Bool
-cast obox !msg =
-  MessageBox.deliver obox (NonBlocking msg)
+cast input !msg =
+  MessageBox.deliver input (NonBlocking msg)
 
 -- | Enqueue a 'Blocking' 'Message' into an 'MessageBox.IsInput' and wait for the
 -- response.
 --
--- If message 'deliver'y failed, return @Left 'CouldNotEnqueueCommand'@. 
+-- If message 'deliver'y failed, return @Left 'CouldNotEnqueueCommand'@.
 --
 -- If no reply was given by the receiving process (using 'replyTo') within
 -- a given duration, return @Left 'BlockingCommandTimedOut'@.
 --
 -- Important: The given timeout starts __after__ 'deliver' has returned,
--- if 'deliver' blocks and delays, 'call' might take longer than the 
+-- if 'deliver' blocks and delays, 'call' might take longer than the
 -- specified timeout.
 --
--- The receiving process can either delegate the call using 
+-- The receiving process can either delegate the call using
 -- 'delegateCall' or reply to the call by using: 'replyTo'.
 call ::
   ( HasCallIdCounter env,
     MonadReader env m,
     MonadUnliftIO m,
-    MessageBox.IsInput o,
+    MessageBox.IsInput input,
     Show (Command apiTag ( 'Return result))
   ) =>
-  o (Message apiTag) ->
+  input (Message apiTag) ->
   Command apiTag ( 'Return result) ->
   Int ->
   m (Either CommandError result)
-call !obox !pdu !timeoutMicroseconds = do
+call !input !pdu !timeoutMicroseconds = do
   !callId <- CallId.takeNext
   !resultVar <- newEmptyTMVarIO
   !sendSuccessful <- do
     let !rbox = MkReplyBox resultVar callId
     let !msg = Blocking pdu rbox
-    MessageBox.deliver obox msg
+    MessageBox.deliver input msg
   if not sendSuccessful
     then return (Left (CouldNotEnqueueCommand callId))
     else do
@@ -213,7 +219,14 @@ call !obox !pdu !timeoutMicroseconds = do
 {-# INLINE replyTo #-}
 replyTo :: (MonadUnliftIO m) => ReplyBox a -> a -> m ()
 replyTo (MkReplyBox !replyBox !_callId) !message =
-  atomically $ putTMVar replyBox (Right message)
+  atomically (tryPutTMVar replyBox (Right message))
+  >>= \success -> unless success (throwIO DuplicateReply)
+
+
+-- | Exception thrown by 'replyTo' when 'replyTo' is call more than once.
+data DuplicateReply = DuplicateReply deriving stock (Eq, Show)
+
+instance Exception DuplicateReply
 
 -- | Pass on the call to another process.
 --
@@ -236,13 +249,14 @@ delegateCall !o !c !r =
 
 -- ** Non-Blocking call API
 
--- | Enqueue a 'Blocking' 'Message' into an 'MessageBox.IsInput'.
+-- |  Enqueue a 'Blocking' 'Message' into an 'MessageBox.IsInput'.
 --
--- The result can be obtained by 'waitForReply'.
+-- If the call to 'deliver' fails, return @Nothing@ otherwise
+-- @Just@ the 'AsyncReply'.
 --
 -- The receiving process must use 'replyTo'  with the 'ReplyBox'
 -- received along side the 'Command' in the 'Blocking'.
-enqueueCall ::
+callAsync ::
   ( HasCallIdCounter env,
     MonadReader env m,
     MonadUnliftIO m,
@@ -251,30 +265,65 @@ enqueueCall ::
   ) =>
   o (Message apiTag) ->
   Command apiTag ( 'Return result) ->
-  m (PendingReply result)
-enqueueCall = error "TODO"
+  m (Maybe (AsyncReply result))
+callAsync input pdu = do
+  !callId <- CallId.takeNext
+  !resultVar <- newEmptyTMVarIO
+  !sendSuccessful <- do
+    let !rbox = MkReplyBox resultVar callId
+    let !msg = Blocking pdu rbox
+    MessageBox.deliver input msg
+  if sendSuccessful
+    then return (Just (MkAsyncReply callId resultVar))
+    else return Nothing
 
--- | The result of 'enqueueCall'.
+
+-- | The result of 'callAsync'.
 -- Use 'waitForReply' or 'tryTakeReply'.
-newtype PendingReply r = MkPendingReply ()
+data AsyncReply r
+  = MkAsyncReply !CallId !(TMVar (InternalReply r)) 
+
+instance (Typeable r) => Show (AsyncReply r) where
+  showsPrec d (MkAsyncReply cId _) =
+    showParen
+      (d >= 9)
+      ( showString "AsyncReply "
+          . showsPrec 9 cId
+          . showChar ' '
+          . showsPrec 9 (typeRep (Proxy @r))
+      )
 
 -- | Wait for the reply of a 'Blocking' 'Message'
--- sent by 'enqueueCall'.
+-- sent by 'callAsync'.
 {-# INLINE waitForReply #-}
 waitForReply ::
   MonadUnliftIO m =>
-  PendingReply r ->
   -- | The time in micro seconds to wait
   -- before returning 'Left' 'BlockingCommandTimedOut'
   Int ->
+  AsyncReply result ->
   m (Either CommandError result)
-waitForReply _ = error "TODO"
+waitForReply !t (MkAsyncReply !cId !rVar) = do
+  !delay <- registerDelay t
+  atomically
+    ( ( do
+          readTVar delay >>= checkSTM
+          return (Left (BlockingCommandTimedOut cId))
+      )
+        <|> readTMVar rVar
+    )
 
--- | If a reply for an 'enqueueCall' operation is available
+-- | If a reply for an 'callAsync' operation is available
 -- return it, otherwise return 'Nothing'.
 {-# INLINE tryTakeReply #-}
 tryTakeReply ::
   MonadUnliftIO m =>
-  PendingReply r ->
+  AsyncReply result ->
   m (Maybe (Either CommandError result))
-tryTakeReply = error "TODO"
+tryTakeReply (MkAsyncReply _expectedCallId resultVar) = do
+  maybeTheResult <- atomically (tryReadTMVar resultVar)
+  case maybeTheResult of
+    Nothing ->
+      return Nothing
+    Just result ->
+      return (Just result)

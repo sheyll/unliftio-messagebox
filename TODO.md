@@ -8,6 +8,7 @@ TODO
   provokes ThreadBlockedIndefinitelyOnMVar
   * **DONE** Not much to gain here... Unagi never seems to throw stuff the way we use it. 
   * **DONE** make a `NoExc` newtype wrapper that catches all exceptions for `IsMessageBox` and `IsInput` 
+* **NOW** Apply lock contention test to Unlimited message box implementation  
 * **NOW** Write unit tests for untested code
   * Protocol.Command
   * Protocol.Command.CallId
