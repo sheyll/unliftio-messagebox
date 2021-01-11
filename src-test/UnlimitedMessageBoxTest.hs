@@ -25,6 +25,7 @@ import Test.QuickCheck
     Small (Small),
     ioProperty,
   )
+import MessageBoxCommon (testContentionRobustness)
 import Test.Tasty as Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit as Tasty (assertEqual, testCase)
 import Test.Tasty.QuickCheck as Tasty (testProperty)
@@ -35,7 +36,8 @@ test :: Tasty.TestTree
 test =
   Tasty.testGroup
     "Protocol.MessageBox.Unlimited"
-    [ Tasty.testGroup
+    [ testContentionRobustness MessageBox.create 512 50,
+      Tasty.testGroup
         "Non-Blocking"
         [ Tasty.testCase "receive from an empty queue" $ do
             i <- MessageBox.create
