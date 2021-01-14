@@ -178,6 +178,7 @@ test-suite unliftio-protocols-test
     FreshTest,
     CornerCaseTests,
     MessageBoxClassTest,
+    MessageBoxCommon,
     ProtocolsTest,
     QCOrphans,
     UnlimitedMessageBoxTest
