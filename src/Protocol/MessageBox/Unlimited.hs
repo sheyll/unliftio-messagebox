@@ -17,21 +17,21 @@ module Protocol.MessageBox.Unlimited
     tryReceive,
     newInput,
     deliver,
+    UnlimitedMessageBox (..),
     MessageBox (),
     Input (),
-    UnlimitedMessageBox(..),
   )
 where
 
-import qualified Control.Concurrent as IO
-import qualified Control.Concurrent.Chan.Unagi.NoBlocking as Unagi
-import Data.Functor ( ($>) )
+-- import qualified Control.Concurrent.Chan.Unagi.NoBlocking as Unagi
+import qualified Control.Concurrent.Chan.Unagi as Unagi
+import Data.Functor (($>))
+import Protocol.Future (Future (..))
 import qualified Protocol.MessageBox.Class as Class
 import UnliftIO
   ( MonadIO (liftIO),
     MonadUnliftIO,
   )
-import Protocol.Future ( Future(..) )
 
 -- | Create a 'MessageBox'.
 --
@@ -48,14 +48,15 @@ create = do
 {-# INLINE receive #-}
 receive :: MonadUnliftIO m => MessageBox a -> m a
 receive (MkOutput _ !s) =
-  liftIO (Unagi.readChan IO.yield s)
+  --liftIO (Unagi.readChan IO.yield s)
+  liftIO (Unagi.readChan s)
 
 -- | Try to receive a message from a 'MessageBox',
 -- return @Nothing@ if the queue is empty.
 {-# INLINE tryReceive #-}
 tryReceive :: MonadUnliftIO m => MessageBox a -> m (Future a)
 tryReceive (MkOutput _ !s) = liftIO $ do
-  !promise <- Unagi.tryReadChan s
+  (!promise, _) <- Unagi.tryReadChan s
   return (Future (Unagi.tryRead promise))
 
 -- | Create an 'Input' to write the items
@@ -91,10 +92,10 @@ data MessageBox a
 --   The 'Input' is the counter part of a 'MessageBox'.
 newtype Input a = MkInput (Unagi.InChan a)
 
--- | The (empty) configuration for creating 
+-- | The (empty) configuration for creating
 -- 'MessageBox'es using the 'Class.IsMessageBoxFactory' methods.
 data UnlimitedMessageBox = UnlimitedMessageBox
-  deriving stock Show
+  deriving stock (Show)
 
 instance Class.IsMessageBoxFactory UnlimitedMessageBox where
   type MessageBox UnlimitedMessageBox = MessageBox
