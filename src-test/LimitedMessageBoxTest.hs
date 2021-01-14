@@ -11,18 +11,19 @@
 
 module LimitedMessageBoxTest (test) where
 
-import Control.Exception (ErrorCall (ErrorCall))
-import Control.Monad (forM, forM_, forever, replicateM, unless, void, when)
-import Data.Foldable (traverse_)
+import Control.Monad
+  ( forever,
+    replicateM,
+    void,
+    when,
+  )
 import Data.Function (fix)
-import Data.Functor ((<&>))
-import qualified Data.IntSet as Set
-import qualified Data.Map.Strict as Map
 import Data.Maybe
   ( fromMaybe,
     isNothing,
   )
-import Data.Semigroup (All (All, getAll))
+import MessageBoxCommon (testContentionRobustness)
+import Protocol.Future (tryNow)
 import Protocol.MessageBox.Class
   ( IsInput (deliver),
     IsMessageBox (newInput, receive, tryReceive),
@@ -38,8 +39,7 @@ import Protocol.MessageBox.Limited
   )
 import QCOrphans ()
 import Test.QuickCheck
-  ( NonEmptyList (NonEmpty),
-    Positive (Positive),
+  ( Positive (Positive),
     Small (Small),
     ioProperty,
     withMaxSuccess,
@@ -53,10 +53,8 @@ import Test.Tasty.HUnit as Tasty
     (@?=),
   )
 import Test.Tasty.QuickCheck as Tasty (testProperty)
-import UnliftIO (concurrently, mapConcurrently, race, throwTo, timeout)
-import UnliftIO.Concurrent (forkIO, myThreadId, threadDelay)
-import Protocol.Future
-import MessageBoxCommon (testContentionRobustness)
+import UnliftIO (concurrently, race, timeout)
+import UnliftIO.Concurrent (threadDelay)
 
 test :: Tasty.TestTree
 test =
@@ -135,33 +133,6 @@ testCommon mkCfg =
                 Just False -> assertBool "expected 'False' when the queue is full" True
                 Just True -> next
                 Nothing -> return (),
-          testProperty "all messages that were succecssfully sent are received in order" $
-            \(NonEmpty (ms :: [(Bool, Double, [String])])) limit ->
-              withMaxSuccess 20 $
-                ioProperty $ do
-                  i <- mkBox limit
-                  o <- newInput i
-                  allFine <- forM ms $ \message -> do
-                    response <- deliver o message
-                    f <- tryReceive i
-                    receiveResult <- tryNow f
-                    return (response && receiveResult == Just message)
-                  return (and allFine),
-          testProperty "the future for the first message, receives only the first message" $
-            \(NonEmpty (ms :: [(Bool, Double, [String])])) limit ->
-              withMaxSuccess 20 $
-                ioProperty $ do
-                  i <- mkBox limit
-                  o <- newInput i
-                  futures <- replicateM (length ms) (tryReceive i)
-                  allDelivered <- forM ms (fmap All . deliver o)
-                  allReceived <-
-                    mapConcurrently
-                      ( \(message, future) -> fix $ \notNow ->
-                          tryNow future >>= maybe notNow (return . All . (== message))
-                      )
-                      (ms `zip` futures)
-                  return (getAll (mconcat allDelivered <> mconcat allReceived)),
           testProperty
             "when messages are send until the limit is reached,\
             \and when x, x < limit messages are received, then \
@@ -216,10 +187,9 @@ testCommon mkCfg =
                       "could not receive x messages"
                       (Just <$> [x .. x + nFirstMessages -1])
                       nextReceived,
-            let queueSize = MessageLimit_512 in
-              testContentionRobustness (mkBox queueSize :: IO (cfg (Int, Int))) (messageLimitToInt queueSize) 50
+          let queueSize = MessageLimit_512
+           in testContentionRobustness (mkBox queueSize :: IO (cfg (Int, Int))) (messageLimitToInt queueSize) 50
         ]
-
 
 testBlockingBox :: TestTree
 testBlockingBox =

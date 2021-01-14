@@ -7,9 +7,10 @@ module MessageBoxClassTest (test) where
 
 import Control.Monad (forM, replicateM)
 import Data.Foldable (Foldable (fold))
-import Data.Maybe (isJust)
+import Data.Maybe (fromMaybe, isJust)
 import Data.Monoid (All (All, getAll))
 import Protocol.Future (tryNow)
+import Protocol.MessageBox.CatchAll
 import Protocol.MessageBox.Class
   ( IsInput (..),
     IsMessageBox (..),
@@ -27,24 +28,26 @@ import Test.QuickCheck
   )
 import Test.Tasty as Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit
+import qualified Test.Tasty.HUnit as Tasty
 import Test.Tasty.QuickCheck as Tasty (testProperty)
-import UnliftIO (conc, concurrently, runConc)
+import UnliftIO (conc, concurrently, runConc, timeout)
 import UnliftIO.Concurrent (threadDelay)
-import Protocol.MessageBox.CatchAll
 
 test :: Tasty.TestTree
 test =
   Tasty.testGroup
     "Protocol.MessageBox.Class"
-    [ -- TODO receive tests
-      -- TODO deliver tests
-      -- TODO Timeout tests
-      -- TODO CatchExceptions tests
-
-      testWith U.UnlimitedMessageBox,
-      testWith (B.BlockingBoxLimit B.MessageLimit_64),
+    [ testWith U.UnlimitedMessageBox,
       testWith $ CatchAllFactory U.UnlimitedMessageBox,
-      testWith $ CatchAllFactory (B.BlockingBoxLimit B.MessageLimit_64)
+      testWith (B.BlockingBoxLimit B.MessageLimit_64),
+      testWith $ CatchAllFactory (B.BlockingBoxLimit B.MessageLimit_64),
+      testWith (B.BlockingBoxLimit B.MessageLimit_1),
+      testWith (B.BlockingBoxLimit B.MessageLimit_2),
+      testWith (B.NonBlockingBoxLimit B.MessageLimit_1),
+      testWith (B.NonBlockingBoxLimit B.MessageLimit_64),
+      testWith (B.WaitingBoxLimit Nothing 60_000_000 B.MessageLimit_1),
+      testWith (B.WaitingBoxLimit Nothing 60_000_000 B.MessageLimit_64),
+      testWith (B.WaitingBoxLimit (Just 60_000_000) 60_000_000 B.MessageLimit_64)
     ]
 
 testWith ::
@@ -54,76 +57,7 @@ testWith ::
 testWith arg =
   Tasty.testGroup
     (show arg)
-    [ commonFunctionality arg,
-      Tasty.testGroup
-        "MessageBox Wrapper"
-        [ withTimeoutTest arg
-        ]
-    ]
-
-realWorldTest ::
-  (IsMessageBoxFactory cfg) =>
-  cfg ->
-  TestTree
-realWorldTest arg =
-  testProperty "all n messages of all k outBoxes are received by the output" $
-    \(Positive (Small n)) (Positive (Small k)) ->
-      ioProperty $
-        getAll . fold <$> do
-          output <- newMessageBox arg
-          runConc
-            ( (<>)
-                <$> foldMap
-                  ( \i ->
-                      conc
-                        ( do
-                            input <- newInput output
-                            forM [0 .. n - 1] (\j -> All <$> deliver input ("test message: ", i, j))
-                        )
-                  )
-                  [0 .. k - 1]
-                <*> conc (replicateM (n * k) (All . isJust <$> receive output))
-            )
-
-withTimeoutTest ::
-  forall cfg.
-  (IsMessageBoxFactory cfg, Show cfg) =>
-  cfg ->
-  TestTree
-withTimeoutTest arg =
-  testGroup
-    (show arg)
-    [ testGroup
-        "WithTimeout"
-        [ testCase
-            "when receive is called, and two different messages are delivered late but not too late, \
-            \then the first message is returned"
-            $ do
-              let m1 = "Message 1" :: String
-                  m2 = "Message 2" :: String
-              mbox <- newMessageBox arg
-              input <- newInput mbox
-              (senderOk, receiverOK) <-
-                concurrently
-                  ( do
-                      threadDelay 10_000
-                      s1Ok <- deliver input m1
-                      s2Ok <- deliver input m2
-                      return
-                        ( assertBool "delivering message 1 failed" s1Ok
-                            >> assertBool "delivering message 2 failed" s2Ok
-                        )
-                  )
-                  ( do
-                      r <- receiveAfter mbox 200_000 (pure Nothing)
-                      return $
-                        case r of
-                          Nothing -> assertFailure "No message received!"
-                          Just m -> assertEqual "wrong message received!" m1 m
-                  )
-              senderOk
-              receiverOK
-        ]
+    [ commonFunctionality arg
     ]
 
 -- standard tests
@@ -137,9 +71,16 @@ commonFunctionality arg =
         "Common Funcionality"
         [ testGroup
             "deliver and receive"
-            [ testCase
+            [ Tasty.testCase "tryReceive from an empty queue, without any writer threads" $ do
+                i <- newMessageBox arg
+                f <- tryReceive i
+                timeout 1_000_000 (tryNow f)
+                  >>= assertEqual
+                    "the future must not block and should return be emtpy"
+                    (Just (Nothing @Int)),
+              testCase
                 "when a process delivers a message into an input successfully, \
-                \and then calls receive, the message is returned"
+                \and then calls receiveAfter, the message is returned"
                 $ do
                   let m1 = "Message 1" :: String
                   mbox <- newMessageBox arg
@@ -151,6 +92,34 @@ commonFunctionality arg =
                   case r of
                     Nothing -> assertFailure "No message received!"
                     Just m -> assertEqual "wrong message received!" m1 m,
+              testCase
+                "when receiveAfter is called, and two different messages are delivered late but not too late, \
+                \then the first message is returned"
+                $ do
+                  let m1 = "Message 1" :: String
+                      m2 = "Message 2" :: String
+                  mbox <- newMessageBox arg
+                  input <- newInput mbox
+                  (senderOk, receiverOK) <-
+                    concurrently
+                      ( do
+                          threadDelay 10_000
+                          s1Ok <- deliver input m1
+                          s2Ok <- deliver input m2
+                          return
+                            ( assertBool "delivering message 1 failed" s1Ok
+                                >> assertBool "delivering message 2 failed" s2Ok
+                            )
+                      )
+                      ( do
+                          r <- receiveAfter mbox 200_000 (pure Nothing)
+                          return $
+                            case r of
+                              Nothing -> assertFailure "No message received!"
+                              Just m -> assertEqual "wrong message received!" m1 m
+                      )
+                  senderOk
+                  receiverOK,
               testCase
                 "when one process delivers a message into an input successfully, \
                 \while another process calls receive, the message is returned"
@@ -203,7 +172,29 @@ commonFunctionality arg =
                               Just m -> assertEqual "wrong message received!" m2 m
                       )
                   senderOk
-                  receiverOK
+                  receiverOK,
+              testProperty "all n messages of all k outBoxes are received by the output" $
+                \(Positive (Small n)) (Positive (Small k)) ->
+                  ioProperty $
+                    fromMaybe False
+                      <$> timeout
+                        10_000_000
+                        ( getAll . fold <$> do
+                            output <- newMessageBox arg
+                            runConc
+                              ( (<>)
+                                  <$> foldMap
+                                    ( \i ->
+                                        conc
+                                          ( do
+                                              input <- newInput output
+                                              forM [0 .. n - 1] (\j -> All <$> deliver input ("test message: ", i, j))
+                                          )
+                                    )
+                                    [0 .. k - 1]
+                                  <*> conc (replicateM (n * k) (All . isJust <$> receive output))
+                              )
+                        )
             ],
           testGroup
             "tryReceive"
@@ -299,6 +290,5 @@ commonFunctionality arg =
                       )
                   senderOk
                   receiverOK
-            ],
-          realWorldTest arg
+            ]
         ]

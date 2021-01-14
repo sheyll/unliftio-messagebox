@@ -26,7 +26,7 @@ import Protocol.MessageBox.Class
     IsMessageBox (newInput, receive),
   )
 import QCOrphans ()
-import Test.Tasty as Tasty (testGroup)
+import Test.Tasty as Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit as Tasty
   ( assertEqual,
     testCase,
@@ -34,87 +34,96 @@ import Test.Tasty.HUnit as Tasty
 import UnliftIO (throwTo, timeout)
 import UnliftIO.Concurrent (forkIO, myThreadId, threadDelay)
 
-
-testContentionRobustness !mkReceiverIn !nSenders !nMsgs = Tasty.testGroup
-  "lock contention robustness"
-  [ Tasty.testCase
-      "when many concurrent senders send many messages to one receiver,\
-      \ and when every failed deliver is retried indefinitely, \
-      \ all messages will be received"
-      $ do
-        !receiverIn <- mkReceiverIn
-        let doReceive = go Map.empty
-              where
-                go acc =
-                  ( timeout 2_000_000 (receive receiverIn)
-                      <&> fromMaybe Nothing
-                  )
-                    >>= maybe
-                      (return acc)
-                      ( \(sId, msg) ->
-                          go
-                            ( Map.alter
-                                ( Just
-                                    . maybe
-                                      (Set.singleton msg)
-                                      (Set.insert msg)
-                                )
-                                sId
-                                acc
-                            )
-                      )
-
-        let allMessages =
-              let msgIds = Set.fromList [0 .. nMsgs - 1]
-                in Map.fromList [(sId, msgIds) | sId <- [0 .. nSenders - 1]]
-        receiverOut <- newInput receiverIn
-        mainThread <- myThreadId
-        forM_
-          (Map.assocs allMessages)
-          ( \(sId, msgs) ->
-              void $
-                forkIO $ do
-                  -- printf "Sender %i starting!\n" sId
-                  -- printf "Sender %i started!\n" sId
-                  traverse_
-                    ( \msgId ->
-                        timeout
-                          30_000_000
-                          ( fix
-                              ( \again -> do
-                                  ok <- deliver receiverOut (sId, msgId)
-                                  if ok then return True else do 
-                                    threadDelay (msgId + sId)
-                                    again
+testContentionRobustness ::
+  IsMessageBox msgBox =>
+  IO (msgBox (Int, Set.Key)) ->
+  Int ->
+  Set.Key ->
+  TestTree
+testContentionRobustness !mkReceiverIn !nSenders !nMsgs =
+  Tasty.testGroup
+    "lock contention robustness"
+    [ Tasty.testCase
+        "when many concurrent senders send many messages to one receiver,\
+        \ and when every failed deliver is retried indefinitely, \
+        \ all messages will be received."
+        $ do
+          !receiverIn <- mkReceiverIn
+          let allMessages =
+                let msgIds = Set.fromList [0 .. nMsgs - 1]
+                 in Map.fromList [(sId, msgIds) | sId <- [0 .. nSenders - 1]]
+          let doReceive = go Map.empty
+                where
+                  go acc =
+                    ( timeout 2_000_000 (receive receiverIn)
+                        <&> fromMaybe Nothing
+                    )
+                      >>= maybe
+                        (return acc)
+                        ( \(sId, msg) ->
+                            -- liftIO (print (sId, msg)) >>
+                            go
+                              ( Map.alter
+                                  ( Just
+                                      . maybe
+                                        (Set.singleton msg)
+                                        (Set.insert msg)
+                                  )
+                                  sId
+                                  acc
                               )
-                          )
-                          >>= maybe
-                            ( throwTo
-                                mainThread
-                                ( ErrorCall
-                                    ( "deliver for "
-                                        <> show (sId, msgId)
-                                        <> " timed out!"
-                                    )
+                        )
+
+          receiverOut <- newInput receiverIn
+          mainThread <- myThreadId
+          forM_
+            (Map.assocs allMessages)
+            ( \(sId, msgs) ->
+                void $
+                  forkIO $ do
+                    -- printf "Sender %i starting!\n" sId
+                    -- printf "Sender %i started!\n" sId
+                    traverse_
+                      ( \msgId ->
+                          timeout
+                            30_000_000
+                            ( fix
+                                ( \again -> do
+                                    ok <- deliver receiverOut (sId, msgId)
+                                    if ok
+                                      then return True
+                                      else do
+                                        threadDelay (msgId + sId)
+                                        again
                                 )
                             )
-                            ( `unless`
-                                throwTo
+                            >>= maybe
+                              ( throwTo
                                   mainThread
                                   ( ErrorCall
                                       ( "deliver for "
                                           <> show (sId, msgId)
-                                          <> " failed!"
+                                          <> " timed out!"
                                       )
                                   )
-                            )
-                    )
-                    (Set.toList msgs)
-                    -- printf "Sender %i done!\n" sId
-          )
-        receivedMessages <- doReceive
-        assertEqual
-          "failed to correctly receive all test messages"
-          allMessages
-          receivedMessages
-  ]
+                              )
+                              ( `unless`
+                                  throwTo
+                                    mainThread
+                                    ( ErrorCall
+                                        ( "deliver for "
+                                            <> show (sId, msgId)
+                                            <> " failed!"
+                                        )
+                                    )
+                              )
+                      )
+                      (Set.toList msgs)
+                      -- printf "Sender %i done!\n" sId
+            )
+          receivedMessages <- doReceive
+          assertEqual
+            "failed to correctly receive all test messages"
+            allMessages
+            receivedMessages
+    ]
