@@ -17,11 +17,13 @@
 
 module CommandTest where
 
+import Utils (untilJust)
 import Control.Applicative
-import Control.Monad (Monad ((>>)), replicateM, sequence)
-import Data.Foldable (all)
-import Data.Functor (Functor ((<$)), void, ($>), (<$>))
-import Data.List (dropWhile, head)
+  ( Applicative (pure, (<*>)),
+    (<$),
+    (<$>),
+  )
+import Data.Functor (void, ($>))
 import Data.Maybe (Maybe (), fromJust, fromMaybe, isJust, isNothing, maybe)
 import Data.Semigroup (All (All, getAll))
 import GHC.IO.Exception (userError)
@@ -55,8 +57,7 @@ import Protocol.MessageBox.Limited
   )
 import Protocol.MessageBox.Unlimited (UnlimitedMessageBox (UnlimitedMessageBox))
 import RIO
-  ( Applicative (pure, (<*>)),
-    Bool (..),
+  ( Bool (..),
     Either (Left, Right),
     Eq ((==)),
     Foldable (foldMap),
@@ -108,29 +109,25 @@ import Test.Tasty.QuickCheck
     testProperty,
   )
 import UnliftIO
-import UnliftIO ()
+  ( takeMVar,
+    try,
+  )
 import UnliftIO.Concurrent (forkIO)
 import Prelude (Show (showsPrec), showParen, showString)
 
-test :: Tasty.TestTree
+test :: TestTree
 test =
-  Tasty.testGroup
+  testGroup
     "Protocol.Command"
-    [ callTests,
-      testCase "Show instances of CommandError exist" $ do
-        assertEqual
-          "Show instance broken"
-          "CouldNotEnqueueCommand 1"
-          (show (CouldNotEnqueueCommand (MkCallId 1)))
-        assertEqual
-          "Show instance broken"
-          "BlockingCommandFailure 1"
-          (show (BlockingCommandFailure (MkCallId 1)))
-        assertEqual
-          "Show instance broken"
-          "BlockingCommandTimedOut 1"
-          (show (BlockingCommandTimedOut (MkCallId 1))),
-      testCase "Show instance of the Message data family works" $
+    [ unitTests,
+      integrationTests
+    ]
+
+integrationTests :: TestTree
+integrationTests =
+  testGroup
+    "integration tests"
+    [ testCase "Show instance of the Message data family works" $
         CallId.newCallIdCounter
           >>= \cv -> runRIO cv $ do
             bookStoreOutput <- newMessageBox UnlimitedMessageBox
@@ -157,12 +154,12 @@ test =
             liftIO $
               assertEqual
                 "bad Show instance"
-                (Just ("Blocking " <> showsPrec 9 blockingMsg " 1"))
+                (Just ("B: " <> showsPrec 9 blockingMsg " 1"))
                 shownBlockingMsg
             liftIO $
               assertEqual
                 "bad Show instance"
-                (Just ("NonBlocking " <> showsPrec 9 nonblockingMsg ""))
+                (Just ("NB: " <> showsPrec 9 nonblockingMsg ""))
                 shownNonBlockingMsg,
       testProperty
         "all books that many donors concurrently donate into the book store end up in the bookstore"
@@ -451,15 +448,47 @@ instance Arbitrary Book where
       <*> (getNonEmpty <$> arbitrary)
 
 -- --------------------------------------------------------
--- Test for Blocking commands: aka calls
+-- Unit tests
 -- --------------------------------------------------------
 
-callTests :: TestTree
-callTests =
+unitTests :: TestTree
+unitTests =
   let go f = CallId.newCallIdCounter >>= flip runRIO f
    in testGroup
-        "call tests"
-        [ testCase
+        "unit tests"
+        [ testCase "Message Show instance" $ do
+            go
+              ( callAsync
+                  ( OnDeliver $ \m -> do
+                      liftIO (assertEqual "bad show result" "B: (Echo \"123\") 1" (show m))
+                      return True
+                  )
+                  (Echo "123")
+              )
+              >>= assertBool "should not fail" . isJust
+            go
+              ( cast
+                  ( OnDeliver $ \m -> do
+                      liftIO (assertEqual "bad show result" "NB: (Tell 123)" (show m))
+                      return True
+                  )
+                  (Tell "123")
+              )
+              >>= assertBool "should not fail",
+          testCase "CommandError Show instance" $ do
+            assertEqual
+              "Show instance broken"
+              "CouldNotEnqueueCommand 1"
+              (show (CouldNotEnqueueCommand (MkCallId 1)))
+            assertEqual
+              "Show instance broken"
+              "BlockingCommandFailure 1"
+              (show (BlockingCommandFailure (MkCallId 1)))
+            assertEqual
+              "Show instance broken"
+              "BlockingCommandTimedOut 1"
+              (show (BlockingCommandTimedOut (MkCallId 1))),
+          testCase
             "when deliver returns False, BlockingCommandFailed\
             \ should be returned"
             $ go
@@ -776,6 +805,9 @@ callTests =
                             "waitForReply should return the same reply"
                             (Right "123")
                   ),
+          testCase "DuplicateReply Eq and Show instance" $ do
+            assertEqual "Eq instance" (DuplicateReply (MkCallId 1)) (DuplicateReply (MkCallId 1))
+            assertEqual "Show instance" "more than one reply sent for: 1" (show (DuplicateReply (MkCallId 1))),
           testCase
             "when replyTo is called again on the same replyBox, an error is thrown\
             \ and the waitForResult will still return the first reply"
@@ -795,9 +827,12 @@ callTests =
                           (Echo "123")
 
                   liftIO $ case reply of
-                    (Just (Left DuplicateReply)) -> return () -- this is expected
-                    (Just (Right _)) -> assertFailure "expected an exception to be thrown in second `replyTo` call"
-                    Nothing -> assertFailure "unexpectedly indefinitely blocked on `replyTo` call"
+                    (Just (Left (DuplicateReply cId))) ->
+                      assertEqual "wrong callId in DuplicateReply exception" (MkCallId 1) cId
+                    (Just (Right _)) ->
+                      assertFailure "expected an exception to be thrown in second `replyTo` call"
+                    Nothing ->
+                      assertFailure "unexpectedly indefinitely blocked on `replyTo` call"
               ),
           testCase
             "tryTakeReply should return Nothing until the reply is sent, and\
@@ -842,19 +877,15 @@ callTests =
                     ( OnDeliver
                         (const (return True))
                     )
-                    (Echo "123")
+                    (Echo (Just "123"))
               case res of
                 Nothing -> assertFailure "unexpected delivery failure"
                 Just pendingReply ->
                   assertEqual
                     "bad show instance for PendingResult"
-                    "AsyncReply 1 [Char]"
+                    "AR: 1"
                     (show pendingReply)
         ]
-
-untilJust :: (Monad m) => m (Maybe a) -> m a
-untilJust loopBody =
-  loopBody >>= maybe (untilJust loopBody) return
 
 -- Echo Protocol for callTest
 
@@ -864,7 +895,15 @@ data instance Command Echo _ where
   Echo :: a -> Command Echo ( 'Return a)
 
 instance (Show a) => Show (Command Echo ( 'Return a)) where
-  showsPrec d (Echo x) = showParen (d >= 9) (showString "Echo " . showsPrec 9 x)
+  showsPrec !d (Echo x) = showParen (d >= 9) (showString "Echo " . showsPrec 9 x)
+
+data Tell
+
+data instance Command Tell _ where
+  Tell :: String -> Command Tell 'FireAndForget
+
+instance Show (Command Tell 'FireAndForget) where
+  showsPrec !d (Tell x) = showParen (d >= 9) (showString "Tell " . showString x)
 
 -- IsMessageBox.* instance(s) for callTest
 
@@ -882,6 +921,7 @@ data NoOpBox a
 instance IsMessageBoxFactory NoOpFactory where
   type MessageBox NoOpFactory = NoOpBox
   newMessageBox NoOpFactory = return (OnReceive Nothing Nothing)
+  getConfiguredMessageLimit _ = Nothing
 
 instance IsMessageBox NoOpBox where
   type Input NoOpBox = NoOpInput

@@ -123,9 +123,9 @@ data Message apiTag where
 
 instance Show (Message apiTag) where
   showsPrec d (NonBlocking !m) =
-    showParen (d >= 9) (showString "NonBlocking " . showsPrec 9 m)
+    showParen (d >= 9) (showString "NB: " . showsPrec 9 m)
   showsPrec d (Blocking !m (MkReplyBox _ !callId)) =
-    showParen (d >= 9) (showString "Blocking " . showsPrec 9 m . showChar ' ' . showsPrec 9 callId)
+    showParen (d >= 9) (showString "B: " . showsPrec 9 m . showChar ' ' . showsPrec 9 callId)
 
 -- | This is like 'Input', it can be used
 -- by the receiver of a 'Blocking'
@@ -133,8 +133,8 @@ instance Show (Message apiTag) where
 -- or to fail/abort the request using 'sendRequestError'
 data ReplyBox a
   = MkReplyBox
-      (TMVar (InternalReply a))
-      CallId
+      !(TMVar (InternalReply a))
+      !CallId
 
 -- | This is the reply to a 'Blocking' sent through the 'ReplyBox'.
 type InternalReply a = (Either CommandError a)
@@ -146,11 +146,11 @@ type InternalReply a = (Either CommandError a)
 data CommandError where
   -- | Failed to enqueue a 'Blocking' 'Command' 'Message' into the corresponding
   -- 'MessageBox.Input'
-  CouldNotEnqueueCommand :: CallId -> CommandError
+  CouldNotEnqueueCommand :: !CallId -> CommandError
   -- | The request has failed /for reasons/.
-  BlockingCommandFailure :: CallId -> CommandError
+  BlockingCommandFailure :: !CallId -> CommandError
   -- | Timeout waiting for the result.
-  BlockingCommandTimedOut :: CallId -> CommandError
+  BlockingCommandTimedOut :: !CallId -> CommandError
   deriving stock (Show, Eq)
 
 -- | Enqueue a 'NonBlocking' 'Message' into an 'Input'.
@@ -220,12 +220,16 @@ call !input !pdu !timeoutMicroseconds = do
 -- function puts the result into it.
 {-# INLINE replyTo #-}
 replyTo :: (MonadUnliftIO m) => ReplyBox a -> a -> m ()
-replyTo (MkReplyBox !replyBox !_callId) !message =
+replyTo (MkReplyBox !replyBox !callId) !message =
   atomically (tryPutTMVar replyBox (Right message))
-    >>= \success -> unless success (throwIO DuplicateReply)
+    >>= \success -> unless success (throwIO (DuplicateReply callId))
 
 -- | Exception thrown by 'replyTo' when 'replyTo' is call more than once.
-data DuplicateReply = DuplicateReply deriving stock (Eq, Show)
+newtype DuplicateReply = DuplicateReply CallId deriving stock (Eq)
+
+instance Show DuplicateReply where
+  showsPrec d (DuplicateReply !c) =
+    showParen (d >= 9) (showString "more than one reply sent for: " . showsPrec 9 c)
 
 instance Exception DuplicateReply
 
@@ -267,7 +271,7 @@ callAsync ::
   o (Message apiTag) ->
   Command apiTag ( 'Return result) ->
   m (Maybe (AsyncReply result))
-callAsync input pdu = do
+callAsync !input !pdu = do
   !callId <- CallId.takeNext
   !resultVar <- newEmptyTMVarIO
   !sendSuccessful <- do
@@ -284,14 +288,8 @@ data AsyncReply r
   = MkAsyncReply !CallId !(TMVar (InternalReply r))
 
 instance (Typeable r) => Show (AsyncReply r) where
-  showsPrec d (MkAsyncReply cId _) =
-    showParen
-      (d >= 9)
-      ( showString "AsyncReply "
-          . showsPrec 9 cId
-          . showChar ' '
-          . showsPrec 9 (typeRep (Proxy @r))
-      )
+  showsPrec !d (MkAsyncReply !cId _) =
+    showParen (d >= 9) (showString "AR: " . showsPrec 9 cId)
 
 -- | Wait for the reply of a 'Blocking' 'Message'
 -- sent by 'callAsync'.
@@ -307,7 +305,8 @@ waitForReply !t (MkAsyncReply !cId !rVar) = do
   !delay <- registerDelay t
   atomically
     ( ( do
-          readTVar delay >>= checkSTM
+          !hasTimedOut <- readTVar delay
+          checkSTM hasTimedOut
           return (Left (BlockingCommandTimedOut cId))
       )
         <|> readTMVar rVar
@@ -320,10 +319,10 @@ tryTakeReply ::
   MonadUnliftIO m =>
   AsyncReply result ->
   m (Maybe (Either CommandError result))
-tryTakeReply (MkAsyncReply _expectedCallId resultVar) = do
-  maybeTheResult <- atomically (tryReadTMVar resultVar)
+tryTakeReply (MkAsyncReply _expectedCallId !resultVar) = do
+  !maybeTheResult <- atomically (tryReadTMVar resultVar)
   case maybeTheResult of
     Nothing ->
       return Nothing
-    Just result ->
+    Just !result ->
       return (Just result)
