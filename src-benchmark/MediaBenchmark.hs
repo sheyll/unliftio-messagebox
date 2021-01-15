@@ -60,7 +60,6 @@ import Protocol.MessageBox.Class
     newInput,
     receiveAfter,
   )
-import qualified Protocol.MessageBox.Unlimited as Unlimited
 import RIO
   ( Map,
     RIO,
@@ -316,11 +315,11 @@ mediaAppBenchmark cfg param = do
               >>= either
                 ( liftIO
                     . putStrLn
-                    . ("spawnMixingGroup failed: " ++)
+                    . (("mixingGroup " ++ show mgId ++ " exception: ") ++)
                     . (show :: SomeException -> String)
                 )
                 ( maybe
-                    (error "mixing server loop premature exit")
+                    (error ("mixingGroup loop " ++ show mgId ++ " premature exit"))
                     (maybe (return ()) mgLoop)
                 )
           handleCmd ::
@@ -403,8 +402,8 @@ mediaAppBenchmark cfg param = do
       let !clients = foldMap spawnClient [0 .. nGroups param - 1]
 
           spawnClient !mixingGroupId = conc $ do
-            eventsIn <- Unlimited.create
-            eventsOut <- Unlimited.newInput eventsIn
+            eventsIn <- newMessageBox cfg
+            eventsOut <- newInput eventsIn
             -- create conference,
             call mixingInput (CreateMixingGroup mixingGroupId) 50_000_000
               >>= either

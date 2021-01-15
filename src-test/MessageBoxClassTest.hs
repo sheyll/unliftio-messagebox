@@ -5,12 +5,14 @@
 
 module MessageBoxClassTest (test) where
 
-import Control.Monad (forM, replicateM)
-import Data.Foldable (Foldable (fold))
+import Control.Monad (forM, replicateM, unless, when)
+import Data.Foldable (Foldable (fold), traverse_)
 import Data.Maybe (fromMaybe, isJust)
 import Data.Monoid (All (All, getAll))
 import Protocol.Future (tryNow)
 import Protocol.MessageBox.CatchAll
+  ( CatchAllFactory (CatchAllFactory),
+  )
 import Protocol.MessageBox.Class
   ( IsInput (..),
     IsMessageBox (..),
@@ -28,9 +30,14 @@ import Test.QuickCheck
   )
 import Test.Tasty as Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit
+  ( assertBool,
+    assertEqual,
+    assertFailure,
+    testCase,
+  )
 import qualified Test.Tasty.HUnit as Tasty
 import Test.Tasty.QuickCheck as Tasty (testProperty)
-import UnliftIO (conc, concurrently, runConc, timeout)
+import UnliftIO (concurrently, timeout)
 import UnliftIO.Concurrent (threadDelay)
 
 test :: Tasty.TestTree
@@ -39,8 +46,8 @@ test =
     "Protocol.MessageBox.Class"
     [ testWith U.UnlimitedMessageBox,
       testWith $ CatchAllFactory U.UnlimitedMessageBox,
-      testWith (B.BlockingBoxLimit B.MessageLimit_64),
-      testWith $ CatchAllFactory (B.BlockingBoxLimit B.MessageLimit_64),
+      testWith (B.BlockingBoxLimit B.MessageLimit_256),
+      testWith $ CatchAllFactory (B.BlockingBoxLimit B.MessageLimit_256),
       testWith (B.BlockingBoxLimit B.MessageLimit_1),
       testWith (B.BlockingBoxLimit B.MessageLimit_2),
       testWith (B.NonBlockingBoxLimit B.MessageLimit_1),
@@ -146,7 +153,7 @@ commonFunctionality arg =
               testCase
                 "when one process delivers two messages into an input successfully, \
                 \while another process calls receive twice, the messages are returned in FIFO order"
-                $ do
+                $ when (maybe True (> 1) (getConfiguredMessageLimit arg)) $ do
                   let m1 = "Message 1" :: String
                       m2 = "Message 2" :: String
                   mbox <- newMessageBox arg
@@ -173,28 +180,33 @@ commonFunctionality arg =
                       )
                   senderOk
                   receiverOK,
-              testProperty "all n messages of all k outBoxes are received by the output" $
+              testProperty "all n messages of all k outBoxes are received by the messageBox" $
                 \(Positive (Small n)) (Positive (Small k)) ->
-                  ioProperty $
-                    fromMaybe False
-                      <$> timeout
-                        10_000_000
-                        ( getAll . fold <$> do
-                            output <- newMessageBox arg
-                            runConc
-                              ( (<>)
-                                  <$> foldMap
-                                    ( \i ->
-                                        conc
-                                          ( do
-                                              input <- newInput output
-                                              forM [0 .. n - 1] (\j -> All <$> deliver input ("test message: ", i, j))
-                                          )
+                  let untilM m = m >>= flip unless (untilM m)
+                   in ioProperty $
+                        fromMaybe False
+                          <$> timeout
+                            10_000_000
+                            ( getAll . fold <$> do
+                                messageBox <- newMessageBox arg
+                                (_, allReceived) <-
+                                  concurrently
+                                    ( traverse_
+                                        ( \i ->
+                                            do
+                                              input <- newInput messageBox
+                                              forM
+                                                [0 .. n - 1]
+                                                ( \j ->
+                                                    untilM
+                                                      (deliver input ("test message: ", i, j))
+                                                )
+                                        )
+                                        [0 .. k - 1]
                                     )
-                                    [0 .. k - 1]
-                                  <*> conc (replicateM (n * k) (All . isJust <$> receive output))
-                              )
-                        )
+                                    (replicateM (n * k) (All . isJust <$> receive messageBox))
+                                return allReceived
+                            )
             ],
           testGroup
             "tryReceive"
@@ -264,7 +276,7 @@ commonFunctionality arg =
                 "when one process delivers two messages (with random delays) into an input successfully, \
                 \while another process calls tryReceive twice, then the futures each return the \
                 \correct message in FIFO order"
-                $ do
+                $ when (maybe True (> 1) (getConfiguredMessageLimit arg)) $ do
                   let m1 = "Message 1" :: String
                       m2 = "Message 2" :: String
                   mbox <- newMessageBox arg

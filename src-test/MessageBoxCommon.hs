@@ -46,7 +46,7 @@ testContentionRobustness !mkReceiverIn !nSenders !nMsgs =
     [ Tasty.testCase
         "when many concurrent senders send many messages to one receiver,\
         \ and when every failed deliver is retried indefinitely, \
-        \ all messages will be received."
+        \ all messages will be received"
         $ do
           !receiverIn <- mkReceiverIn
           let allMessages =

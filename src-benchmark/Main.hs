@@ -55,7 +55,7 @@ main =
                 <> show noMessages
                 <> " "
                 <> show senderNo
-                <> " >>= "
+                <> " : "
                 <> show receiverNo
             )
             ( nfAppIO
@@ -66,32 +66,32 @@ main =
             (isNonBlocking, mboxImplTitle, impl) <-
               [ let x = U.UnlimitedMessageBox
                  in (False, show x, unidirectionalMessagePassing mkTestMessage x),
+                let x = L.BlockingBoxLimit L.MessageLimit_1
+                 in (False, show x, unidirectionalMessagePassing mkTestMessage x),
                 let x = L.BlockingBoxLimit L.MessageLimit_16
+                 in (False, show x, unidirectionalMessagePassing mkTestMessage x),
+                let x = L.BlockingBoxLimit L.MessageLimit_32
                  in (False, show x, unidirectionalMessagePassing mkTestMessage x),
                 let x = L.BlockingBoxLimit L.MessageLimit_64
                  in (False, show x, unidirectionalMessagePassing mkTestMessage x),
+                let x = L.BlockingBoxLimit L.MessageLimit_128
+                 in (False, show x, unidirectionalMessagePassing mkTestMessage x),
+                let x = L.BlockingBoxLimit L.MessageLimit_256
+                 in (False, show x, unidirectionalMessagePassing mkTestMessage x),
+                let x = L.BlockingBoxLimit L.MessageLimit_512
+                 in (False, show x, unidirectionalMessagePassing mkTestMessage x),
                 let x = L.BlockingBoxLimit L.MessageLimit_4096
                  in (False, show x, unidirectionalMessagePassing mkTestMessage x),
-                let x = L.NonBlockingBoxLimit L.MessageLimit_512
+                let x = L.NonBlockingBoxLimit L.MessageLimit_128
                  in (True, show x, unidirectionalMessagePassing mkTestMessage x),
                 let x = L.WaitingBoxLimit Nothing 5_000_000 L.MessageLimit_128
                  in (False, show x, unidirectionalMessagePassing mkTestMessage x),
                 let x = L.WaitingBoxLimit (Just 60_000_000) 5_000_000 L.MessageLimit_128
                  in (True, show x, unidirectionalMessagePassing mkTestMessage x),
-                let x = U.UnlimitedMessageBox
+                let x = CatchAllFactory U.UnlimitedMessageBox
                  in (False, show x, unidirectionalMessagePassing mkTestMessage x),
-                let x = CatchAllFactory (L.BlockingBoxLimit L.MessageLimit_16)
-                 in (False, show x, unidirectionalMessagePassing mkTestMessage x),
-                let x = CatchAllFactory (L.BlockingBoxLimit L.MessageLimit_64)
-                 in (False, show x, unidirectionalMessagePassing mkTestMessage x),
-                let x = CatchAllFactory (L.BlockingBoxLimit L.MessageLimit_4096)
-                 in (False, show x, unidirectionalMessagePassing mkTestMessage x),
-                let x = CatchAllFactory (L.NonBlockingBoxLimit L.MessageLimit_512)
-                 in (True, show x, unidirectionalMessagePassing mkTestMessage x),
-                let x = CatchAllFactory (L.WaitingBoxLimit Nothing 5_000_000 L.MessageLimit_128)
-                 in (False, show x, unidirectionalMessagePassing mkTestMessage x),
-                let x = CatchAllFactory (L.WaitingBoxLimit (Just 60_000_000) 5_000_000 L.MessageLimit_128)
-                 in (True, show x, unidirectionalMessagePassing mkTestMessage x)
+                let x = CatchAllFactory (L.BlockingBoxLimit L.MessageLimit_128)
+                 in (False, show x, unidirectionalMessagePassing mkTestMessage x)
               ],
             (senderNo, receiverNo) <-
               [ (1, 1000),

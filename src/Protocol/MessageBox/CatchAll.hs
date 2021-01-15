@@ -42,6 +42,8 @@ instance IsMessageBoxFactory cfg => IsMessageBoxFactory (CatchAllFactory cfg) wh
   type MessageBox (CatchAllFactory cfg) = CatchAllBox (MessageBox cfg)
   {-# INLINE newMessageBox #-}
   newMessageBox (CatchAllFactory !cfg) = CatchAllBox <$> newMessageBox cfg
+  getConfiguredMessageLimit (CatchAllFactory !cfg) =
+    getConfiguredMessageLimit cfg
 
 instance IsMessageBox box => IsMessageBox (CatchAllBox box) where
   type Input (CatchAllBox box) = CatchAllInput (Input box)

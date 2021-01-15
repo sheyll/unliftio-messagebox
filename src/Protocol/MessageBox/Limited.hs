@@ -30,13 +30,13 @@ where
 import qualified Control.Concurrent.Chan.Unagi.Bounded as Unagi
 import Data.Functor (($>))
 import Data.Maybe (fromMaybe)
+import Protocol.Future (Future (..))
 import qualified Protocol.MessageBox.Class as Class
 import UnliftIO
   ( MonadIO (liftIO),
     MonadUnliftIO,
     timeout,
   )
-import Protocol.Future ( Future(..) )
 
 -- | Message Limit
 --
@@ -90,7 +90,11 @@ messageLimitToInt =
 -- can buffer, i.e. that 'deliver' can put into a 'BlockingInput'
 -- of a 'BlockingBox'.
 newtype BlockingBoxLimit = BlockingBoxLimit MessageLimit
-  deriving stock (Show, Eq)
+  deriving stock (Eq)
+
+instance Show BlockingBoxLimit where
+  showsPrec _ (BlockingBoxLimit !l) =
+    showString "Blocking" . showsPrec 9 (messageLimitToInt l)
 
 -- | A message queue out of which messages can by 'receive'd.
 --
@@ -114,6 +118,8 @@ instance Class.IsMessageBoxFactory BlockingBoxLimit where
   type MessageBox BlockingBoxLimit = BlockingBox
   {-# INLINE newMessageBox #-}
   newMessageBox (BlockingBoxLimit !limit) = create limit
+  getConfiguredMessageLimit (BlockingBoxLimit !limit) =
+    Just (messageLimitToInt limit)
 
 -- | A blocking instance that invokes 'receive'.
 instance Class.IsMessageBox BlockingBox where
@@ -144,13 +150,19 @@ instance Class.IsInput BlockingInput where
 
 -- | A 'BlockingBoxLimit' wrapper for non-blocking 'Class.IsMessageBoxFactory' instances.
 newtype NonBlockingBoxLimit = NonBlockingBoxLimit MessageLimit
-  deriving stock (Eq, Show)
+  deriving stock (Eq)
+
+instance Show NonBlockingBoxLimit where
+  showsPrec _ (NonBlockingBoxLimit !l) =
+    showString "NonBlocking" . showsPrec 9 (messageLimitToInt l)
 
 instance Class.IsMessageBoxFactory NonBlockingBoxLimit where
   type MessageBox NonBlockingBoxLimit = NonBlockingBox
   {-# INLINE newMessageBox #-}
   newMessageBox (NonBlockingBoxLimit !l) =
     NonBlockingBox <$> Class.newMessageBox (BlockingBoxLimit l)
+  getConfiguredMessageLimit (NonBlockingBoxLimit !limit) =
+    Just (messageLimitToInt limit)
 
 -- | A 'BlockingBox' wrapper for non-blocking 'Class.IsMessageBox' instances.
 --
@@ -190,13 +202,24 @@ data WaitingBoxLimit = WaitingBoxLimit
     deliverTimeout :: !Int,
     messageLimit :: !MessageLimit
   }
-  deriving stock (Show, Eq)
+  deriving stock (Eq)
+
+instance Show WaitingBoxLimit where
+  showsPrec _ (WaitingBoxLimit !t0 !t1 !l) =
+    showString "Waiting_" .  
+        (case t0 of 
+          Nothing -> id 
+          Just !t -> showsPrec 9 t . showChar '_')
+      . showsPrec 9 t1 . showChar '_'
+      . showsPrec 9 (messageLimitToInt l)
 
 instance Class.IsMessageBoxFactory WaitingBoxLimit where
   type MessageBox WaitingBoxLimit = WaitingBox
   {-# INLINE newMessageBox #-}
   newMessageBox l@(WaitingBoxLimit _ _ !c) =
     WaitingBox l <$> Class.newMessageBox (BlockingBoxLimit c)
+  getConfiguredMessageLimit (WaitingBoxLimit _ _ !limit) =
+    Just (messageLimitToInt limit)
 
 -- | A 'BlockingBox' an a 'WaitingBoxLimit' for
 -- the 'Class.IsMessageBox' instance.

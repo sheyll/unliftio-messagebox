@@ -24,6 +24,16 @@ class
   where
   type MessageBox cfg :: Type -> Type
 
+  -- | Return a message limit.
+  --
+  -- NOTE: This method was added for unit tests.
+  -- Although the method is totally valid, it 
+  -- might not be super useful in production code.
+  -- Also note that the naming follows the rule:
+  -- Reserve short names for entities that are
+  -- used often.
+  getConfiguredMessageLimit :: cfg -> Maybe Int
+
   -- | Create a new @msgBox@.
   -- This is required to receive a message.
   -- NOTE: Only one process may receive on an msgBox.

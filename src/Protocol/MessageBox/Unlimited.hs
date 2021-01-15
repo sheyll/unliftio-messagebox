@@ -12,12 +12,7 @@
 -- Otherwise use the more conservative
 -- "Protocol.MessageBox.Limited" module.
 module Protocol.MessageBox.Unlimited
-  ( create,
-    receive,
-    tryReceive,
-    newInput,
-    deliver,
-    UnlimitedMessageBox (..),
+  ( UnlimitedMessageBox (..),
     MessageBox (),
     Input (),
   )
@@ -32,6 +27,55 @@ import UnliftIO
   ( MonadIO (liftIO),
     MonadUnliftIO,
   )
+
+-- | A message queue out of which messages can
+--   by 'receive'd.
+--
+-- This is the counter part of 'Input'. Can be
+-- used for reading messages.
+--
+-- Messages can be received by 'receive' or 'tryReceive'.
+data MessageBox a
+  = MkOutput
+      !(Unagi.InChan a)
+      !(Unagi.OutChan a)
+
+-- | A message queue into which messages can be enqued by,
+--   e.g. 'deliver'.
+--   Messages can be received from an 'MessageBox`.
+--
+--   The 'Input' is the counter part of a 'MessageBox'.
+newtype Input a = MkInput (Unagi.InChan a)
+
+-- | The (empty) configuration for creating
+-- 'MessageBox'es using the 'Class.IsMessageBoxFactory' methods.
+data UnlimitedMessageBox = UnlimitedMessageBox
+  deriving stock Eq
+
+instance Show UnlimitedMessageBox where
+  showsPrec _ _ = showString "Unlimited"
+
+instance Class.IsMessageBoxFactory UnlimitedMessageBox where
+  type MessageBox UnlimitedMessageBox = MessageBox
+  {-# INLINE newMessageBox #-}
+  newMessageBox UnlimitedMessageBox = create
+  getConfiguredMessageLimit _ = Nothing    
+
+-- | A blocking instance that invokes 'receive'.
+instance Class.IsMessageBox MessageBox where
+  type Input MessageBox = Input
+  {-# INLINE receive #-}
+  receive !i = Just <$> receive i
+  {-# INLINE tryReceive #-}
+  tryReceive !i = tryReceive i
+  {-# INLINE newInput #-}
+  newInput !i = newInput i
+
+-- | A blocking instance that invokes 'deliver'.
+instance Class.IsInput Input where
+  {-# INLINE deliver #-}
+  deliver !o !m = deliver o m $> True
+
 
 -- | Create a 'MessageBox'.
 --
@@ -72,47 +116,3 @@ newInput (MkOutput !s _) = return $! MkInput s
 deliver :: MonadUnliftIO m => Input a -> a -> m ()
 deliver (MkInput !s) !a =
   liftIO $ Unagi.writeChan s a
-
--- | A message queue out of which messages can
---   by 'receive'd.
---
--- This is the counter part of 'Input'. Can be
--- used for reading messages.
---
--- Messages can be received by 'receive' or 'tryReceive'.
-data MessageBox a
-  = MkOutput
-      !(Unagi.InChan a)
-      !(Unagi.OutChan a)
-
--- | A message queue into which messages can be enqued by,
---   e.g. 'deliver'.
---   Messages can be received from an 'MessageBox`.
---
---   The 'Input' is the counter part of a 'MessageBox'.
-newtype Input a = MkInput (Unagi.InChan a)
-
--- | The (empty) configuration for creating
--- 'MessageBox'es using the 'Class.IsMessageBoxFactory' methods.
-data UnlimitedMessageBox = UnlimitedMessageBox
-  deriving stock (Show)
-
-instance Class.IsMessageBoxFactory UnlimitedMessageBox where
-  type MessageBox UnlimitedMessageBox = MessageBox
-  {-# INLINE newMessageBox #-}
-  newMessageBox UnlimitedMessageBox = create
-
--- | A blocking instance that invokes 'receive'.
-instance Class.IsMessageBox MessageBox where
-  type Input MessageBox = Input
-  {-# INLINE receive #-}
-  receive !i = Just <$> receive i
-  {-# INLINE tryReceive #-}
-  tryReceive !i = tryReceive i
-  {-# INLINE newInput #-}
-  newInput !i = newInput i
-
--- | A blocking instance that invokes 'deliver'.
-instance Class.IsInput Input where
-  {-# INLINE deliver #-}
-  deliver !o !m = deliver o m $> True

@@ -8,7 +8,7 @@ module Protocol.Command
     ReturnType (..),
     ReplyBox (),
     CommandError (..),
-    DuplicateReply(..),
+    DuplicateReply (..),
     cast,
     call,
     replyTo,
@@ -21,6 +21,7 @@ module Protocol.Command
 where
 
 import Control.Applicative (Alternative ((<|>)))
+import Control.Monad (unless)
 import Control.Monad.Reader (MonadReader)
 import Data.Kind (Type)
 import Data.Typeable (Proxy (..), typeRep)
@@ -31,20 +32,21 @@ import Protocol.Command.CallId
 import qualified Protocol.Command.CallId as CallId
 import qualified Protocol.MessageBox.Class as MessageBox
 import UnliftIO
-  (throwIO, tryPutTMVar, Exception,  MonadUnliftIO,
+  ( Exception,
+    MonadUnliftIO,
     TMVar,
     Typeable,
     atomically,
     checkSTM,
     newEmptyTMVarIO,
-    putTMVar,
     readTMVar,
     readTVar,
     registerDelay,
     takeTMVar,
+    throwIO,
+    tryPutTMVar,
     tryReadTMVar,
   )
-import Control.Monad (unless)
 
 -- | This family allows to encode imperative /commands/.
 --
@@ -220,8 +222,7 @@ call !input !pdu !timeoutMicroseconds = do
 replyTo :: (MonadUnliftIO m) => ReplyBox a -> a -> m ()
 replyTo (MkReplyBox !replyBox !_callId) !message =
   atomically (tryPutTMVar replyBox (Right message))
-  >>= \success -> unless success (throwIO DuplicateReply)
-
+    >>= \success -> unless success (throwIO DuplicateReply)
 
 -- | Exception thrown by 'replyTo' when 'replyTo' is call more than once.
 data DuplicateReply = DuplicateReply deriving stock (Eq, Show)
@@ -277,11 +278,10 @@ callAsync input pdu = do
     then return (Just (MkAsyncReply callId resultVar))
     else return Nothing
 
-
 -- | The result of 'callAsync'.
 -- Use 'waitForReply' or 'tryTakeReply'.
 data AsyncReply r
-  = MkAsyncReply !CallId !(TMVar (InternalReply r)) 
+  = MkAsyncReply !CallId !(TMVar (InternalReply r))
 
 instance (Typeable r) => Show (AsyncReply r) where
   showsPrec d (MkAsyncReply cId _) =
