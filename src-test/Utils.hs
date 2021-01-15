@@ -1,6 +1,10 @@
 {-# LANGUAGE BangPatterns #-}
 
-module Utils (untilJust, untilM) where
+module Utils (untilJust, untilM, withCallIds) where
+
+import qualified Protocol.Command.CallId as CallId
+import Protocol.Fresh (CounterVar)
+import RIO (MonadIO, RIO, runRIO)
 
 untilJust :: (Monad m) => m (Maybe a) -> m a
 untilJust loopBody = do
@@ -17,3 +21,8 @@ untilM loopBody = do
   if isOk
     then return ()
     else untilM loopBody
+
+withCallIds :: 
+  MonadIO m => RIO (CounterVar CallId.CallId) b -> m b
+withCallIds f = 
+  CallId.newCallIdCounter >>= flip runRIO f

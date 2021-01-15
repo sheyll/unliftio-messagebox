@@ -1,6 +1,7 @@
 module Main (main) where
 
 import qualified LimitedMessageBoxTest
+import qualified CallIdTest
 import qualified CommandTest
 import qualified CornerCaseTests
 import qualified FreshTest
@@ -20,7 +21,8 @@ test :: Tasty.TestTree
 test =
   Tasty.testGroup
     "Tests"
-    [ CornerCaseTests.test,
+    [ CallIdTest.test,
+      CornerCaseTests.test,
       CommandTest.test,
       MessageBoxClassTest.test,
       LimitedMessageBoxTest.test,

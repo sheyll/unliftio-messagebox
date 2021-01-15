@@ -17,7 +17,6 @@
 
 module CommandTest where
 
-import Utils (untilJust)
 import Control.Applicative
   ( Applicative (pure, (<*>)),
     (<$),
@@ -91,7 +90,7 @@ import RIO
     ($),
     (.),
   )
-import Test.Tasty as Tasty (TestTree, testGroup)
+import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit
   ( assertBool,
     assertEqual,
@@ -113,6 +112,7 @@ import UnliftIO
     try,
   )
 import UnliftIO.Concurrent (forkIO)
+import Utils (untilJust, withCallIds)
 import Prelude (Show (showsPrec), showParen, showString)
 
 test :: TestTree
@@ -453,439 +453,438 @@ instance Arbitrary Book where
 
 unitTests :: TestTree
 unitTests =
-  let go f = CallId.newCallIdCounter >>= flip runRIO f
-   in testGroup
-        "unit tests"
-        [ testCase "Message Show instance" $ do
-            go
-              ( callAsync
-                  ( OnDeliver $ \m -> do
-                      liftIO (assertEqual "bad show result" "B: (Echo \"123\") 1" (show m))
-                      return True
-                  )
-                  (Echo "123")
+  testGroup
+    "unit tests"
+    [ testCase "Message Show instance" $ do
+        withCallIds
+          ( callAsync
+              ( OnDeliver $ \m -> do
+                  liftIO (assertEqual "bad show result" "B: (Echo \"123\") 1" (show m))
+                  return True
               )
-              >>= assertBool "should not fail" . isJust
-            go
-              ( cast
-                  ( OnDeliver $ \m -> do
-                      liftIO (assertEqual "bad show result" "NB: (Tell 123)" (show m))
-                      return True
-                  )
-                  (Tell "123")
+              (Echo "123")
+          )
+          >>= assertBool "should not fail" . isJust
+        withCallIds
+          ( cast
+              ( OnDeliver $ \m -> do
+                  liftIO (assertEqual "bad show result" "NB: (Tell 123)" (show m))
+                  return True
               )
-              >>= assertBool "should not fail",
-          testCase "CommandError Show instance" $ do
-            assertEqual
-              "Show instance broken"
-              "CouldNotEnqueueCommand 1"
-              (show (CouldNotEnqueueCommand (MkCallId 1)))
-            assertEqual
-              "Show instance broken"
-              "BlockingCommandFailure 1"
-              (show (BlockingCommandFailure (MkCallId 1)))
-            assertEqual
-              "Show instance broken"
-              "BlockingCommandTimedOut 1"
-              (show (BlockingCommandTimedOut (MkCallId 1))),
-          testCase
-            "when deliver returns False, BlockingCommandFailed\
-            \ should be returned"
-            $ go
-              ( call
-                  (OnDeliver (const (return False)))
-                  (Echo "123")
-                  2_000_000
-              )
-              >>= assertEqual
-                "bad call result"
-                (Left (CouldNotEnqueueCommand (MkCallId 1))),
-          testCase
-            "when deliver blocks forever, call also blocks forever\
-            \ regardles of the timeout parameter"
-            $ do
-              res <-
-                go $
-                  timeout 10_000 $
-                    call
-                      ( OnDeliver
-                          ( const $ do
-                              threadDelay 3600_000_000
-                              return False
-                          )
-                      )
-                      (Echo "123")
-                      1
-              assertEqual "bad call result" Nothing res,
-          testCase
-            "when deliver succeeds, but the reply box is ignored \
-            \and no replyTo invokation is done, BlockingCommandTimedOut\
-            \ should be returned"
-            $ do
-              res <-
-                go $
-                  call
-                    (OnDeliver (const (return True)))
-                    (Echo "123")
-                    10_000
-              assertEqual
-                "bad call result"
-                (Left (BlockingCommandTimedOut (MkCallId 1)))
-                res,
-          testCase
-            "when the reply box is passed to a new process, but\
-            \ replyTo is delayed very much,\
-            \ BlockingCommandTimedOut should be returned"
-            $ do
-              res <-
-                go $
-                  call
-                    ( OnDeliver
-                        ( \(Blocking (Echo x) rbox) -> do
-                            void $
-                              forkIO $ do
-                                threadDelay 3600_000_000
-                                replyTo rbox x
-                            return True
-                        )
-                    )
-                    (Echo "123")
-                    10_000
-              assertEqual
-                "bad call result"
-                (Left (BlockingCommandTimedOut (MkCallId 1)))
-                res,
-          testCase
-            "when the reply box is passed to a new process, that calls\
-            \ replyTo after x seconds, where x < rt (the receive timeou),\
-            \ then before y seconds have passed, where x <= y < rt,\
-            \ call returns the value passed to the reply box."
-            $ do
-              let x = 20_000
-                  rt = 1_000_000
-                  y = 500_000
-              res <-
-                go $
-                  timeout y $
-                    call
-                      ( OnDeliver
-                          ( \(Blocking (Echo value) rbox) -> do
-                              void $
-                                forkIO $ do
-                                  threadDelay x
-                                  replyTo rbox value
-                              return True
-                          )
-                      )
-                      (Echo "123")
-                      rt
-              assertEqual
-                "bad call result"
-                (Just (Right "123"))
-                res,
-          testCase
-            "when a call is delegated to, and replied by, another process, \
-            \ call should return that reply"
-            $ do
-              res <-
-                go $
-                  call
-                    ( OnDeliver
-                        ( \(Blocking (Echo value) rbox) ->
-                            delegateCall
-                              ( OnDeliver
-                                  ( \(Blocking (Echo value') rbox') -> do
-                                      replyTo rbox' value'
-                                      return True
-                                  )
-                              )
-                              (Echo value)
-                              rbox
-                        )
-                    )
-                    (Echo "123")
-                    1_000
-              assertEqual
-                "bad call result"
-                (Right "123")
-                res,
-          testCase
-            "when deliver has a delay, callAsync \
-            \ has at least the same delay"
-            $ do
-              res <-
-                go $
-                  timeout
-                    90_000
-                    ( callAsync
-                        ( OnDeliver
-                            ( \(Blocking (Echo _value) _rbox) ->
-                                do
-                                  threadDelay 100_000
-                                  return False
-                            )
-                        )
-                        (Echo "123")
-                    )
-              assertBool
-                "callAsync returned too soon"
-                (isNothing res),
-          testCase
-            "when deliver fails, callAsync returns Nothing"
-            $ do
-              res <-
-                go $
-                  callAsync
-                    ( OnDeliver
-                        (\(Blocking (Echo _value) _rbox) -> return False)
-                    )
-                    (Echo "123")
-              assertBool
-                "callAsync should fail"
-                (isNothing res),
-          testCase
-            "when deliver succeeds, callAsync returns Just the pending reply"
-            $ do
-              res <-
-                go $
-                  callAsync
-                    ( OnDeliver
-                        (\(Blocking (Echo _value) _rbox) -> return True)
-                    )
-                    (Echo "123")
-              assertBool
-                "callAsync should succeed"
-                (isJust res),
-          testCase
-            "when deliver succeeds, but no reply is sent, \
-            \ waitForReply returns Left BlockingCommandTimedOut"
-            $ go
-              ( callAsync
+              (Tell "123")
+          )
+          >>= assertBool "should not fail",
+      testCase "CommandError Show instance" $ do
+        assertEqual
+          "Show instance broken"
+          "CouldNotEnqueueCommand 1"
+          (show (CouldNotEnqueueCommand (MkCallId 1)))
+        assertEqual
+          "Show instance broken"
+          "BlockingCommandFailure 1"
+          (show (BlockingCommandFailure (MkCallId 1)))
+        assertEqual
+          "Show instance broken"
+          "BlockingCommandTimedOut 1"
+          (show (BlockingCommandTimedOut (MkCallId 1))),
+      testCase
+        "when deliver returns False, BlockingCommandFailed\
+        \ should be returned"
+        $ withCallIds
+          ( call
+              (OnDeliver (const (return False)))
+              (Echo "123")
+              2_000_000
+          )
+          >>= assertEqual
+            "bad call result"
+            (Left (CouldNotEnqueueCommand (MkCallId 1))),
+      testCase
+        "when deliver blocks forever, call also blocks forever\
+        \ regardles of the timeout parameter"
+        $ do
+          res <-
+            withCallIds $
+              timeout 10_000 $
+                call
                   ( OnDeliver
-                      (\(Blocking (Echo _value) _rbox) -> return True)
+                      ( const $ do
+                          threadDelay 3600_000_000
+                          return False
+                      )
                   )
                   (Echo "123")
-                  >>= traverse (waitForReply 1_000)
-              )
-              >>= assertEqual
-                "timeout error expected"
-                (Just (Left (BlockingCommandTimedOut (MkCallId 1)))),
-          testCase
-            "when deliver succeeds, but no reply is sent, \
-            \ tryTakeReply will return Nothing"
-            $ go
-              ( callAsync
-                  ( OnDeliver
-                      (\(Blocking (Echo _value) _rbox) -> return True)
-                  )
-                  (Echo "123")
-                  >>= traverse tryTakeReply
-              )
-              >>= assertBool "tryTakeReply should return Nothing" . isNothing . fromJust,
-          testCase
-            "when deliver succeeds, and a reply is sent, \
-            \ waitForReply will return Right with the reply"
-            $ go
-              ( callAsync
+                  1
+          assertEqual "bad call result" Nothing res,
+      testCase
+        "when deliver succeeds, but the reply box is ignored \
+        \and no replyTo invokation is done, BlockingCommandTimedOut\
+        \ should be returned"
+        $ do
+          res <-
+            withCallIds $
+              call
+                (OnDeliver (const (return True)))
+                (Echo "123")
+                10_000
+          assertEqual
+            "bad call result"
+            (Left (BlockingCommandTimedOut (MkCallId 1)))
+            res,
+      testCase
+        "when the reply box is passed to a new process, but\
+        \ replyTo is delayed very much,\
+        \ BlockingCommandTimedOut should be returned"
+        $ do
+          res <-
+            withCallIds $
+              call
+                ( OnDeliver
+                    ( \(Blocking (Echo x) rbox) -> do
+                        void $
+                          forkIO $ do
+                            threadDelay 3600_000_000
+                            replyTo rbox x
+                        return True
+                    )
+                )
+                (Echo "123")
+                10_000
+          assertEqual
+            "bad call result"
+            (Left (BlockingCommandTimedOut (MkCallId 1)))
+            res,
+      testCase
+        "when the reply box is passed to a new process, that calls\
+        \ replyTo after x seconds, where x < rt (the receive timeou),\
+        \ then before y seconds have passed, where x <= y < rt,\
+        \ call returns the value passed to the reply box."
+        $ do
+          let x = 20_000
+              rt = 1_000_000
+              y = 500_000
+          res <-
+            withCallIds $
+              timeout y $
+                call
                   ( OnDeliver
                       ( \(Blocking (Echo value) rbox) -> do
-                          replyTo rbox value
+                          void $
+                            forkIO $ do
+                              threadDelay x
+                              replyTo rbox value
                           return True
                       )
                   )
                   (Echo "123")
-                  >>= traverse (waitForReply 1_000_000)
-              )
-              >>= assertEqual "waitForReply should return the reply" (Just (Right "123")),
-          testCase
-            "when deliver has succeeded, and a reply has been sent, \
-            \ tryTakeReply will eventually return Just Right the reply"
-            $ go
-              ( callAsync
-                  ( OnDeliver
-                      ( \(Blocking (Echo value) rbox) -> do
-                          replyTo rbox value
-                          return True
-                      )
-                  )
-                  (Echo "123")
-                  >>= ( \x -> do
-                          threadDelay 10_000
-                          traverse tryTakeReply x
-                      )
-              )
-              >>= assertEqual
-                "tryTakeReply should return the reply"
-                (Just (Just (Right "123"))),
-          testCase
-            "after waitForReply returns Right the reply,\
-            \ any further call to waitForReply will return\
-            \ the same result immediately."
-            $ go $
-              callAsync
+                  rt
+          assertEqual
+            "bad call result"
+            (Just (Right "123"))
+            res,
+      testCase
+        "when a call is delegated to, and replied by, another process, \
+        \ call should return that reply"
+        $ do
+          res <-
+            withCallIds $
+              call
                 ( OnDeliver
-                    ( \(Blocking (Echo value) rbox) -> do
-                        replyTo rbox value
-                        return True
-                    )
-                )
-                (Echo "123")
-                >>= maybe
-                  (liftIO $ assertFailure "callAsync failed unexpectedly")
-                  ( \pendingReply -> do
-                      waitForReply 1_000_000 pendingReply
-                        >>= liftIO
-                          . assertEqual
-                            "waitForReply should return the reply"
-                            (Right "123")
-                      timeout 1_000 (waitForReply 1_000_000 pendingReply)
-                        >>= liftIO
-                          . maybe
-                            (assertFailure "the second waitForReply should return immediately")
-                            ( assertEqual
-                                "the second waitForReply should return the reply"
-                                (Right "123")
-                            )
-                  ),
-          testCase
-            "when waitForReply has returned, tryTakeReply will\
-            \ also return Just the same result"
-            $ go $
-              callAsync
-                ( OnDeliver
-                    ( \(Blocking (Echo value) rbox) -> do
-                        replyTo rbox value
-                        return True
-                    )
-                )
-                (Echo "123")
-                >>= maybe
-                  (liftIO $ assertFailure "callAsync failed unexpectedly")
-                  ( \pendingReply -> do
-                      waitForReply 1_000_000 pendingReply
-                        >>= liftIO
-                          . assertEqual
-                            "waitForReply should return the reply"
-                            (Right "123")
-                      tryTakeReply pendingReply
-                        >>= liftIO
-                          . maybe
-                            (assertFailure "the second tryTakeReply should return Just (...)")
-                            ( assertEqual
-                                "tryTakeReply should return the reply"
-                                (Right "123")
-                            )
-                  ),
-          testCase
-            "when tryTakeReply has returned Just a result, waitForReply will\
-            \ also return that same result"
-            $ go $
-              callAsync
-                ( OnDeliver
-                    ( \(Blocking (Echo value) rbox) -> do
-                        replyTo rbox value
-                        return True
-                    )
-                )
-                (Echo "123")
-                >>= maybe
-                  (liftIO $ assertFailure "callAsync failed unexpectedly")
-                  ( \pendingReply -> do
-                      timeout 1_000_000 (untilJust (tryTakeReply pendingReply))
-                        >>= maybe
-                          (liftIO $ assertFailure "tryTakeReply should return a result")
-                          ( liftIO
-                              . assertEqual
-                                "tryTakeReply should return the reply"
-                                (Right "123")
-                          )
-                      waitForReply 1_000 pendingReply
-                        >>= liftIO
-                          . assertEqual
-                            "waitForReply should return the same reply"
-                            (Right "123")
-                  ),
-          testCase "DuplicateReply Eq and Show instance" $ do
-            assertEqual "Eq instance" (DuplicateReply (MkCallId 1)) (DuplicateReply (MkCallId 1))
-            assertEqual "Show instance" "more than one reply sent for: 1" (show (DuplicateReply (MkCallId 1))),
-          testCase
-            "when replyTo is called again on the same replyBox, an error is thrown\
-            \ and the waitForResult will still return the first reply"
-            $ go
-              ( do
-                  reply <-
-                    timeout 1_000_000 $
-                      try $
-                        callAsync
+                    ( \(Blocking (Echo value) rbox) ->
+                        delegateCall
                           ( OnDeliver
-                              ( \(Blocking (Echo value) rbox) -> do
-                                  replyTo rbox value
-                                  replyTo rbox value
+                              ( \(Blocking (Echo value') rbox') -> do
+                                  replyTo rbox' value'
                                   return True
                               )
                           )
-                          (Echo "123")
-
-                  liftIO $ case reply of
-                    (Just (Left (DuplicateReply cId))) ->
-                      assertEqual "wrong callId in DuplicateReply exception" (MkCallId 1) cId
-                    (Just (Right _)) ->
-                      assertFailure "expected an exception to be thrown in second `replyTo` call"
-                    Nothing ->
-                      assertFailure "unexpectedly indefinitely blocked on `replyTo` call"
+                          (Echo value)
+                          rbox
+                    )
+                )
+                (Echo "123")
+                1_000
+          assertEqual
+            "bad call result"
+            (Right "123")
+            res,
+      testCase
+        "when deliver has a delay, callAsync \
+        \ has at least the same delay"
+        $ do
+          res <-
+            withCallIds $
+              timeout
+                90_000
+                ( callAsync
+                    ( OnDeliver
+                        ( \(Blocking (Echo _value) _rbox) ->
+                            do
+                              threadDelay 100_000
+                              return False
+                        )
+                    )
+                    (Echo "123")
+                )
+          assertBool
+            "callAsync returned too soon"
+            (isNothing res),
+      testCase
+        "when deliver fails, callAsync returns Nothing"
+        $ do
+          res <-
+            withCallIds $
+              callAsync
+                ( OnDeliver
+                    (\(Blocking (Echo _value) _rbox) -> return False)
+                )
+                (Echo "123")
+          assertBool
+            "callAsync should fail"
+            (isNothing res),
+      testCase
+        "when deliver succeeds, callAsync returns Just the pending reply"
+        $ do
+          res <-
+            withCallIds $
+              callAsync
+                ( OnDeliver
+                    (\(Blocking (Echo _value) _rbox) -> return True)
+                )
+                (Echo "123")
+          assertBool
+            "callAsync should succeed"
+            (isJust res),
+      testCase
+        "when deliver succeeds, but no reply is sent, \
+        \ waitForReply returns Left BlockingCommandTimedOut"
+        $ withCallIds
+          ( callAsync
+              ( OnDeliver
+                  (\(Blocking (Echo _value) _rbox) -> return True)
+              )
+              (Echo "123")
+              >>= traverse (waitForReply 1_000)
+          )
+          >>= assertEqual
+            "timeout error expected"
+            (Just (Left (BlockingCommandTimedOut (MkCallId 1)))),
+      testCase
+        "when deliver succeeds, but no reply is sent, \
+        \ tryTakeReply will return Nothing"
+        $ withCallIds
+          ( callAsync
+              ( OnDeliver
+                  (\(Blocking (Echo _value) _rbox) -> return True)
+              )
+              (Echo "123")
+              >>= traverse tryTakeReply
+          )
+          >>= assertBool "tryTakeReply should return Nothing" . isNothing . fromJust,
+      testCase
+        "when deliver succeeds, and a reply is sent, \
+        \ waitForReply will return Right with the reply"
+        $ withCallIds
+          ( callAsync
+              ( OnDeliver
+                  ( \(Blocking (Echo value) rbox) -> do
+                      replyTo rbox value
+                      return True
+                  )
+              )
+              (Echo "123")
+              >>= traverse (waitForReply 1_000_000)
+          )
+          >>= assertEqual "waitForReply should return the reply" (Just (Right "123")),
+      testCase
+        "when deliver has succeeded, and a reply has been sent, \
+        \ tryTakeReply will eventually return Just Right the reply"
+        $ withCallIds
+          ( callAsync
+              ( OnDeliver
+                  ( \(Blocking (Echo value) rbox) -> do
+                      replyTo rbox value
+                      return True
+                  )
+              )
+              (Echo "123")
+              >>= ( \x -> do
+                      threadDelay 10_000
+                      traverse tryTakeReply x
+                  )
+          )
+          >>= assertEqual
+            "tryTakeReply should return the reply"
+            (Just (Just (Right "123"))),
+      testCase
+        "after waitForReply returns Right the reply,\
+        \ any further call to waitForReply will return\
+        \ the same result immediately."
+        $ withCallIds $
+          callAsync
+            ( OnDeliver
+                ( \(Blocking (Echo value) rbox) -> do
+                    replyTo rbox value
+                    return True
+                )
+            )
+            (Echo "123")
+            >>= maybe
+              (liftIO $ assertFailure "callAsync failed unexpectedly")
+              ( \pendingReply -> do
+                  waitForReply 1_000_000 pendingReply
+                    >>= liftIO
+                      . assertEqual
+                        "waitForReply should return the reply"
+                        (Right "123")
+                  timeout 1_000 (waitForReply 1_000_000 pendingReply)
+                    >>= liftIO
+                      . maybe
+                        (assertFailure "the second waitForReply should return immediately")
+                        ( assertEqual
+                            "the second waitForReply should return the reply"
+                            (Right "123")
+                        )
               ),
-          testCase
-            "tryTakeReply should return Nothing until the reply is sent, and\
-            \ from the moment the reply is available, it will always and\
-            \ immediately return the reply, it will never return Nothing again"
-            $ go
-              ( do
-                  replyNow <- newEmptyMVar
-                  replySent <- newEmptyMVar
-                  mPendingReply <-
+      testCase
+        "when waitForReply has returned, tryTakeReply will\
+        \ also return Just the same result"
+        $ withCallIds $
+          callAsync
+            ( OnDeliver
+                ( \(Blocking (Echo value) rbox) -> do
+                    replyTo rbox value
+                    return True
+                )
+            )
+            (Echo "123")
+            >>= maybe
+              (liftIO $ assertFailure "callAsync failed unexpectedly")
+              ( \pendingReply -> do
+                  waitForReply 1_000_000 pendingReply
+                    >>= liftIO
+                      . assertEqual
+                        "waitForReply should return the reply"
+                        (Right "123")
+                  tryTakeReply pendingReply
+                    >>= liftIO
+                      . maybe
+                        (assertFailure "the second tryTakeReply should return Just (...)")
+                        ( assertEqual
+                            "tryTakeReply should return the reply"
+                            (Right "123")
+                        )
+              ),
+      testCase
+        "when tryTakeReply has returned Just a result, waitForReply will\
+        \ also return that same result"
+        $ withCallIds $
+          callAsync
+            ( OnDeliver
+                ( \(Blocking (Echo value) rbox) -> do
+                    replyTo rbox value
+                    return True
+                )
+            )
+            (Echo "123")
+            >>= maybe
+              (liftIO $ assertFailure "callAsync failed unexpectedly")
+              ( \pendingReply -> do
+                  timeout 1_000_000 (untilJust (tryTakeReply pendingReply))
+                    >>= maybe
+                      (liftIO $ assertFailure "tryTakeReply should return a result")
+                      ( liftIO
+                          . assertEqual
+                            "tryTakeReply should return the reply"
+                            (Right "123")
+                      )
+                  waitForReply 1_000 pendingReply
+                    >>= liftIO
+                      . assertEqual
+                        "waitForReply should return the same reply"
+                        (Right "123")
+              ),
+      testCase "DuplicateReply Eq and Show instance" $ do
+        assertEqual "Eq instance" (DuplicateReply (MkCallId 1)) (DuplicateReply (MkCallId 1))
+        assertEqual "Show instance" "more than one reply sent for: 1" (show (DuplicateReply (MkCallId 1))),
+      testCase
+        "when replyTo is called again on the same replyBox, an error is thrown\
+        \ and the waitForResult will still return the first reply"
+        $ withCallIds
+          ( do
+              reply <-
+                timeout 1_000_000 $
+                  try $
                     callAsync
                       ( OnDeliver
                           ( \(Blocking (Echo value) rbox) -> do
-                              void $
-                                forkIO $ do
-                                  () <- takeMVar replyNow
-                                  replyTo rbox value
-                                  putMVar replySent ()
+                              replyTo rbox value
+                              replyTo rbox value
                               return True
                           )
                       )
-                      (Echo "")
-                  case mPendingReply of
-                    Nothing ->
-                      liftIO $ assertFailure "callAsync failed"
-                    Just pendingReply -> do
-                      tryTakeReply pendingReply
-                        >>= liftIO . assertEqual "tryTakeReply failed" Nothing
-                      putMVar replyNow ()
-                      takeMVar replySent
-                      tryTakeReply pendingReply
-                        >>= liftIO
-                          . assertEqual "tryTakeReply failed" (Just (Right ""))
-              ),
-          testCase
-            "PendingResult's show instance contains the call Id and the \
-            \ name of the result type"
-            $ do
-              res <-
-                go $
-                  callAsync
-                    ( OnDeliver
-                        (const (return True))
-                    )
-                    (Echo (Just "123"))
-              case res of
-                Nothing -> assertFailure "unexpected delivery failure"
-                Just pendingReply ->
-                  assertEqual
-                    "bad show instance for PendingResult"
-                    "AR: 1"
-                    (show pendingReply)
-        ]
+                      (Echo "123")
+
+              liftIO $ case reply of
+                (Just (Left (DuplicateReply cId))) ->
+                  assertEqual "wrong callId in DuplicateReply exception" (MkCallId 1) cId
+                (Just (Right _)) ->
+                  assertFailure "expected an exception to be thrown in second `replyTo` call"
+                Nothing ->
+                  assertFailure "unexpectedly indefinitely blocked on `replyTo` call"
+          ),
+      testCase
+        "tryTakeReply should return Nothing until the reply is sent, and\
+        \ from the moment the reply is available, it will always and\
+        \ immediately return the reply, it will never return Nothing again"
+        $ withCallIds
+          ( do
+              replyNow <- newEmptyMVar
+              replySent <- newEmptyMVar
+              mPendingReply <-
+                callAsync
+                  ( OnDeliver
+                      ( \(Blocking (Echo value) rbox) -> do
+                          void $
+                            forkIO $ do
+                              () <- takeMVar replyNow
+                              replyTo rbox value
+                              putMVar replySent ()
+                          return True
+                      )
+                  )
+                  (Echo "")
+              case mPendingReply of
+                Nothing ->
+                  liftIO $ assertFailure "callAsync failed"
+                Just pendingReply -> do
+                  tryTakeReply pendingReply
+                    >>= liftIO . assertEqual "tryTakeReply failed" Nothing
+                  putMVar replyNow ()
+                  takeMVar replySent
+                  tryTakeReply pendingReply
+                    >>= liftIO
+                      . assertEqual "tryTakeReply failed" (Just (Right ""))
+          ),
+      testCase
+        "PendingResult's show instance contains the call Id and the \
+        \ name of the result type"
+        $ do
+          res <-
+            withCallIds $
+              callAsync
+                ( OnDeliver
+                    (const (return True))
+                )
+                (Echo (Just "123"))
+          case res of
+            Nothing -> assertFailure "unexpected delivery failure"
+            Just pendingReply ->
+              assertEqual
+                "bad show instance for PendingResult"
+                "AR: 1"
+                (show pendingReply)
+    ]
 
 -- Echo Protocol for callTest
 
