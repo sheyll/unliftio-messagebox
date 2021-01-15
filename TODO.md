@@ -3,15 +3,15 @@ TODO
 
 ## Goal: Know Your Code 
 
-* Write property tests exhibiting race
+* **DONE** Write property tests exhibiting race
   conditions like shutdown races that
   provokes ThreadBlockedIndefinitelyOnMVar
   * **DONE** Not much to gain here... Unagi never seems to throw stuff the way we use it. 
   * **DONE** make a `NoExc` newtype wrapper that catches all exceptions for `IsMessageBox` and `IsInput` 
-* **NOW** Apply lock contention test to Unlimited message box implementation  
+* **DONE** Apply lock contention test to Unlimited message box implementation  
 * **NOW** Write unit tests for untested code
-  * Protocol.Command
-  * Protocol.Command.CallId
+  * **DONE** Protocol.Command
+  * **NOW** Protocol.Command.CallId
   * Protocol.Fresh
   * Protocol.MessageBox.CatchAll
   * Protocol.MessageBox.Limited
@@ -19,10 +19,10 @@ TODO
 * Write missing Documentation
   * **DONE** Document that in 'call' the timeout is not for message delivery, but only for 
     waiting for the reply.
-* **NOW** receiveAfter tests
-* **NOW** receiveAfter benchmarks
-* **NOW** Implement async call API
-  * Use the async call API in the sync call API 
+* **DONE** receiveAfter tests
+* **DONE** receiveAfter benchmarks (part of MediaBenchmark)
+* **DONE** Implement async call API
+  * **DONE** **REJECTED** Use the async call API in the sync call API.
 
 ## Goal: Automatic Report Generation
 * **UP NEXT** Write script to commit the results of benchmarks, tests, 
