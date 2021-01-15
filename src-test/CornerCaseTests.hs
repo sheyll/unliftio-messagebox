@@ -62,11 +62,12 @@ import UnliftIO.Concurrent (forkIO, yield)
 
 test :: TestTree
 test =
-  testGroup -- TODO test with Async Exceptions
+  testGroup 
     "CornerCaseTests"
     [ testGroup
         "waiting for messages from a dead process"
-        [ --  testCase "When using the Unlimited Message BlockingBox, an exception is thrown" $
+        [ -- TODO test with Async Exceptions
+          --  testCase "When using the Unlimited Message BlockingBox, an exception is thrown" $
           --   try @_ @SomeException
           --     (waitForMessageFromDeadProcess U.UnlimitedMessageBox)
           --     >>= either

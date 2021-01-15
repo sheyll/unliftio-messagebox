@@ -5,10 +5,8 @@
 
 module MessageBoxClassTest (test) where
 
-import Control.Monad (forM, replicateM, unless, when)
-import Data.Foldable (Foldable (fold), traverse_)
-import Data.Maybe (fromMaybe, isJust)
-import Data.Monoid (All (All, getAll))
+import Control.Monad (forM, replicateM, when)
+import Data.List (sort)
 import Protocol.Future (tryNow)
 import Protocol.MessageBox.CatchAll
   ( CatchAllFactory (CatchAllFactory),
@@ -23,11 +21,6 @@ import Protocol.MessageBox.Class
   )
 import qualified Protocol.MessageBox.Limited as B
 import qualified Protocol.MessageBox.Unlimited as U
-import Test.QuickCheck
-  ( Positive (Positive),
-    Small (Small),
-    ioProperty,
-  )
 import Test.Tasty as Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit
   ( assertBool,
@@ -36,9 +29,9 @@ import Test.Tasty.HUnit
     testCase,
   )
 import qualified Test.Tasty.HUnit as Tasty
-import Test.Tasty.QuickCheck as Tasty (testProperty)
-import UnliftIO (concurrently, timeout)
+import UnliftIO (conc, concurrently, runConc, timeout)
 import UnliftIO.Concurrent (threadDelay)
+import Utils (untilJust, untilM)
 
 test :: Tasty.TestTree
 test =
@@ -180,33 +173,35 @@ commonFunctionality arg =
                       )
                   senderOk
                   receiverOK,
-              testProperty "all n messages of all k outBoxes are received by the messageBox" $
-                \(Positive (Small n)) (Positive (Small k)) ->
-                  let untilM m = m >>= flip unless (untilM m)
-                   in ioProperty $
-                        fromMaybe False
-                          <$> timeout
-                            10_000_000
-                            ( getAll . fold <$> do
-                                messageBox <- newMessageBox arg
-                                (_, allReceived) <-
-                                  concurrently
-                                    ( traverse_
-                                        ( \i ->
-                                            do
-                                              input <- newInput messageBox
-                                              forM
-                                                [0 .. n - 1]
-                                                ( \j ->
-                                                    untilM
-                                                      (deliver input ("test message: ", i, j))
-                                                )
-                                        )
-                                        [0 .. k - 1]
-                                    )
-                                    (replicateM (n * k) (All . isJust <$> receive messageBox))
-                                return allReceived
+              testCase "all 113 messages of all 237 outBoxes are received by the messageBox" $ do
+                let n = 113
+                    k = 237
+                    expected = [("test message: ", i, j) | i <- [0 .. k - 1], j <- [0 .. n - 1]]
+                res <-
+                  timeout
+                    10_000_000
+                    ( do
+                        messageBox <- newMessageBox arg
+                        (_, allReceived) <-
+                          concurrently
+                            ( runConc $
+                                foldMap
+                                  ( \i ->
+                                      conc $ do
+                                        input <- newInput messageBox
+                                        forM
+                                          [0 .. n - 1]
+                                          ( \j ->
+                                              untilM
+                                                (deliver input ("test message: ", i, j))
+                                          )
+                                  )
+                                  [0 .. k - 1]
                             )
+                            (replicateM (n * k) (untilJust (receive messageBox)))
+                        return allReceived
+                    )
+                assertEqual "bad result" (Just expected) (fmap sort res)
             ],
           testGroup
             "tryReceive"

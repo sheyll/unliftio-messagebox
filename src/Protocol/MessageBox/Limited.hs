@@ -28,6 +28,7 @@ module Protocol.MessageBox.Limited
 where
 
 import qualified Control.Concurrent.Chan.Unagi.Bounded as Unagi
+import Control.Monad (unless)
 import Data.Functor (($>))
 import Data.Maybe (fromMaybe)
 import Protocol.Future (Future (..))
@@ -37,6 +38,7 @@ import UnliftIO
     MonadUnliftIO,
     timeout,
   )
+import UnliftIO.Concurrent (threadDelay)
 
 -- | Message Limit
 --
@@ -191,7 +193,10 @@ newtype NonBlockingInput a = NonBlockingInput (BlockingInput a)
 
 instance Class.IsInput NonBlockingInput where
   {-# INLINE deliver #-}
-  deliver (NonBlockingInput !o) !a = tryToDeliver o a
+  deliver (NonBlockingInput !o) !a = do
+    !res <- tryToDeliver o a
+    unless res (threadDelay 10)
+    return res
 
 --  ** 'BlockingBox' Wrapper with Timeout
 
@@ -206,11 +211,13 @@ data WaitingBoxLimit = WaitingBoxLimit
 
 instance Show WaitingBoxLimit where
   showsPrec _ (WaitingBoxLimit !t0 !t1 !l) =
-    showString "Waiting_" .  
-        (case t0 of 
-          Nothing -> id 
-          Just !t -> showsPrec 9 t . showChar '_')
-      . showsPrec 9 t1 . showChar '_'
+    showString "Waiting_"
+      . ( case t0 of
+            Nothing -> id
+            Just !t -> showsPrec 9 t . showChar '_'
+        )
+      . showsPrec 9 t1
+      . showChar '_'
       . showsPrec 9 (messageLimitToInt l)
 
 instance Class.IsMessageBoxFactory WaitingBoxLimit where

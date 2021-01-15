@@ -61,7 +61,7 @@ import Protocol.MessageBox.Class
     receiveAfter,
   )
 import RIO
-  ( Map,
+  (fix,  Map,
     RIO,
     Set,
     asks,
@@ -419,12 +419,15 @@ mediaAppBenchmark cfg param = do
               return memberId
             replicateM_
               (nMembers param)
-              ( receive eventsIn
+              (fix $ \ ~again ->
+                 receive eventsIn
                   >>= \case
                     Just (MemberJoined _ _) ->
                       return ()
-                    unexpected ->
-                      error ("Unexpected mixing group event: " ++ show unexpected)
+                    Just unexpected ->
+                      error ("Unexpected mixing group event: " ++ show unexpected ++ " expected MemberJoined")
+                    Nothing ->
+                      again
               )
             -- remove participants and wait for unjoined
             forM_ members $ \ !memberId -> do
@@ -434,12 +437,15 @@ mediaAppBenchmark cfg param = do
                 (error ("Failed to cast: " ++ show (UnJoin mixingGroupId memberId eventsOut)))
             replicateM_
               (nMembers param)
-              ( receiveAfter eventsIn 500_000 (pure Nothing)
+              (fix $ \ ~again ->
+                 receiveAfter eventsIn 500_000 (pure Nothing)
                   >>= \case
                     Just (MemberUnJoined _ _) ->
                       return ()
-                    unexpected ->
-                      error ("Unexpected mixing group event: " ++ show unexpected)
+                    Just unexpected ->
+                      error ("Unexpected mixing group event: " ++ show unexpected ++ " expected MemberUnJoined")
+                    Nothing ->
+                      again
               )
             -- destroy the conference,
             call mixingInput (DestroyMixingGroup mixingGroupId) 500_000

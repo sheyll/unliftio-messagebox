@@ -181,7 +181,8 @@ test-suite unliftio-protocols-test
     MessageBoxCommon,
     ProtocolsTest,
     QCOrphans,
-    UnlimitedMessageBoxTest
+    UnlimitedMessageBoxTest,
+    Utils
   ghc-options: 
     -Wno-missing-signatures
     -Wno-missing-export-lists
