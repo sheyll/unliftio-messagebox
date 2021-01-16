@@ -175,6 +175,7 @@ test-suite unliftio-protocols-test
   other-modules:
     LimitedMessageBoxTest,    
     CallIdTest,
+    CatchAllTest,
     CommandTest,    
     FreshTest,
     CornerCaseTests,
@@ -196,6 +197,7 @@ test-suite unliftio-protocols-test
     tasty-quickcheck,
     unliftio-protocols,
     HUnit,
+    quickcheck-classes,
     rio
 
               

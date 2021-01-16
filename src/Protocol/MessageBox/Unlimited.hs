@@ -50,7 +50,6 @@ newtype Input a = MkInput (Unagi.InChan a)
 -- | The (empty) configuration for creating
 -- 'MessageBox'es using the 'Class.IsMessageBoxFactory' methods.
 data UnlimitedMessageBox = UnlimitedMessageBox
-  deriving stock Eq
 
 instance Show UnlimitedMessageBox where
   showsPrec _ _ = showString "Unlimited"

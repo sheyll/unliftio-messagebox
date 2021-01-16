@@ -24,7 +24,6 @@ import Control.Applicative (Alternative ((<|>)))
 import Control.Monad (unless)
 import Control.Monad.Reader (MonadReader)
 import Data.Kind (Type)
-import Data.Typeable (Proxy (..), typeRep)
 import Protocol.Command.CallId
   ( CallId (),
     HasCallIdCounter,

@@ -2,30 +2,17 @@ module CallIdTest (test) where
 
 import Control.Monad (replicateM)
 import Data.List (nub)
-import Protocol.Command.CallId (CallId (MkCallId))
 import qualified Protocol.Command.CallId as CallId
+import Test.QuickCheck
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit
-  ( assertBool,
-    assertEqual,
-    assertFailure,
+  (assertBool,  assertEqual,
     testCase,
   )
-import Test.Tasty.QuickCheck
-  ( Arbitrary (arbitrary),
-    Large (getLarge),
-    NonEmptyList (getNonEmpty),
-    Positive (..),
-    PrintableString (..),
-    Property,
-    ioProperty,
-    testProperty,
-  )
+import Test.Tasty.QuickCheck ( testProperty )
 import UnliftIO
-  ( takeMVar,
-    try,
+  ( replicateConcurrently,
   )
-import UnliftIO.Concurrent (forkIO)
 import Utils (withCallIds)
 
 test :: TestTree
@@ -33,11 +20,30 @@ test =
   testGroup
     "Protocol.Command.CallId"
     [ testCase
-        "Even when a CallId CounterVar is shared by multiple threads/processes, all callIds are unique."
+        "Even when a CallId CounterVar is shared by multiple threads/processes, all callIds are unique"
         $ do
-          callIds <- withCallIds (replicateM 1000 CallId.takeNext)
+          callIds <- withCallIds (replicateConcurrently 1000 CallId.takeNext)
           assertEqual
             "all callids must be unique"
             (nub callIds)
-            callIds
+            callIds,
+      testCase
+        "The next callId is greater and not equal to the previous"
+        $ do
+          [c1,c2] <- withCallIds (replicateM 2 CallId.takeNext)
+          assertBool 
+            "next callId is not greater"
+            (c2 > c1)
+          assertBool 
+            "next callId is equal to the previous"
+            (c2 /= c1),
+      testProperty
+        "more recent CallIds are > (greater than) all previous CallIds"
+        $ \(Positive (Small n)) -> ioProperty $ do
+          callIds <- withCallIds (replicateM 1000 CallId.takeNext)
+          return $
+            n > 1 ==> (head callIds < last callIds),
+      testCase
+        "CallId Show instance"
+        (assertEqual "bad show result" "<123>" (show (CallId.MkCallId 123)))
     ]

@@ -202,11 +202,11 @@ instance Class.IsInput NonBlockingInput where
 
 -- | A 'Class.IsMessageBoxFactory' instance wrapping the 'BlockingBox'
 --  with independently configurable timeouts for 'receive' and 'deliver'.
-data WaitingBoxLimit = WaitingBoxLimit
-  { receiveTimeout :: !(Maybe Int),
-    deliverTimeout :: !Int,
-    messageLimit :: !MessageLimit
-  }
+data WaitingBoxLimit
+  = WaitingBoxLimit
+      !(Maybe Int)
+      !Int
+      !MessageLimit
   deriving stock (Eq)
 
 instance Show WaitingBoxLimit where

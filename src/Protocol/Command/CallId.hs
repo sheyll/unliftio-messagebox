@@ -12,23 +12,23 @@ import Protocol.Fresh
     incrementAndGet,
     newCounterVar,
   )
-import UnliftIO ( MonadIO, MonadUnliftIO )
-
+import UnliftIO (MonadIO, MonadUnliftIO)
 
 -- | An identifier value every command send by 'call's.
 newtype CallId = MkCallId Int
-  deriving newtype (Eq, Ord, Show)
+  deriving newtype (Eq, Ord)
+
+instance Show CallId where
+  showsPrec _ (MkCallId !i) =
+    showChar '<' . shows i . showChar '>'
 
 -- | Class of environment records containing a 'CounterVar' for 'CallId's.
 class HasCallIdCounter env where
   getCallIdCounter :: env -> CounterVar CallId
-  putCallIdCounter :: CounterVar CallId -> env -> env
 
 instance HasCallIdCounter (CounterVar CallId) where
   {-# INLINE getCallIdCounter #-}
   getCallIdCounter = id
-  {-# INLINE putCallIdCounter #-}
-  putCallIdCounter = const
 
 -- | Create a new 'CallId' 'CounterVar'.
 {-# INLINE newCallIdCounter #-}

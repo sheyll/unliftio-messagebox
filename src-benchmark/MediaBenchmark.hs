@@ -461,7 +461,6 @@ data AppCounters = AppCounters
 
 instance CallId.HasCallIdCounter AppCounters where
   getCallIdCounter = asks callIdCounter
-  putCallIdCounter x v = v {callIdCounter = x}
 
 instance HasCounterVar Int AppCounters where
   getCounterVar = asks idCounter

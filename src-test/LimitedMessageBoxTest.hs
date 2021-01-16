@@ -22,6 +22,7 @@ import Data.Maybe
   ( fromMaybe,
     isNothing,
   )
+import Data.Proxy
 import MessageBoxCommon (testContentionRobustness)
 import Protocol.Future (tryNow)
 import Protocol.MessageBox.Class
@@ -45,6 +46,7 @@ import Test.QuickCheck
     withMaxSuccess,
     (==>),
   )
+import Test.QuickCheck.Classes
 import Test.Tasty as Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit as Tasty
   ( assertBool,
@@ -66,7 +68,8 @@ test =
       testCommon BlockingBoxLimit,
       testCommon NonBlockingBoxLimit,
       testCommon (WaitingBoxLimit Nothing 5_000_000),
-      testCommon (WaitingBoxLimit (Just (48 * 3600_000_000)) 5_000_000)
+      testCommon (WaitingBoxLimit (Just (48 * 3600_000_000)) 5_000_000),
+      typeClassLaws
     ]
 
 testCommon ::
@@ -97,7 +100,7 @@ testCommon mkCfg =
                 i <- mkBox limit
                 o <- newInput i
                 let countDeliveries n =
-                      timeout 10_000 (deliver o "some test message")
+                      timeout 100_000 (deliver o "some test message")
                         >>= maybe (return n) (\ok -> if ok then countDeliveries (n + 1) else return n)
                 nDelivered <- countDeliveries 0
                 assertBool
@@ -462,3 +465,28 @@ testNonBlockingBox =
           assertBool "first messages succeed" (and resultGoodPart)
           assertBool "last messages fail" (not $ and resultBad)
     ]
+
+typeClassLaws :: TestTree
+typeClassLaws =
+  testCase
+    "Type Class Laws"
+    ( lawsCheckMany
+        [ ( "MessageLimit Laws",
+            [ ordLaws (Proxy @MessageLimit),
+              eqLaws (Proxy @MessageLimit),
+              boundedEnumLaws (Proxy @MessageLimit)
+            ]
+          ),
+          ( "BlockingBox Laws",
+            [ eqLaws (Proxy @BlockingBoxLimit)
+            ]
+          ),
+          ( "NonBlockingBox Laws",
+            [ eqLaws (Proxy @NonBlockingBoxLimit)
+            ]
+          ),
+          ( "WaitingBoxLimit Laws",
+            [eqLaws (Proxy @WaitingBoxLimit)]
+          )
+        ]
+    )

@@ -97,7 +97,6 @@ newtype BookStoreEnv = MkBookStoreEnv
 
 instance HasCallIdCounter BookStoreEnv where
   getCallIdCounter MkBookStoreEnv {_fresh} = _fresh
-  putCallIdCounter newFresh MkBookStoreEnv {_fresh} = MkBookStoreEnv {_fresh = newFresh}
 
 onlyCasts ::
   (MonadUnliftIO m, IsMessageBoxFactory cfg) =>

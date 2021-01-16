@@ -75,7 +75,6 @@ import RIO
     concurrently,
     const,
     error,
-    flip,
     newEmptyMVar,
     putMVar,
     readTVarIO,
@@ -154,7 +153,7 @@ integrationTests =
             liftIO $
               assertEqual
                 "bad Show instance"
-                (Just ("B: " <> showsPrec 9 blockingMsg " 1"))
+                (Just ("B: " <> showsPrec 9 blockingMsg " <1>"))
                 shownBlockingMsg
             liftIO $
               assertEqual
@@ -351,7 +350,6 @@ newtype BookStoreEnv = MkBookStoreEnv
 
 instance CallId.HasCallIdCounter BookStoreEnv where
   getCallIdCounter MkBookStoreEnv {_fresh} = _fresh
-  putCallIdCounter newFresh MkBookStoreEnv {_fresh} = MkBookStoreEnv {_fresh = newFresh}
 
 allDonatedBooksAreInTheBookStore :: [(Donor, Book)] -> Property
 allDonatedBooksAreInTheBookStore donorsAndBooks = ioProperty $ do
@@ -459,7 +457,7 @@ unitTests =
         withCallIds
           ( callAsync
               ( OnDeliver $ \m -> do
-                  liftIO (assertEqual "bad show result" "B: (Echo \"123\") 1" (show m))
+                  liftIO (assertEqual "bad show result" "B: (Echo \"123\") <1>" (show m))
                   return True
               )
               (Echo "123")
@@ -477,15 +475,15 @@ unitTests =
       testCase "CommandError Show instance" $ do
         assertEqual
           "Show instance broken"
-          "CouldNotEnqueueCommand 1"
+          "CouldNotEnqueueCommand <1>"
           (show (CouldNotEnqueueCommand (MkCallId 1)))
         assertEqual
           "Show instance broken"
-          "BlockingCommandFailure 1"
+          "BlockingCommandFailure <1>"
           (show (BlockingCommandFailure (MkCallId 1)))
         assertEqual
           "Show instance broken"
-          "BlockingCommandTimedOut 1"
+          "BlockingCommandTimedOut <1>"
           (show (BlockingCommandTimedOut (MkCallId 1))),
       testCase
         "when deliver returns False, BlockingCommandFailed\
@@ -806,7 +804,7 @@ unitTests =
               ),
       testCase "DuplicateReply Eq and Show instance" $ do
         assertEqual "Eq instance" (DuplicateReply (MkCallId 1)) (DuplicateReply (MkCallId 1))
-        assertEqual "Show instance" "more than one reply sent for: 1" (show (DuplicateReply (MkCallId 1))),
+        assertEqual "Show instance" "more than one reply sent for: <1>" (show (DuplicateReply (MkCallId 1))),
       testCase
         "when replyTo is called again on the same replyBox, an error is thrown\
         \ and the waitForResult will still return the first reply"
@@ -882,7 +880,7 @@ unitTests =
             Just pendingReply ->
               assertEqual
                 "bad show instance for PendingResult"
-                "AR: 1"
+                "AR: <1>"
                 (show pendingReply)
     ]
 
