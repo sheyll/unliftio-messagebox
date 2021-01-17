@@ -15,7 +15,7 @@ import qualified UnlimitedMessageBoxTest
 main :: IO ()
 main =
   do
-    setEnv "TASTY_NUM_THREADS" "2"
+    setEnv "TASTY_NUM_THREADS" "1"
     Tasty.defaultMain test
 
 test :: Tasty.TestTree

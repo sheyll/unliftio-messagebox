@@ -9,7 +9,8 @@ module Utils
   ( untilJust,
     untilM,
     withCallIds,
-    eqOrdShowLaws,
+    allEqOrdShowMethodsImplemented,
+    allEnumMethodsImplemented,
     NoOpFactory (..),
     NoOpBox (..),
     NoOpInput (..),
@@ -57,8 +58,8 @@ withCallIds ::
 withCallIds f =
   CallId.newCallIdCounter >>= flip runRIO f
 
-eqOrdShowLaws :: forall a proxy. (Arbitrary a, Ord a, Show a) => proxy a -> Property
-eqOrdShowLaws _ = property $ \(x :: a) (y :: a) ->
+allEqOrdShowMethodsImplemented :: forall a proxy. (Arbitrary a, Ord a, Show a) => proxy a -> Property
+allEqOrdShowMethodsImplemented _ = property $ \(x :: a) (y :: a) ->
   ( x < y
       ==> ( compare x y === LT
               .&&. compare y x === GT
@@ -91,6 +92,44 @@ eqOrdShowLaws _ = property $ \(x :: a) (y :: a) ->
                       .&&. min x y === x
                   )
          )
+
+allEnumMethodsImplemented ::
+  forall a proxy.
+  (Show a, Ord a, Enum a, Bounded a, Arbitrary a) =>
+  proxy a ->
+  Property
+allEnumMethodsImplemented _ =
+  property $ \(x :: a) (y :: a) ->
+    ( not (x > minBound && x < maxBound)
+        .||. succ (pred x) === pred (succ x)
+    )
+      .&&. ( x /= y
+               .||. ( fromEnum x === fromEnum y
+                        .&&. ( x >= maxBound
+                                 .||. succ x === succ y
+                             )
+                        .&&. ( x <= minBound
+                                 .||. pred x === pred y
+                             )
+                    )
+           )
+      .&&. toEnum (fromEnum x) === x
+      .&&. head (enumFrom x) === x
+      .&&. (x >= maxBound .||. enumFrom x !! 1 === succ x)
+      .&&. ( x < y
+               .||. fromEnum x >= fromEnum y
+           )
+      .&&. head (enumFromThen x y) === x
+      .&&. if x > y
+        then enumFromTo x y === []
+        else
+          head (enumFromTo x y)
+            === x
+              .&&. last (enumFromTo x y)
+            === y
+              .&&.
+            ( x < maxBound .||.  enumFromThenTo x (succ x) y
+            === enumFromTo x y)
 
 -- message box dummy implementation
 

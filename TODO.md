@@ -9,12 +9,12 @@ TODO
   * **DONE** Not much to gain here... Unagi never seems to throw stuff the way we use it. 
   * **DONE** make a `NoExc` newtype wrapper that catches all exceptions for `IsMessageBox` and `IsInput` 
 * **DONE** Apply lock contention test to Unlimited message box implementation  
-* **NOW** Write unit tests for untested code
+* **DONE** Write unit tests for untested code 
   * **DONE** Protocol.Command
-  * **NOW** Protocol.Command.CallId
-  * Protocol.Fresh
-  * Protocol.MessageBox.CatchAll
-  * Protocol.MessageBox.Limited
+  * **DONE** Protocol.Command.CallId
+  * **DONE**Protocol.Fresh
+  * **DONE**Protocol.MessageBox.CatchAll
+  * **DONE**Protocol.MessageBox.Limited
 * Remove unused code
 * Write missing Documentation
   * **DONE** Document that in 'call' the timeout is not for message delivery, but only for 

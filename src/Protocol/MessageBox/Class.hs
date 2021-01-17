@@ -48,6 +48,11 @@ class IsInput (Input msgBox) => IsMessageBox msgBox where
   -- | Receive a message. Take whatever time it takes.
   -- Return 'Just' the value or 'Nothing' when an error
   -- occurred.
+  --
+  -- NOTE: Nothing may sporadically be returned, especially
+  -- when there is a lot of load, so please make sure to 
+  -- build your application in such a way, that it 
+  -- anticipates failure.
   receive :: MonadUnliftIO m => msgBox a -> m (Maybe a)
 
   -- | Return a 'Future' that can be used to wait for the
@@ -64,6 +69,11 @@ class IsInput (Input msgBox) => IsMessageBox msgBox where
   --
   -- Instances might override this with more performant implementations
   -- especially non-blocking Unagi channel based implementation.
+  --
+  -- NOTE: Nothing may sporadically be returned, especially
+  -- when there is a lot of load, so please make sure to 
+  -- build your application in such a way, that it 
+  -- anticipates failure.
   receiveAfter ::
     MonadUnliftIO m =>
     -- | Message box
@@ -86,6 +96,11 @@ class IsInput input where
   -- Depending on the implementation, this might
   -- be a non-blocking operation.
   -- Return if the operation was successful.
+  --
+  -- NOTE: @False@ may sporadically be returned, especially
+  -- when there is a lot of load, so please make sure to 
+  -- build your application in such a way, that it 
+  -- anticipates failure.
   deliver :: MonadUnliftIO m => input a -> a -> m Bool
 
 -- ** Utility Functions for Receiving Messages

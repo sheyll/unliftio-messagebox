@@ -8,7 +8,6 @@ import Protocol.Future
 import Protocol.MessageBox.CatchAll
 import Protocol.MessageBox.Class
 import QCOrphans ()
-import Test.QuickCheck.Classes
 import Test.Tasty
 import Test.Tasty.HUnit
 import Test.Tasty.QuickCheck
@@ -20,18 +19,8 @@ test =
   testGroup
     "CatchAll"
     [ testProperty
-        "My Eq, Ord and Show Laws"
-        (eqOrdShowLaws (Proxy @(CatchAllFactory Int))),
-      testCase
-        "Laws"
-        ( lawsCheckMany
-            [ ( "CatchAllFactory",
-                [ eqLaws (Proxy @(CatchAllFactory Int)),
-                  ordLaws (Proxy @(CatchAllFactory Int))
-                ]
-              )
-            ]
-        ),
+        "Derived Classes Coverage"
+        (allEqOrdShowMethodsImplemented (Proxy @(CatchAllFactory Int))),
       testCase
         "when the wrapped receive throws an exception,\
         \ CatchAlls receive returns Nothing"

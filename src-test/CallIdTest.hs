@@ -18,7 +18,7 @@ import Test.Tasty.QuickCheck (testProperty)
 import UnliftIO
   ( replicateConcurrently,
   )
-import Utils (eqOrdShowLaws, withCallIds)
+import Utils (allEqOrdShowMethodsImplemented, withCallIds)
 
 test :: TestTree
 test =
@@ -48,8 +48,9 @@ test =
           callIds <- withCallIds (replicateM 1000 CallId.takeNext)
           return $
             n > 1 ==> (head callIds < last callIds),
+      -- This ONLY exists because I wanted the test-code coverage to be 100%            
       testCase
         "CallId Show instance"
         (assertEqual "bad show result" "<123>" (show (CallId.MkCallId 123))),
-      testProperty "CallId Laws" (eqOrdShowLaws (Proxy @CallId.CallId))
+      testProperty "CallId Laws" (allEqOrdShowMethodsImplemented (Proxy @CallId.CallId))
     ]

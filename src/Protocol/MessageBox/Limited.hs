@@ -92,7 +92,7 @@ messageLimitToInt =
 -- can buffer, i.e. that 'deliver' can put into a 'BlockingInput'
 -- of a 'BlockingBox'.
 newtype BlockingBoxLimit = BlockingBoxLimit MessageLimit
-  deriving stock (Eq)
+  deriving stock (Eq, Ord)
 
 instance Show BlockingBoxLimit where
   showsPrec _ (BlockingBoxLimit !l) =
@@ -150,7 +150,7 @@ instance Class.IsInput BlockingInput where
 
 -- | A 'BlockingBoxLimit' wrapper for non-blocking 'Class.IsMessageBoxFactory' instances.
 newtype NonBlockingBoxLimit = NonBlockingBoxLimit MessageLimit
-  deriving stock (Eq)
+  deriving stock (Eq, Ord)
 
 instance Show NonBlockingBoxLimit where
   showsPrec _ (NonBlockingBoxLimit !l) =
@@ -205,7 +205,7 @@ data WaitingBoxLimit
       !(Maybe Int)
       !Int
       !MessageLimit
-  deriving stock (Eq)
+  deriving stock (Eq, Ord)
 
 instance Show WaitingBoxLimit where
   showsPrec _ (WaitingBoxLimit !t0 !t1 !l) =

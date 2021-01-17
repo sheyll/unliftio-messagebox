@@ -46,7 +46,6 @@ import Test.QuickCheck
     withMaxSuccess,
     (==>),
   )
-import Test.QuickCheck.Classes
 import Test.Tasty as Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit as Tasty
   ( assertBool,
@@ -57,7 +56,7 @@ import Test.Tasty.HUnit as Tasty
 import Test.Tasty.QuickCheck as Tasty (testProperty)
 import UnliftIO (concurrently, race, timeout)
 import UnliftIO.Concurrent (threadDelay)
-import Utils
+import Utils (allEnumMethodsImplemented, allEqOrdShowMethodsImplemented)
 
 test :: Tasty.TestTree
 test =
@@ -70,7 +69,7 @@ test =
       testCommon NonBlockingBoxLimit,
       testCommon (WaitingBoxLimit Nothing 5_000_000),
       testCommon (WaitingBoxLimit (Just (48 * 3600_000_000)) 5_000_000),
-      typeClassLaws
+      derivedInstances
     ]
 
 testCommon ::
@@ -467,33 +466,30 @@ testNonBlockingBox =
           assertBool "last messages fail" (not $ and resultBad)
     ]
 
-typeClassLaws :: TestTree
-typeClassLaws =
+-- This ONLY exists because I wanted the test-code coverage to be 100%
+derivedInstances :: TestTree
+derivedInstances =
   testGroup
-    "Type Class Laws"
-    [ testCase
-        "Some Laws"
-        ( lawsCheckMany
-            [ ( "MessageLimit Laws",
-                [ ordLaws (Proxy @MessageLimit),
-                  eqLaws (Proxy @MessageLimit),
-                  boundedEnumLaws (Proxy @MessageLimit)
-                ]
-              ),
-              ( "BlockingBox Laws",
-                [ eqLaws (Proxy @BlockingBoxLimit)
-                ]
-              ),
-              ( "NonBlockingBox Laws",
-                [ eqLaws (Proxy @NonBlockingBoxLimit)
-                ]
-              ),
-              ( "WaitingBoxLimit Laws",
-                [eqLaws (Proxy @WaitingBoxLimit)]
-              )
-            ]
-        ),
+    "Derived instances"
+    [ -- this is just to get to 100% code coverage for
+      -- even for derived instances
       testProperty
-        "MessageLimit Eq Ord Show"
-        (eqOrdShowLaws (Proxy @MessageLimit))
+        "MessageLimit code coverage"
+        (allEnumMethodsImplemented (Proxy @MessageLimit)),
+
+      testProperty
+        "MessageLimit code coverage"
+        (allEqOrdShowMethodsImplemented (Proxy @MessageLimit)),
+
+      testProperty
+        "BlockingBoxLimit code coverage"
+        (allEqOrdShowMethodsImplemented (Proxy @BlockingBoxLimit)),
+
+      testProperty
+        "NonBlockingBoxLimit code coverage"
+        (allEqOrdShowMethodsImplemented (Proxy @NonBlockingBoxLimit)),
+
+      testProperty
+        "WaitingBoxLimit code coverage"
+        (allEqOrdShowMethodsImplemented (Proxy @WaitingBoxLimit))      
     ]

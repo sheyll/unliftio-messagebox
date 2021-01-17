@@ -197,7 +197,6 @@ test-suite unliftio-protocols-test
     tasty-quickcheck,
     unliftio-protocols,
     HUnit,
-    quickcheck-classes,
     rio
 
               

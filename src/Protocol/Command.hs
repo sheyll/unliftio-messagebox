@@ -124,7 +124,7 @@ instance Show (Message apiTag) where
   showsPrec d (NonBlocking !m) =
     showParen (d >= 9) (showString "NB: " . showsPrec 9 m)
   showsPrec d (Blocking !m (MkReplyBox _ !callId)) =
-    showParen (d >= 9) (showString "B: " . showsPrec 9 m . showChar ' ' . showsPrec 9 callId)
+    showParen (d >= 9) (showString "B: " . showsPrec 9 m . showChar ' ' . shows callId)
 
 -- | This is like 'Input', it can be used
 -- by the receiver of a 'Blocking'
@@ -227,8 +227,8 @@ replyTo (MkReplyBox !replyBox !callId) !message =
 newtype DuplicateReply = DuplicateReply CallId deriving stock (Eq)
 
 instance Show DuplicateReply where
-  showsPrec d (DuplicateReply !c) =
-    showParen (d >= 9) (showString "more than one reply sent for: " . showsPrec 9 c)
+  showsPrec d (DuplicateReply !callId) =
+    showParen (d >= 9) (showString "more than one reply sent for: " . shows callId)
 
 instance Exception DuplicateReply
 
@@ -288,7 +288,7 @@ data AsyncReply r
 
 instance (Typeable r) => Show (AsyncReply r) where
   showsPrec !d (MkAsyncReply !cId _) =
-    showParen (d >= 9) (showString "AR: " . showsPrec 9 cId)
+    showParen (d >= 9) (showString "AR: " . shows cId)
 
 -- | Wait for the reply of a 'Blocking' 'Message'
 -- sent by 'callAsync'.
