@@ -48,7 +48,7 @@ common compiler-flags-executables
     -- -Werror
   ghc-prof-options: 
     -fprof-auto 
-    "-with-rtsopts=-T -xc -xt -Pa -hc -L256"
+    "-with-rtsopts=-T -xt -Pa -hc -L256"
   
 common compiler-flags
   ghc-options:

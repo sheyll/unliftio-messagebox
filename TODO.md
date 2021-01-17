@@ -40,7 +40,6 @@ TODO
 
 ## Goal: Fast Code
 
-* Try to reduce SYSTEM time
 * benchmark TMVar vs MVar for reply box 
   * **DONE**: TMVar are faster because the timeout is based on registerDelay 
 * benchmark type class methods vs. direct function calls

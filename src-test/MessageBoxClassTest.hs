@@ -206,27 +206,30 @@ commonFunctionality arg =
                     expected = [("test message: ", i, j) | i <- [0 .. k - 1], j <- [0 .. n - 1]]
                 res <-
                   timeout
-                    10_000_000
+                    60_000_000
                     ( do
                         messageBox <- newMessageBox arg
-                        (_, allReceived) <-
-                          concurrently
-                            ( runConc $
-                                foldMap
-                                  ( \i ->
-                                      conc $ do
-                                        input <- newInput messageBox
-                                        forM
-                                          [0 .. n - 1]
-                                          ( \j ->
-                                              untilM
-                                                (deliver input ("test message: ", i, j))
-                                          )
-                                  )
-                                  [0 .. k - 1]
-                            )
-                            (replicateM (n * k) (untilJust (receive messageBox)))
-                        return allReceived
+                        runConc
+                          ( foldMap
+                              ( \i ->
+                                  conc $ do
+                                    input <- newInput messageBox
+                                    forM
+                                      [0 .. n - 1]
+                                      ( \j ->
+                                          untilM
+                                            (deliver input ("test message: ", i, j) <* threadDelay 10)
+                                      )
+                              )
+                              [0 .. k - 1]
+                              *> conc
+                                ( replicateM
+                                    (n * k)
+                                    ( untilJust
+                                        (receive messageBox <* threadDelay 10)
+                                    )
+                                )
+                          )
                     )
                 assertEqual "bad result" (Just expected) (fmap sort res)
             ],

@@ -128,7 +128,7 @@ allEnumMethodsImplemented _ =
               .&&. last (enumFromTo x y)
             === y
               .&&.
-            ( x < maxBound .||.  enumFromThenTo x (succ x) y
+            ( x >= maxBound .||.  enumFromThenTo x (succ x) y
             === enumFromTo x y)
 
 -- message box dummy implementation
