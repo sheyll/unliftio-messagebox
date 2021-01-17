@@ -438,7 +438,7 @@ mediaAppBenchmark cfg param = do
             replicateM_
               (nMembers param)
               (fix $ \ ~again ->
-                 receiveAfter eventsIn 500_000 (pure Nothing)
+                 receiveAfter eventsIn 500_000
                   >>= \case
                     Just (MemberUnJoined _ _) ->
                       return ()

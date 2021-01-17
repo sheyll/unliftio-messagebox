@@ -46,11 +46,11 @@ test =
           assertEqual "The Future should return Nothing" (Nothing :: Maybe ()) r,
       testCase
         "when the wrapped receiveAfter throws an exception,\
-        \ CatchAlls receiveAfter should return the default value"
-        $ receiveAfter (CatchAllBox BadBox) 123 (return (Just "123"))
+        \ CatchAlls receiveAfter should return Nothing"
+        $ receiveAfter (CatchAllBox BadBox) 123
           >>= assertEqual
-            "receiveAfter should return the default value"
-            (Just "123"),
+            "receiveAfter should return Nothing"
+            (Nothing :: Maybe Int),
       testCase
         "when the wrapped deliver throws an exception, CatchAlls deliver returns False"
         $ deliver (CatchAllInput BadInput) ()
@@ -65,7 +65,7 @@ instance IsMessageBox BadBox where
   type Input BadBox = BadInput
   receive _ = throwIO (stringException "test")
   tryReceive _ = throwIO (stringException "test")
-  receiveAfter _ _ _ = throwIO (stringException "test")
+  receiveAfter _ _ = throwIO (stringException "test")
   newInput _ = return BadInput
 
 instance IsInput BadInput where

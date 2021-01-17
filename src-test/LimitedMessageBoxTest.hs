@@ -202,10 +202,10 @@ testBlockingBox =
     [ Tasty.testCase "receive on an empty queue blocks forever" $ do
         i <- newMessageBox (BlockingBoxLimit MessageLimit_16)
         let foreverInMicros = 100_000
-        receiveAfter i foreverInMicros (return (Just "Expected Timeout Happened"))
+        receiveAfter i foreverInMicros
           >>= assertEqual
             "timeout expected"
-            (Just "Expected Timeout Happened"),
+            (Nothing :: Maybe Int),
       Tasty.testCase "tryReceive from an empty queue returns future that returns Nothing" $ do
         i <- newMessageBox (BlockingBoxLimit MessageLimit_16)
         f <- tryReceive i

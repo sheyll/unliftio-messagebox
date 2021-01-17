@@ -42,7 +42,7 @@ import Protocol.Command as Command
   )
 import Protocol.Command.CallId
   ( CallId,
-    HasCallIdCounter (getCallIdCounter, putCallIdCounter),
+    HasCallIdCounter (getCallIdCounter),
   )
 import Protocol.Fresh
   ( CounterVar,

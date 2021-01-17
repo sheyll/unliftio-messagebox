@@ -62,7 +62,7 @@ import UnliftIO.Concurrent (forkIO, yield)
 
 test :: TestTree
 test =
-  testGroup 
+  testGroup
     "CornerCaseTests"
     [ testGroup
         "waiting for messages from a dead process"
@@ -79,16 +79,16 @@ test =
           --       (assertFailure . ("Exception expected, instead of: " <>) . show),
           testCase "When using the UnlimitedMessageBox, receive will timeout" $
             waitForMessageFromDeadProcess U.UnlimitedMessageBox
-              >>= assertEqual "unexpected return value: " SecondReceiveTimedOut,
+              >>= assertEqual "unexpected return value: " SecondReceiveReturnedNothing,
           testCase "When using the Limited Message BlockingBox, the test will timeout" $
             waitForMessageFromDeadProcess (B.BlockingBoxLimit B.MessageLimit_16)
-              >>= assertEqual "unexpected return value: " SecondReceiveTimedOut,
+              >>= assertEqual "unexpected return value: " SecondReceiveReturnedNothing,
           testCase "When using the Limited Waiting Box, the test will timeout" $
             waitForMessageFromDeadProcess (B.WaitingBoxLimit Nothing 1_000_000 B.MessageLimit_16)
-              >>= assertEqual "unexpected return value: " SecondReceiveTimedOut,
+              >>= assertEqual "unexpected return value: " SecondReceiveReturnedNothing,
           testCase "When using the Limited NonBlocking Box, the test will timeout" $
             waitForMessageFromDeadProcess (B.NonBlockingBoxLimit B.MessageLimit_16)
-              >>= assertEqual "unexpected return value: " SecondReceiveTimedOut
+              >>= assertEqual "unexpected return value: " SecondReceiveReturnedNothing
         ],
       testGroup
         "sending messages to a dead process"
@@ -135,8 +135,7 @@ test =
 
 data WaitForMessageFromDeadProcessResult
   = SecondReceiveReturnedNothing
-  | SecondReceiveTimedOut
-  | SecondReceiveUnexpectedSuccess
+  | SecondReceiveWasSuccessful
   deriving stock (Show, Eq)
 
 waitForMessageFromDeadProcess ::
@@ -146,7 +145,7 @@ waitForMessageFromDeadProcess ::
 waitForMessageFromDeadProcess outputCfg =
   do
     firstMessageSent <- newEmptyMVar
-    let msg1 = Right 42
+    let msg1 = 42 
     output <- newMessageBox outputCfg
     _ <- forkIO $ do
       input <- newInput output
@@ -156,18 +155,15 @@ waitForMessageFromDeadProcess outputCfg =
     receive output
       >>= maybe
         (assertFailure "failed to receive first message")
-        (assertEqual "invalid first message received!" msg1)
+        (assertEqual "invalid first message received!" msg1 )
     threadDelay 10_000
     liftIO performMinorGC
     liftIO performMajorGC
     threadDelay 10_000
-    receiveAfter output 3_000_000 (return (Just (Left "receiveAfter timeout")))
+    receiveAfter output 3_000_000
       >>= maybe
         (return SecondReceiveReturnedNothing)
-        ( \case
-            (Left _) -> return SecondReceiveTimedOut
-            (Right _) -> return SecondReceiveUnexpectedSuccess
-        )
+        (const (return SecondReceiveWasSuccessful))
 
 data SendMessageToDeadProcessResult
   = NoMoreMessagesSent

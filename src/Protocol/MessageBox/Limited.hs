@@ -133,14 +133,12 @@ instance Class.IsMessageBox BlockingBox where
   tryReceive !i = tryReceive i
   {-# INLINE newInput #-}
   newInput !i = newInput i
-  receiveAfter (MkBlockingBox _ !s) !rto !defaultAction =
+  receiveAfter (MkBlockingBox _ !s) !rto =
     do
       (!promise, !blocker) <- liftIO (Unagi.tryReadChan s)
       liftIO (Unagi.tryRead promise)
         >>= maybe
-          ( timeout rto (liftIO blocker)
-              >>= maybe defaultAction (return . Just)
-          )
+          (timeout rto (liftIO blocker))
           (return . Just)
 
 -- | A blocking instance that invokes 'deliver'.
@@ -179,8 +177,8 @@ instance Class.IsMessageBox NonBlockingBox where
   {-# INLINE tryReceive #-}
   tryReceive (NonBlockingBox !i) = tryReceive i
   {-# INLINE receiveAfter #-}
-  receiveAfter (NonBlockingBox !b) !rto !defaultAction =
-    Class.receiveAfter b rto defaultAction
+  receiveAfter (NonBlockingBox !b) !rto =
+    Class.receiveAfter b rto
   {-# INLINE newInput #-}
   newInput (NonBlockingBox !i) = NonBlockingInput <$> newInput i
 
@@ -246,8 +244,8 @@ instance Class.IsMessageBox WaitingBox where
   receive (WaitingBox !_ !m) =
     Class.receive m
   {-# INLINE receiveAfter #-}
-  receiveAfter (WaitingBox _ !b) !rto !defaultAction =
-    Class.receiveAfter b rto defaultAction
+  receiveAfter (WaitingBox _ !b) !rto =
+    Class.receiveAfter b rto
   {-# INLINE tryReceive #-}
   tryReceive (WaitingBox _ !m) = tryReceive m
   {-# INLINE newInput #-}

@@ -10,8 +10,8 @@ module Protocol.MessageBox.Class
 where
 
 import Data.Kind (Type)
+import Protocol.Future (Future, awaitFuture)
 import UnliftIO (MonadUnliftIO, timeout)
-import Protocol.Future ( Future, awaitFuture )
 
 -- | Create 'IsMessageBox' instances from a parameter.
 -- Types that determine 'MessageBox' values.
@@ -27,7 +27,7 @@ class
   -- | Return a message limit.
   --
   -- NOTE: This method was added for unit tests.
-  -- Although the method is totally valid, it 
+  -- Although the method is totally valid, it
   -- might not be super useful in production code.
   -- Also note that the naming follows the rule:
   -- Reserve short names for entities that are
@@ -57,17 +57,13 @@ class IsInput (Input msgBox) => IsMessageBox msgBox where
   -- and if that future value is dropped, that message will be lost!
   tryReceive :: MonadUnliftIO m => msgBox a -> m (Future a)
 
-  -- | Wait for an incoming message or run a timeout action if no message arrives.
+  -- | Wait for an incoming message or return Nothing.
   --
   -- The default implementation uses 'tryReceive' to get a
   -- 'Future' on which 'awaitFuture' inside a 'timeout' is called.
   --
   -- Instances might override this with more performant implementations
   -- especially non-blocking Unagi channel based implementation.
-  --
-  -- TODO exception handling: indefinitely blocked in mvar... is it really necessary to catch here?
-  -- TODO benchmark
-  -- TODO test
   receiveAfter ::
     MonadUnliftIO m =>
     -- | Message box
@@ -75,13 +71,9 @@ class IsInput (Input msgBox) => IsMessageBox msgBox where
     -- | Time in micro seconds to wait until the
     -- action is invoked.
     Int ->
-    -- | The action to run after the time ran out.
-    m (Maybe a) ->
     m (Maybe a)
-  receiveAfter !mbox !t !onAfter =
-    tryReceive mbox
-      >>= timeout t . awaitFuture
-      >>= maybe onAfter (return . Just)
+  receiveAfter !mbox !t =
+    tryReceive mbox >>= timeout t . awaitFuture
 
   -- | Create a new @input@ that enqueus messages,
   -- which are received by the @msgBox@

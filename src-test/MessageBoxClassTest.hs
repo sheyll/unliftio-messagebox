@@ -115,7 +115,7 @@ commonFunctionality arg =
                   do
                     s1Ok <- deliver input m1
                     assertBool "delivering message 1 failed" s1Ok
-                  r <- receiveAfter mbox 200_000 (pure Nothing)
+                  r <- receiveAfter mbox 200_000
                   case r of
                     Nothing -> assertFailure "No message received!"
                     Just m -> assertEqual "wrong message received!" m1 m,
@@ -139,7 +139,7 @@ commonFunctionality arg =
                             )
                       )
                       ( do
-                          r <- receiveAfter mbox 200_000 (pure Nothing)
+                          r <- receiveAfter mbox 200_000
                           return $
                             case r of
                               Nothing -> assertFailure "No message received!"
