@@ -5,9 +5,8 @@
 module Protocol.Fresh
   ( fresh,
     incrementAndGet,
-    newFromSystemTime,
     newCounterVar,
-    HasCounterVar (getCounterVar, putCounterVar),
+    HasCounterVar (getCounterVar),
     CounterVar (),
   )
 where
@@ -19,7 +18,6 @@ import Data.Atomics.Counter
     newCounter,
   )
 import Data.Coerce (Coercible, coerce)
-import Data.Time.Clock.POSIX (getPOSIXTime)
 import UnliftIO (MonadIO (..))
 
 -- | A threadsafe atomic a
@@ -60,17 +58,6 @@ newCounterVar ::
 newCounterVar =
   MkCounterVar <$> liftIO (newCounter 0)
 
--- | Create a new 'CounterVar' starting at the current
---   system time in millis.
-newFromSystemTime ::
-  forall a m.
-  MonadIO m =>
-  m (CounterVar a)
-newFromSystemTime =
-  MkCounterVar <$> liftIO (currentTimeMillis >>= newCounter)
-  where
-    currentTimeMillis = round . (1000 *) <$> getPOSIXTime
-
 -- | An 'AtomicCounter'.
 newtype CounterVar a = MkCounterVar AtomicCounter
 
@@ -78,8 +65,6 @@ newtype CounterVar a = MkCounterVar AtomicCounter
 -- applications.
 class HasCounterVar a env | env -> a where
   getCounterVar :: env -> CounterVar a
-  putCounterVar :: CounterVar a -> env -> env
 
 instance HasCounterVar t (CounterVar t) where
   getCounterVar = id
-  putCounterVar x _ = x

@@ -58,11 +58,14 @@ instance IsMessageBox box => IsMessageBox (CatchAllBox box) where
         Left _e -> liftIO (print _e) >> return Nothing
         Right r -> return r
   {-# INLINE receiveAfter #-}
+  -- | Call the wrapped 'receiveAfter' and catch all sync exceptions.
+  -- 
+  -- When an exception is caught, call the given fallback action.
   receiveAfter (CatchAllBox !box) !t !f =
     try @_ @SomeException
       (receiveAfter box t f)
       >>= \case
-        Left _e -> liftIO (print _e) >> return Nothing
+        Left _e -> liftIO (print _e) >> f
         Right r -> return r
   {-# INLINE tryReceive #-}
   tryReceive (CatchAllBox !box) =
@@ -75,7 +78,7 @@ instance IsMessageBox box => IsMessageBox (CatchAllBox box) where
               ( Future
                   ( do
                       -- suspense TODO reduce/remove/yield?
-                      threadDelay 10
+                      threadDelay 1000
                       -- the truth is: there is no spoon.
                       return Nothing
                   )

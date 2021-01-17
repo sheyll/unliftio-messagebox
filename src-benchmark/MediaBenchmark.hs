@@ -49,7 +49,7 @@ import Protocol.Command as Command
 import Protocol.Command.CallId as CallId
 import Protocol.Fresh
   ( CounterVar,
-    HasCounterVar (getCounterVar, putCounterVar),
+    HasCounterVar (getCounterVar),
     newCounterVar,
   )
 import Protocol.MessageBox.Class
@@ -464,7 +464,6 @@ instance CallId.HasCallIdCounter AppCounters where
 
 instance HasCounterVar Int AppCounters where
   getCounterVar = asks idCounter
-  putCounterVar x v = v {idCounter = x}
 
 data Param = Param
   { nDsps :: !Int,

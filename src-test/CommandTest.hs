@@ -23,7 +23,13 @@ import Control.Applicative
     (<$>),
   )
 import Data.Functor (void, ($>))
-import Data.Maybe (Maybe (), fromJust, fromMaybe, isJust, isNothing, maybe)
+import Data.Maybe
+  ( fromJust,
+    fromMaybe,
+    isJust,
+    isNothing,
+    maybe,
+  )
 import Data.Semigroup (All (All, getAll))
 import GHC.IO.Exception (userError)
 import Protocol.Command
@@ -43,10 +49,8 @@ import Protocol.Command
 import Protocol.Command.CallId (CallId (MkCallId))
 import qualified Protocol.Command.CallId as CallId
 import Protocol.Fresh (CounterVar, fresh, newCounterVar)
-import Protocol.Future (Future (Future))
 import Protocol.MessageBox.Class
-  ( IsInput (..),
-    IsMessageBox (..),
+  ( IsMessageBox (..),
     IsMessageBoxFactory (..),
     handleMessage,
   )
@@ -64,7 +68,6 @@ import RIO
     Maybe (..),
     Monad (return, (>>=)),
     MonadIO (liftIO),
-    MonadUnliftIO,
     Num ((*), (+)),
     Ord ((>=)),
     Semigroup ((<>)),
@@ -77,14 +80,11 @@ import RIO
     error,
     newEmptyMVar,
     putMVar,
-    readTVarIO,
-    registerDelay,
     runConc,
     runRIO,
     threadDelay,
     throwTo,
     timeout,
-    traverse_,
     tryReadMVar,
     ($),
     (.),
@@ -111,7 +111,7 @@ import UnliftIO
     try,
   )
 import UnliftIO.Concurrent (forkIO)
-import Utils (untilJust, withCallIds)
+import Utils ( untilJust, withCallIds, NoOpInput(OnDeliver) ) 
 import Prelude (Show (showsPrec), showParen, showString)
 
 test :: TestTree
@@ -901,43 +901,3 @@ data instance Command Tell _ where
 
 instance Show (Command Tell 'FireAndForget) where
   showsPrec !d (Tell x) = showParen (d >= 9) (showString "Tell " . showString x)
-
--- IsMessageBox.* instance(s) for callTest
-
-data NoOpFactory
-  = NoOpFactory
-  deriving stock (Show)
-
-newtype NoOpInput a
-  = OnDeliver (forall m. MonadUnliftIO m => a -> m Bool)
-
-data NoOpBox a
-  = OnReceive (Maybe Int) (Maybe a)
-  deriving stock (Show)
-
-instance IsMessageBoxFactory NoOpFactory where
-  type MessageBox NoOpFactory = NoOpBox
-  newMessageBox NoOpFactory = return (OnReceive Nothing Nothing)
-  getConfiguredMessageLimit _ = Nothing
-
-instance IsMessageBox NoOpBox where
-  type Input NoOpBox = NoOpInput
-  newInput _ = return $ OnDeliver (const (return False))
-  receive (OnReceive t r) = do
-    traverse_ threadDelay t
-    return r
-  tryReceive (OnReceive t r) = do
-    timeoutVar <- traverse registerDelay t
-    return
-      ( Future
-          ( do
-              isOver <- fromMaybe True <$> traverse readTVarIO timeoutVar
-              if isOver
-                then return r
-                else return Nothing
-          )
-      )
-
-instance IsInput NoOpInput where
-  deliver (OnDeliver react) m =
-    react m

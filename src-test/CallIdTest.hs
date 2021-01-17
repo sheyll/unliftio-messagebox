@@ -1,19 +1,24 @@
+{-# LANGUAGE TypeApplications #-}
+
 module CallIdTest (test) where
 
 import Control.Monad (replicateM)
+import Data.Data
 import Data.List (nub)
 import qualified Protocol.Command.CallId as CallId
+import QCOrphans ()
 import Test.QuickCheck
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit
-  (assertBool,  assertEqual,
+  ( assertBool,
+    assertEqual,
     testCase,
   )
-import Test.Tasty.QuickCheck ( testProperty )
+import Test.Tasty.QuickCheck (testProperty)
 import UnliftIO
   ( replicateConcurrently,
   )
-import Utils (withCallIds)
+import Utils (eqOrdShowLaws, withCallIds)
 
 test :: TestTree
 test =
@@ -30,11 +35,11 @@ test =
       testCase
         "The next callId is greater and not equal to the previous"
         $ do
-          [c1,c2] <- withCallIds (replicateM 2 CallId.takeNext)
-          assertBool 
+          [c1, c2] <- withCallIds (replicateM 2 CallId.takeNext)
+          assertBool
             "next callId is not greater"
             (c2 > c1)
-          assertBool 
+          assertBool
             "next callId is equal to the previous"
             (c2 /= c1),
       testProperty
@@ -45,5 +50,6 @@ test =
             n > 1 ==> (head callIds < last callIds),
       testCase
         "CallId Show instance"
-        (assertEqual "bad show result" "<123>" (show (CallId.MkCallId 123)))
+        (assertEqual "bad show result" "<123>" (show (CallId.MkCallId 123))),
+      testProperty "CallId Laws" (eqOrdShowLaws (Proxy @CallId.CallId))
     ]

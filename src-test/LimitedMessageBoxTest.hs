@@ -22,7 +22,7 @@ import Data.Maybe
   ( fromMaybe,
     isNothing,
   )
-import Data.Proxy
+import Data.Proxy (Proxy (Proxy))
 import MessageBoxCommon (testContentionRobustness)
 import Protocol.Future (tryNow)
 import Protocol.MessageBox.Class
@@ -57,6 +57,7 @@ import Test.Tasty.HUnit as Tasty
 import Test.Tasty.QuickCheck as Tasty (testProperty)
 import UnliftIO (concurrently, race, timeout)
 import UnliftIO.Concurrent (threadDelay)
+import Utils
 
 test :: Tasty.TestTree
 test =
@@ -468,25 +469,31 @@ testNonBlockingBox =
 
 typeClassLaws :: TestTree
 typeClassLaws =
-  testCase
+  testGroup
     "Type Class Laws"
-    ( lawsCheckMany
-        [ ( "MessageLimit Laws",
-            [ ordLaws (Proxy @MessageLimit),
-              eqLaws (Proxy @MessageLimit),
-              boundedEnumLaws (Proxy @MessageLimit)
+    [ testCase
+        "Some Laws"
+        ( lawsCheckMany
+            [ ( "MessageLimit Laws",
+                [ ordLaws (Proxy @MessageLimit),
+                  eqLaws (Proxy @MessageLimit),
+                  boundedEnumLaws (Proxy @MessageLimit)
+                ]
+              ),
+              ( "BlockingBox Laws",
+                [ eqLaws (Proxy @BlockingBoxLimit)
+                ]
+              ),
+              ( "NonBlockingBox Laws",
+                [ eqLaws (Proxy @NonBlockingBoxLimit)
+                ]
+              ),
+              ( "WaitingBoxLimit Laws",
+                [eqLaws (Proxy @WaitingBoxLimit)]
+              )
             ]
-          ),
-          ( "BlockingBox Laws",
-            [ eqLaws (Proxy @BlockingBoxLimit)
-            ]
-          ),
-          ( "NonBlockingBox Laws",
-            [ eqLaws (Proxy @NonBlockingBoxLimit)
-            ]
-          ),
-          ( "WaitingBoxLimit Laws",
-            [eqLaws (Proxy @WaitingBoxLimit)]
-          )
-        ]
-    )
+        ),
+      testProperty
+        "MessageLimit Eq Ord Show"
+        (eqOrdShowLaws (Proxy @MessageLimit))
+    ]

@@ -16,6 +16,7 @@ import Protocol.MessageBox.Class
     IsMessageBox (..),
     IsMessageBoxFactory (..),
     deliver,
+    handleMessage,
     newInput,
     receive,
   )
@@ -29,15 +30,25 @@ import Test.Tasty.HUnit
     testCase,
   )
 import qualified Test.Tasty.HUnit as Tasty
-import UnliftIO (conc, concurrently, runConc, timeout)
+import UnliftIO
+  ( conc,
+    concurrently,
+    runConc,
+    timeout,
+  )
 import UnliftIO.Concurrent (threadDelay)
-import Utils (untilJust, untilM)
+import Utils
+  ( NoOpBox (OnReceive),
+    untilJust,
+    untilM,
+  )
 
 test :: Tasty.TestTree
 test =
   Tasty.testGroup
     "Protocol.MessageBox.Class"
-    [ testWith U.UnlimitedMessageBox,
+    [ utilTest,
+      testWith U.UnlimitedMessageBox,
       testWith $ CatchAllFactory U.UnlimitedMessageBox,
       testWith (B.BlockingBoxLimit B.MessageLimit_256),
       testWith $ CatchAllFactory (B.BlockingBoxLimit B.MessageLimit_256),
@@ -48,6 +59,22 @@ test =
       testWith (B.WaitingBoxLimit Nothing 60_000_000 B.MessageLimit_1),
       testWith (B.WaitingBoxLimit Nothing 60_000_000 B.MessageLimit_64),
       testWith (B.WaitingBoxLimit (Just 60_000_000) 60_000_000 B.MessageLimit_64)
+    ]
+
+utilTest :: TestTree
+utilTest =
+  testGroup
+    "Utilities"
+    [ testCase
+        "when receive returns Nothing, then handleMessage\
+        \ does not execute the callback and returns Nothing"
+        $ handleMessage (OnReceive Nothing Nothing) (const (return ()))
+          >>= assertEqual "handleMessage should return Nothing" Nothing,
+      testCase
+        "when receive returns Just x, then handleMessage\
+        \ applies the callback to x and returns Just the result"
+        $ handleMessage (OnReceive Nothing (Just "123")) return
+          >>= assertEqual "handleMessage should return Just the result" (Just "123")
     ]
 
 testWith ::

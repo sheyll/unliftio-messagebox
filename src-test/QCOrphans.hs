@@ -3,9 +3,10 @@
 -- | Orphan instances of QuickCheck Type Classes
 module QCOrphans () where
 
-import Protocol.MessageBox.CatchAll
+import Protocol.Command.CallId
+import Protocol.MessageBox.CatchAll (CatchAllFactory (..))
 import qualified Protocol.MessageBox.Limited as Limited
-import Test.QuickCheck
+import Test.QuickCheck (Arbitrary (arbitrary), elements)
 
 instance Arbitrary Limited.MessageLimit where
   arbitrary = elements [minBound .. maxBound]
@@ -24,3 +25,6 @@ instance Arbitrary Limited.WaitingBoxLimit where
 
 instance Arbitrary a => Arbitrary (CatchAllFactory a) where
   arbitrary = CatchAllFactory <$> arbitrary
+
+instance Arbitrary CallId where
+  arbitrary = MkCallId <$> arbitrary
