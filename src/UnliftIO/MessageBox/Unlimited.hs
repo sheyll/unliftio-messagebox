@@ -12,9 +12,9 @@
 -- Otherwise use the more conservative
 -- "UnliftIO.MessageBox.Limited" module.
 module UnliftIO.MessageBox.Unlimited
-  ( UnlimitedMessageBox (..),
-    MessageBox (),
-    Input (),
+  ( BlockingUnlimited (..),
+    UnlimitedBox (),
+    UnlimitedBoxInput (),
   )
 where
 
@@ -35,34 +35,34 @@ import UnliftIO
 -- used for reading messages.
 --
 -- Messages can be received by 'receive' or 'tryReceive'.
-data MessageBox a
-  = MkOutput
+data UnlimitedBox a
+  = MkUnlimitedBox
       !(Unagi.InChan a)
       !(Unagi.OutChan a)
 
 -- | A message queue into which messages can be enqued by,
 --   e.g. 'deliver'.
---   Messages can be received from an 'MessageBox`.
+--   Messages can be received from an 'UnlimitedBox`.
 --
---   The 'Input' is the counter part of a 'MessageBox'.
-newtype Input a = MkInput (Unagi.InChan a)
+--   The 'UnlimitedBoxInput' is the counter part of a 'UnlimitedBox'.
+newtype UnlimitedBoxInput a = MkUnlimitedBoxInput (Unagi.InChan a)
 
 -- | The (empty) configuration for creating
--- 'MessageBox'es using the 'Class.IsMessageBoxFactory' methods.
-data UnlimitedMessageBox = UnlimitedMessageBox
+-- 'UnlimitedBox'es using the 'Class.IsMessageBoxFactory' methods.
+data BlockingUnlimited = BlockingUnlimited
 
-instance Show UnlimitedMessageBox where
+instance Show BlockingUnlimited where
   showsPrec _ _ = showString "Unlimited"
 
-instance Class.IsMessageBoxFactory UnlimitedMessageBox where
-  type MessageBox UnlimitedMessageBox = MessageBox
+instance Class.IsMessageBoxFactory BlockingUnlimited where
+  type MessageBox BlockingUnlimited = UnlimitedBox
   {-# INLINE newMessageBox #-}
-  newMessageBox UnlimitedMessageBox = create
+  newMessageBox BlockingUnlimited = create
   getConfiguredMessageLimit _ = Nothing    
 
 -- | A blocking instance that invokes 'receive'.
-instance Class.IsMessageBox MessageBox where
-  type Input MessageBox = Input
+instance Class.IsMessageBox UnlimitedBox where
+  type Input UnlimitedBox = UnlimitedBoxInput
   {-# INLINE receive #-}
   receive !i = Just <$> receive i
   {-# INLINE tryReceive #-}
@@ -71,7 +71,7 @@ instance Class.IsMessageBox MessageBox where
   newInput !i = newInput i
 
 -- | A blocking instance that invokes 'deliver'.
-instance Class.IsInput Input where
+instance Class.IsInput UnlimitedBoxInput where
   {-# INLINE deliver #-}
   deliver !o !m = deliver o m $> True
 
@@ -82,36 +82,36 @@ instance Class.IsInput Input where
 -- be made, that can be passed to some potential
 -- communication partners.
 {-# INLINE create #-}
-create :: MonadUnliftIO m => m (MessageBox a)
+create :: MonadUnliftIO m => m (UnlimitedBox a)
 create = do
   (!inChan, !outChan) <- liftIO Unagi.newChan
-  return $! MkOutput inChan outChan
+  return $! MkUnlimitedBox inChan outChan
 
 -- | Wait for and receive a message from a 'MessageBox'.
 {-# INLINE receive #-}
-receive :: MonadUnliftIO m => MessageBox a -> m a
-receive (MkOutput _ !s) =
+receive :: MonadUnliftIO m => UnlimitedBox a -> m a
+receive (MkUnlimitedBox _ !s) =
   --liftIO (Unagi.readChan IO.yield s)
   liftIO (Unagi.readChan s)
 
 -- | Try to receive a message from a 'MessageBox',
 -- return @Nothing@ if the queue is empty.
 {-# INLINE tryReceive #-}
-tryReceive :: MonadUnliftIO m => MessageBox a -> m (Future a)
-tryReceive (MkOutput _ !s) = liftIO $ do
+tryReceive :: MonadUnliftIO m => UnlimitedBox a -> m (Future a)
+tryReceive (MkUnlimitedBox _ !s) = liftIO $ do
   (!promise, _) <- Unagi.tryReadChan s
   return (Future (Unagi.tryRead promise))
 
 -- | Create an 'Input' to write the items
 -- that the given 'MessageBox' receives.
 {-# INLINE newInput #-}
-newInput :: MonadUnliftIO m => MessageBox a -> m (Input a)
-newInput (MkOutput !s _) = return $! MkInput s
+newInput :: MonadUnliftIO m => UnlimitedBox a -> m (UnlimitedBoxInput a)
+newInput (MkUnlimitedBox !s _) = return $! MkUnlimitedBoxInput s
 
 -- | Put a message into the 'Input'
 -- of a 'MessageBox', such that the process
 -- reading the 'MessageBox' receives the message.
 {-# INLINE deliver #-}
-deliver :: MonadUnliftIO m => Input a -> a -> m ()
-deliver (MkInput !s) !a =
+deliver :: MonadUnliftIO m => UnlimitedBoxInput a -> a -> m ()
+deliver (MkUnlimitedBoxInput !s) !a =
   liftIO $ Unagi.writeChan s a

@@ -48,8 +48,8 @@ test =
   Tasty.testGroup
     "UnliftIO.MessageBox.Class"
     [ utilTest,
-      testWith U.UnlimitedMessageBox,
-      testWith $ CatchAllFactory U.UnlimitedMessageBox,
+      testWith U.BlockingUnlimited,
+      testWith $ CatchAllFactory U.BlockingUnlimited,
       testWith (B.BlockingBoxLimit B.MessageLimit_256),
       testWith $ CatchAllFactory (B.BlockingBoxLimit B.MessageLimit_256),
       testWith (B.BlockingBoxLimit B.MessageLimit_1),
@@ -95,7 +95,7 @@ commonFunctionality ::
 commonFunctionality arg =
   let futureLoop f = tryNow f >>= maybe (threadDelay 10 >> futureLoop f) return
    in testGroup
-        "Common Funcionality"
+        "Basics"
         [ testGroup
             "deliver and receive"
             [ Tasty.testCase "tryReceive from an empty queue, without any writer threads" $ do

@@ -64,7 +64,7 @@ main =
             )
           | noMessages <- [100_000],
             (isNonBlocking, mboxImplTitle, impl) <-
-              [ let x = U.UnlimitedMessageBox
+              [ let x = U.BlockingUnlimited
                  in (False, show x, unidirectionalMessagePassing mkTestMessage x),
                 let x = L.BlockingBoxLimit L.MessageLimit_1
                  in (False, show x, unidirectionalMessagePassing mkTestMessage x),
@@ -88,7 +88,7 @@ main =
                  in (False, show x, unidirectionalMessagePassing mkTestMessage x),
                 let x = L.WaitingBoxLimit (Just 60_000_000) 5_000_000 L.MessageLimit_128
                  in (True, show x, unidirectionalMessagePassing mkTestMessage x),
-                let x = CatchAllFactory U.UnlimitedMessageBox
+                let x = CatchAllFactory U.BlockingUnlimited
                  in (False, show x, unidirectionalMessagePassing mkTestMessage x),
                 let x = CatchAllFactory (L.BlockingBoxLimit L.MessageLimit_128)
                  in (False, show x, unidirectionalMessagePassing mkTestMessage x)

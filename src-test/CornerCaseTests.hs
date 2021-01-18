@@ -75,7 +75,7 @@ test =
           --       )
           --       (assertFailure . ("Exception expected, instead of: " <>) . show),
           testCase "When using the UnlimitedMessageBox, receive will timeout" $
-            waitForMessageFromDeadProcess U.UnlimitedMessageBox
+            waitForMessageFromDeadProcess U.BlockingUnlimited
               >>= assertEqual "unexpected return value: " SecondReceiveReturnedNothing,
           testCase "When using the Limited Message BlockingBox, the test will timeout" $
             waitForMessageFromDeadProcess (B.BlockingBoxLimit B.MessageLimit_16)
@@ -90,7 +90,7 @@ test =
       testGroup
         "sending messages to a dead process"
         [ testCase "When using the UnlimitedMessageBox, sending messages succeeds" $
-            sendMessagesToDeadProcess U.UnlimitedMessageBox
+            sendMessagesToDeadProcess U.BlockingUnlimited
               >>= assertEqual "unexpected result: " SomeMoreMessagesSent,
           testCase "When using the BlockingBoxLimit, sending messages eventually blocks and times out" $
             sendMessagesToDeadProcess (B.BlockingBoxLimit B.MessageLimit_16)
@@ -107,7 +107,7 @@ test =
         [ testGroup
             "waiting for a call reply after the server died"
             [ testCase "When using the UnlimitedMessageBox, BlockingCommandTimedOut is returned" $
-                waitForCallReplyFromDeadServer U.UnlimitedMessageBox
+                waitForCallReplyFromDeadServer U.BlockingUnlimited
                   >>= assertEqual
                     "unexpected result: "
                     (CallFailed (BlockingCommandTimedOut (MkCallId 1))),

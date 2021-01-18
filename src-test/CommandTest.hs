@@ -55,7 +55,7 @@ import UnliftIO.MessageBox.Limited
   ( BlockingBoxLimit (BlockingBoxLimit),
     MessageLimit (..),
   )
-import UnliftIO.MessageBox.Unlimited (UnlimitedMessageBox (UnlimitedMessageBox))
+import UnliftIO.MessageBox.Unlimited (BlockingUnlimited (BlockingUnlimited))
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit
   ( assertBool,
@@ -103,7 +103,7 @@ integrationTests =
     [ testCase "Show instance of the Message data family works" $
         CallId.newCallIdCounter
           >>= \cv -> flip runReaderT cv $ do
-            bookStoreOutput <- newMessageBox UnlimitedMessageBox
+            bookStoreOutput <- newMessageBox BlockingUnlimited
             bookStoreInput <- newInput bookStoreOutput
             let blockingMsg = GetBooks
                 nonblockingMsg =
@@ -138,7 +138,7 @@ integrationTests =
         "all books that many donors concurrently donate into the book store end up in the bookstore"
         allDonatedBooksAreInTheBookStore,
       testCase "handling a cast succeeds" $ do
-        bookStoreOutput <- newMessageBox UnlimitedMessageBox
+        bookStoreOutput <- newMessageBox BlockingUnlimited
         bookStoreInput <- newInput bookStoreOutput
         let expected =
               Donate
@@ -173,7 +173,7 @@ integrationTests =
                     []
                 ]
 
-          bookStoreOutput <- newMessageBox UnlimitedMessageBox
+          bookStoreOutput <- newMessageBox BlockingUnlimited
           bookStoreInput <- newInput bookStoreOutput
           let concurrentCallAction = call bookStoreInput GetBooks 100
               concurrentBookStore = handleMessage bookStoreOutput $ \case
@@ -198,7 +198,7 @@ integrationTests =
         let delayDuration = 1000
         freshCounter <- newCounterVar
         flip runReaderT (MkBookStoreEnv {_fresh = freshCounter}) $ do
-          bookStoreOutput <- newMessageBox UnlimitedMessageBox
+          bookStoreOutput <- newMessageBox BlockingUnlimited
           bookStoreInput <- newInput bookStoreOutput
           let concurrentCallAction = do
                 tId <- forkIO (void $ call bookStoreInput GetBooks (delayDuration * 3))
@@ -221,7 +221,7 @@ integrationTests =
           let delayDuration = 1000_000
           freshCounter <- newCounterVar
           flip runReaderT (MkBookStoreEnv {_fresh = freshCounter}) $ do
-            bookStoreOutput <- newMessageBox UnlimitedMessageBox
+            bookStoreOutput <- newMessageBox BlockingUnlimited
             bookStoreInput <- newInput bookStoreOutput
             let concurrentCallAction = call bookStoreInput GetBooks (delayDuration * 2)
                 concurrentBookStore = handleMessage bookStoreOutput $ \case
@@ -242,7 +242,7 @@ integrationTests =
         freshCounter <- newCounterVar
         flip runReaderT (MkBookStoreEnv {_fresh = freshCounter}) $ do
           let oneMilliSecond = 1_000 -- one milli second is 1000 micro seconds
-          serverOutput <- newMessageBox UnlimitedMessageBox
+          serverOutput <- newMessageBox BlockingUnlimited
           serverInput <- newInput serverOutput
           let bookstoreClient = call serverInput GetBooks (20 * oneMilliSecond)
               bookstoreServer = handleMessage serverOutput $ \case
@@ -263,7 +263,7 @@ integrationTests =
         $ do
           freshCounter <- newCounterVar
           flip runReaderT (MkBookStoreEnv {_fresh = freshCounter}) $ do
-            bookStoreOutput <- newMessageBox UnlimitedMessageBox
+            bookStoreOutput <- newMessageBox BlockingUnlimited
             bookStoreInput <- newInput bookStoreOutput
             let client = do
                   result <- call bookStoreInput GetBooks 100_000
@@ -327,7 +327,7 @@ instance CallId.HasCallIdCounter BookStoreEnv where
 
 allDonatedBooksAreInTheBookStore :: [(Donor, Book)] -> Property
 allDonatedBooksAreInTheBookStore donorsAndBooks = ioProperty $ do
-  bookStoreIn <- newMessageBox UnlimitedMessageBox
+  bookStoreIn <- newMessageBox BlockingUnlimited
   bookStoreOut <- newInput bookStoreIn
   getAll
     <$> runConc

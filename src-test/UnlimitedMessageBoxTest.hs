@@ -17,5 +17,5 @@ test :: Tasty.TestTree
 test =
   Tasty.testGroup
     "UnliftIO.MessageBox.Unlimited"
-    [ testContentionRobustness (Class.newMessageBox Unlimited.UnlimitedMessageBox) 512 50
+    [ testContentionRobustness (Class.newMessageBox Unlimited.BlockingUnlimited) 512 50
     ]
