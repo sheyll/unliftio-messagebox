@@ -9,15 +9,14 @@ TODO
 * **DONE** Move `Protocol.CallId` to `UnliftIO.MessageBox.Util.CallId`
 * **DONE** Move `Protocol.Fresh` to `UnliftIO.MessageBox.Util.Fresh`
 * **DONE** Move `Protocol.Future` to `UnliftIO.MessageBox.Util.Future`
-* Add a `UnliftIO.MessageBox` that re-exports:
+* **DONE** Add a `UnliftIO.MessageBox` that re-exports:
+  * `UnliftIO.MessageBox.Class`
+  * `UnliftIO.MessageBox.Limited(BlockingBox, NonBlockingBox, WaitingBox, MessageLimit)`
+  * `UnliftIO.MessageBox.Unlimited(UnlimitedBox)`
+  * `UnliftIO.MessageBox.CatchAll`
   * `UnliftIO.MessageBox.Command`
   * `UnliftIO.MessageBox.CallId`
   * `UnliftIO.MessageBox.Future`
-  * `UnliftIO.MessageBox.Class`
-  * `UnliftIO.MessageBox.CatchAll`
-  * `UnliftIO.MessageBox.Limited(BlockingBox, NonBlockingBox, WaitingBox, MessageLimit)`
-  * `UnliftIO.MessageBox.Unlimited(UnlimitedBox)`
-
 
 ## Goal: Know Your Code 
 
@@ -33,8 +32,8 @@ TODO
   * **DONE**Protocol.Fresh
   * **DONE**Protocol.MessageBox.CatchAll
   * **DONE**Protocol.MessageBox.Limited
-* Remove unused code
-* Write missing Documentation
+* **DONE** Remove unused code
+* **UP NEXT** Write missing Documentation
   * **DONE** Document that in 'call' the timeout is not for message delivery, but only for 
     waiting for the reply.
 * **DONE** receiveAfter tests
