@@ -1,6 +1,23 @@
 TODO
 ====
 
+## Rename and Refactor Project
+
+* Rename from unliftio-protocols to **unliftio-messagebox**
+* Refactor modules to be in `UnliftIO.MessageBox` 
+* Move `Protocol.Command` to `UnliftIO.MessageBox.Command`
+* Move `Protocol.Fresh` to `UnliftIO.MessageBox.Util.Fresh`
+* Move `Protocol.Future` to `UnliftIO.MessageBox.Util.Future`
+* Add a `UnliftIO.MessageBox` that re-exports:
+  * `UnliftIO.MessageBox.Command`
+  * `UnliftIO.MessageBox.CallId`
+  * `UnliftIO.MessageBox.Future`
+  * `UnliftIO.MessageBox.Class`
+  * `UnliftIO.MessageBox.CatchAll`
+  * `UnliftIO.MessageBox.Limited(BlockingBox, NonBlockingBox, WaitingBox, MessageLimit)`
+  * `UnliftIO.MessageBox.Unlimited(UnlimitedBox)`
+
+
 ## Goal: Know Your Code 
 
 * **DONE** Write property tests exhibiting race
@@ -25,16 +42,16 @@ TODO
   * **DONE** **REJECTED** Use the async call API in the sync call API.
 
 ## Goal: Automatic Report Generation
-* **UP NEXT** Write script to commit the results of benchmarks, tests, 
+* **NOW** Write script to commit the results of benchmarks, tests, 
   test profiling and test code coverage reports
   to a branch of the git repo
-* **UP NEXT** Add Weeder script
-* **UP NEXT** Add Haddock script
-* **UP NEXT** Add graphmod script  
-* **UP NEXT** Add profiling test case execution script
-* **UP NEXT** Reduce the number of benchmarks
-* **UP NEXT** Make a profiling report based on a subset of the benchmarks
-* **UP NEXT** Link to the benchmarks and reports from the README.md
+* **DONE** **REJECTED: Weeder requires to much recompiling** Add Weeder script
+* **NOW** Add Haddock script
+* **NOW** Add graphmod script  
+* **DONE** Add profiling test case execution script
+* **DONE** Reduce the number of benchmarks
+* **NOW** Make a profiling report based on a subset of the benchmarks
+* **NOW** Link to the benchmarks and reports from the README.md
 * Make a benchmark for the Erlang code
 * Make Erlang part of the nix-based environment
 
@@ -49,7 +66,7 @@ TODO
 
 * **UP NEXT** Extract the media benchmark and create a long
   running example program that checks for memory leaks
-* Use Weak References for `Input`s
+* **DONE** **Goal achieved in a different way** Use Weak References for `Input`s
   * Add 'isActive'
   * Catch `ThreadBlockedIndefinitelyInMVarOperation` 
 
@@ -65,18 +82,12 @@ TODO
   was raised after a reply was taken from the reply box, but before it was returned.  
 * Add IsMessageBox/IsInput instances that wrap the calls in a `try_` block
   * **DONE**
-* Add functions that throw runtime exceptions instead of
-  returning 'Either', 'Bool' or 'Maybe': 
-   'deliverOrThrow' and 'receiveOrThrow' 
 * Add IsMessageBox/IsInput instances through newtype wrappers
   to Handle dead lock exceptions
   * **DONE**  
 * Make usages of MVars or TVars e.g. `replyTo`, `handleMessage`, `receive`
   dead lock exception safe
   * **DONE**
-* Add thread safe code to combine message box creation
-  and spawning.
-  * make a variant for 'Conc', 'Async' and plain 'forkIO'
 * make the timeout in handleMessage pluggable
    (use newtype wrapper for IsMessageBox instances)
    * **DONE** With Waiting..
