@@ -8,7 +8,7 @@ pkgs.haskell-nix.project {
     src = ./.;
   };
   projectFileName = "cabal.project";
-  compiler-nix-name = "ghc8102";
+  compiler-nix-name = "ghc8103";
   modules =
     [
       {

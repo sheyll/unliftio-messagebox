@@ -48,7 +48,7 @@ common compiler-flags-executables
     -- -Werror
   ghc-prof-options: 
     -fprof-auto 
-    "-with-rtsopts=-T -xt -Pa -hc -L256"
+    "-with-rtsopts=-T -xt -Pa -hr -L256"
   
 common compiler-flags
   ghc-options:
@@ -193,6 +193,7 @@ test-suite unliftio-protocols-test
   build-depends:
     base,
     tasty,
+    tasty-html,
     tasty-hunit,
     tasty-quickcheck,
     unliftio-protocols,

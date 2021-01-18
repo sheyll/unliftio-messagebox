@@ -9,18 +9,24 @@ import qualified LimitedMessageBoxTest
 import qualified MessageBoxClassTest
 import qualified ProtocolsTest
 import System.Environment (setEnv)
-import qualified Test.Tasty as Tasty
+import Test.Tasty
+  ( TestTree,
+    defaultIngredients,
+    defaultMainWithIngredients,
+    testGroup,
+  )
+import Test.Tasty.Runners.Html (htmlRunner)
 import qualified UnlimitedMessageBoxTest
 
 main :: IO ()
 main =
   do
     setEnv "TASTY_NUM_THREADS" "1"
-    Tasty.defaultMain test
+    defaultMainWithIngredients (htmlRunner : defaultIngredients) test
 
-test :: Tasty.TestTree
+test :: TestTree
 test =
-  Tasty.testGroup
+  testGroup
     "Tests"
     [ CallIdTest.test,
       CatchAllTest.test,
