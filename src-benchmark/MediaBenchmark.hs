@@ -26,15 +26,27 @@
 -- from the media domain.
 module MediaBenchmark (benchmark) where
 
-import Control.Monad (forM, forM_, replicateM_, unless, void)
+import Control.Monad.Reader
+  ( MonadIO (liftIO),
+    ReaderT (runReaderT),
+    asks,
+    fix,
+    forM,
+    forM_,
+    replicateM_,
+    unless,
+    void,
+  )
 import Criterion.Types
   ( Benchmark,
     bench,
     bgroup,
     nfAppIO,
   )
+import Data.Map (Map)
 import qualified Data.Map.Strict as Map
 import Data.Semigroup (Semigroup (stimes))
+import Data.Set (Set)
 import qualified Data.Set as Set
 import GHC.Stack (HasCallStack)
 import Protocol.Command as Command
@@ -47,6 +59,9 @@ import Protocol.Command as Command
     replyTo,
   )
 import Protocol.Command.CallId as CallId
+  ( CallId,
+    HasCallIdCounter (..),
+  )
 import Protocol.Fresh
   ( CounterVar,
     HasCounterVar (getCounterVar),
@@ -60,16 +75,8 @@ import Protocol.MessageBox.Class
     newInput,
     receiveAfter,
   )
-import RIO
-  (fix,  Map,
-    RIO,
-    Set,
-    asks,
-    runRIO,
-  )
 import UnliftIO
   ( Conc,
-    MonadIO (liftIO),
     SomeException,
     conc,
     runConc,
@@ -119,10 +126,11 @@ fetchDspsBench cfg (nFetchesTotal, nClients) =
                 (const (client (workLeft - 1)))
 
       startServer ::
-        RIO
+        ReaderT
           (CounterVar CallId)
+          IO
           ( Input (MessageBox cfg) (Message MediaApi),
-            Conc (RIO (CounterVar CallId)) ()
+            Conc (ReaderT (CounterVar CallId) IO) ()
           )
       startServer = do
         serverIn <- newMessageBox cfg
@@ -134,7 +142,7 @@ fetchDspsBench cfg (nFetchesTotal, nClients) =
             Int ->
             MessageBox cfg (Message MediaApi) ->
             Set DspId ->
-            RIO (CounterVar CallId) ()
+            ReaderT (CounterVar CallId) IO ()
           server 0 _ _ = return ()
           server !workLeft !serverIn !dspSet =
             handleMessage
@@ -154,7 +162,7 @@ fetchDspsBench cfg (nFetchesTotal, nClients) =
       serverWork = perClientWork * nClients -- not the same as nFetchesTotal
    in do
         callIdCounter <- newCounterVar
-        runRIO callIdCounter $ do
+        flip runReaderT callIdCounter $ do
           (serverOut, serverConc) <- startServer
           runConc (serverConc <> startClients serverOut)
 
@@ -209,7 +217,7 @@ mediaAppBenchmark cfg param = do
     return (mixingOut, mediaConc <> mixingConc)
   appCounters <- AppCounters <$> newCounterVar <*> newCounterVar
   let clients = spawnMixingApps mixingOut
-  runRIO appCounters (runConc (c1 <> clients))
+  runReaderT (runConc (c1 <> clients)) appCounters
   where
     spawnMediaApi = do
       mediaOutput <- newMessageBox cfg
@@ -233,7 +241,7 @@ mediaAppBenchmark cfg param = do
 
     spawnMixingBroker ::
       Input (MessageBox cfg) (Message MediaApi) ->
-      IO (Input (MessageBox cfg) (Message MixingApi), Conc (RIO AppCounters) ())
+      IO (Input (MessageBox cfg) (Message MixingApi), Conc (ReaderT AppCounters IO) ())
     spawnMixingBroker mediaBoxOut = do
       mixingOutput <- newMessageBox cfg
       mixingInput <- newInput mixingOutput
@@ -264,7 +272,10 @@ mediaAppBenchmark cfg param = do
           dispatchMixingApi ::
             (Int, Map MixingGroupId (Input (MessageBox cfg) (Message MixingApi))) ->
             Message MixingApi ->
-            RIO AppCounters (Int, Map MixingGroupId (Input (MessageBox cfg) (Message MixingApi)))
+            ReaderT
+              AppCounters
+              IO
+              (Int, Map MixingGroupId (Input (MessageBox cfg) (Message MixingApi)))
           dispatchMixingApi (!nDestroyed, !st) =
             \case
               Blocking cm@(CreateMixingGroup !mgId) !r -> do
@@ -302,7 +313,7 @@ mediaAppBenchmark cfg param = do
       return (mixingInput, conc startMixingServer)
     spawnMixingGroup ::
       Input (MessageBox cfg) (Message MediaApi) ->
-      RIO AppCounters (Input (MessageBox cfg) (Message MixingApi))
+      ReaderT AppCounters IO (Input (MessageBox cfg) (Message MixingApi))
     spawnMixingGroup !mediaInput = do
       !mgOutput <- newMessageBox cfg
       !mgInput <- newInput mgOutput
@@ -325,7 +336,7 @@ mediaAppBenchmark cfg param = do
           handleCmd ::
             (MixingGroupId, Map DspId (MixerId, Set MemberId)) ->
             Message MixingApi ->
-            RIO AppCounters (Maybe (MixingGroupId, Map DspId (MixerId, Set MemberId)))
+            ReaderT AppCounters IO (Maybe (MixingGroupId, Map DspId (MixerId, Set MemberId)))
           handleCmd (!mgId, !st) =
             \case
               Blocking (CreateMixingGroup !mgId') !r -> do
@@ -367,7 +378,7 @@ mediaAppBenchmark cfg param = do
                          in if Set.null dsps
                               then error "Not enough DSP capacity"
                               else case Map.lookup selectedDspId st of
-                                Nothing -> do
+                                Nothing ->
                                   call mediaInput (CreateMixer selectedDspId) 500_000
                                     >>= \case
                                       Left !err ->
@@ -419,15 +430,15 @@ mediaAppBenchmark cfg param = do
               return memberId
             replicateM_
               (nMembers param)
-              (fix $ \ ~again ->
-                 receive eventsIn
-                  >>= \case
-                    Just (MemberJoined _ _) ->
-                      return ()
-                    Just unexpected ->
-                      error ("Unexpected mixing group event: " ++ show unexpected ++ " expected MemberJoined")
-                    Nothing ->
-                      again
+              ( fix $ \again ->
+                  receive eventsIn
+                    >>= \case
+                      Just (MemberJoined _ _) ->
+                        return ()
+                      Just unexpected ->
+                        error ("Unexpected mixing group event: " ++ show unexpected ++ " expected MemberJoined")
+                      Nothing ->
+                        again
               )
             -- remove participants and wait for unjoined
             forM_ members $ \ !memberId -> do
@@ -437,15 +448,15 @@ mediaAppBenchmark cfg param = do
                 (error ("Failed to cast: " ++ show (UnJoin mixingGroupId memberId eventsOut)))
             replicateM_
               (nMembers param)
-              (fix $ \ ~again ->
-                 receiveAfter eventsIn 500_000
-                  >>= \case
-                    Just (MemberUnJoined _ _) ->
-                      return ()
-                    Just unexpected ->
-                      error ("Unexpected mixing group event: " ++ show unexpected ++ " expected MemberUnJoined")
-                    Nothing ->
-                      again
+              ( fix $ \again ->
+                  receiveAfter eventsIn 500_000
+                    >>= \case
+                      Just (MemberUnJoined _ _) ->
+                        return ()
+                      Just unexpected ->
+                        error ("Unexpected mixing group event: " ++ show unexpected ++ " expected MemberUnJoined")
+                      Nothing ->
+                        again
               )
             -- destroy the conference,
             call mixingInput (DestroyMixingGroup mixingGroupId) 500_000
@@ -501,20 +512,20 @@ type MemberId = Int
 type MixingGroupId = Int
 
 data instance Command MediaApi _ where
-  FetchDsps :: Command MediaApi ( 'Return (Set DspId))
-  CreateMixer :: DspId -> Command MediaApi ( 'Return (Maybe MixerId))
+  FetchDsps :: Command MediaApi ('Return (Set DspId))
+  CreateMixer :: DspId -> Command MediaApi ('Return (Maybe MixerId))
   DestroyMixer :: MixerId -> Command MediaApi 'FireAndForget
-  AddToMixer :: MixerId -> MemberId -> Command MediaApi ( 'Return Bool)
-  RemoveFromMixer :: MixerId -> MemberId -> Command MediaApi ( 'Return ())
+  AddToMixer :: MixerId -> MemberId -> Command MediaApi ('Return Bool)
+  RemoveFromMixer :: MixerId -> MemberId -> Command MediaApi ('Return ())
   MediaShutdown :: Command MediaApi 'FireAndForget
 
-deriving stock instance Show (Command MediaApi ( 'Return (Set DspId)))
+deriving stock instance Show (Command MediaApi ('Return (Set DspId)))
 
-deriving stock instance Show (Command MediaApi ( 'Return (Maybe MixerId)))
+deriving stock instance Show (Command MediaApi ('Return (Maybe MixerId)))
 
-deriving stock instance Show (Command MediaApi ( 'Return Bool))
+deriving stock instance Show (Command MediaApi ('Return Bool))
 
-deriving stock instance Show (Command MediaApi ( 'Return ()))
+deriving stock instance Show (Command MediaApi ('Return ()))
 
 deriving stock instance Show (Command MediaApi 'FireAndForget)
 
@@ -526,10 +537,10 @@ data MixingGroupEvent where
 data instance Command MixingApi _ where
   CreateMixingGroup ::
     MixingGroupId ->
-    Command MixingApi ( 'Return ())
+    Command MixingApi ('Return ())
   DestroyMixingGroup ::
     MixingGroupId ->
-    Command MixingApi ( 'Return ())
+    Command MixingApi ('Return ())
   Join ::
     IsInput outBox =>
     MixingGroupId ->
@@ -543,7 +554,7 @@ data instance Command MixingApi _ where
     outBox MixingGroupEvent ->
     Command MixingApi 'FireAndForget
 
-instance Show (Command MixingApi ( 'Return ())) where
+instance Show (Command MixingApi ('Return ())) where
   showsPrec d (CreateMixingGroup i) =
     showParen (d >= 9) (showString "CreateMixingGroup " . shows i)
   showsPrec d (DestroyMixingGroup i) =
@@ -566,7 +577,7 @@ type Capacity = Int
 handleMediaApi ::
   MediaSimSt ->
   Message MediaApi ->
-  RIO env MediaSimSt
+  ReaderT env IO MediaSimSt
 handleMediaApi !st =
   \case
     Blocking FetchDsps replyBox -> do

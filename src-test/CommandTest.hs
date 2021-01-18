@@ -13,25 +13,22 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE NoImplicitPrelude #-}
 
 module CommandTest where
 
-import Control.Applicative
-  ( Applicative (pure, (<*>)),
-    (<$),
-    (<$>),
+import Control.Monad.Reader
+  ( MonadIO (liftIO),
+    ReaderT (runReaderT),
+    void,
   )
-import Data.Functor (void, ($>))
+import Data.Functor (($>))
 import Data.Maybe
   ( fromJust,
     fromMaybe,
     isJust,
     isNothing,
-    maybe,
   )
 import Data.Semigroup (All (All, getAll))
-import GHC.IO.Exception (userError)
 import Protocol.Command
   ( Command,
     CommandError (..),
@@ -59,36 +56,6 @@ import Protocol.MessageBox.Limited
     MessageLimit (..),
   )
 import Protocol.MessageBox.Unlimited (UnlimitedMessageBox (UnlimitedMessageBox))
-import RIO
-  ( Bool (..),
-    Either (Left, Right),
-    Eq ((==)),
-    Foldable (foldMap),
-    Int,
-    Maybe (..),
-    Monad (return, (>>=)),
-    MonadIO (liftIO),
-    Num ((*), (+)),
-    Ord ((>=)),
-    Semigroup ((<>)),
-    Show (..),
-    String,
-    Traversable (traverse),
-    conc,
-    concurrently,
-    const,
-    error,
-    newEmptyMVar,
-    putMVar,
-    runConc,
-    runRIO,
-    threadDelay,
-    throwTo,
-    timeout,
-    tryReadMVar,
-    ($),
-    (.),
-  )
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit
   ( assertBool,
@@ -107,12 +74,19 @@ import Test.Tasty.QuickCheck
     testProperty,
   )
 import UnliftIO
-  ( takeMVar,
+  ( conc,
+    concurrently,
+    newEmptyMVar,
+    putMVar,
+    runConc,
+    takeMVar,
+    throwTo,
+    timeout,
     try,
+    tryReadMVar,
   )
-import UnliftIO.Concurrent (forkIO)
-import Utils ( untilJust, withCallIds, NoOpInput(OnDeliver) ) 
-import Prelude (Show (showsPrec), showParen, showString)
+import UnliftIO.Concurrent (forkIO, threadDelay)
+import Utils (NoOpInput (OnDeliver), untilJust, withCallIds)
 
 test :: TestTree
 test =
@@ -128,7 +102,7 @@ integrationTests =
     "integration tests"
     [ testCase "Show instance of the Message data family works" $
         CallId.newCallIdCounter
-          >>= \cv -> runRIO cv $ do
+          >>= \cv -> flip runReaderT cv $ do
             bookStoreOutput <- newMessageBox UnlimitedMessageBox
             bookStoreInput <- newInput bookStoreOutput
             let blockingMsg = GetBooks
@@ -189,7 +163,7 @@ integrationTests =
         assertBool "handling the message was successful" (isJust result),
       testCase "handling a call succeeds" $ do
         freshCounter <- newCounterVar
-        runRIO (MkBookStoreEnv {_fresh = freshCounter}) $ do
+        flip runReaderT (MkBookStoreEnv {_fresh = freshCounter}) $ do
           let expectedBooks =
                 [ Book
                     "Wann wenn nicht wir."
@@ -223,7 +197,7 @@ integrationTests =
       testCase "reply to dead caller does not crash" $ do
         let delayDuration = 1000
         freshCounter <- newCounterVar
-        runRIO (MkBookStoreEnv {_fresh = freshCounter}) $ do
+        flip runReaderT (MkBookStoreEnv {_fresh = freshCounter}) $ do
           bookStoreOutput <- newMessageBox UnlimitedMessageBox
           bookStoreInput <- newInput bookStoreOutput
           let concurrentCallAction = do
@@ -246,7 +220,7 @@ integrationTests =
         $ do
           let delayDuration = 1000_000
           freshCounter <- newCounterVar
-          runRIO (MkBookStoreEnv {_fresh = freshCounter}) $ do
+          flip runReaderT (MkBookStoreEnv {_fresh = freshCounter}) $ do
             bookStoreOutput <- newMessageBox UnlimitedMessageBox
             bookStoreInput <- newInput bookStoreOutput
             let concurrentCallAction = call bookStoreInput GetBooks (delayDuration * 2)
@@ -258,7 +232,7 @@ integrationTests =
                     pure (Just ("unexpected message: " <> show a))
             (callResult, handleResult) <- concurrently concurrentCallAction concurrentBookStore
             liftIO $ do
-              callId' <- runRIO freshCounter fresh
+              callId' <- runReaderT fresh freshCounter
               assertEqual "no message other than GetBooks received" (Just Nothing) handleResult
               case callResult of
                 (Left (BlockingCommandTimedOut (MkCallId c)))
@@ -266,7 +240,7 @@ integrationTests =
                 _ -> assertFailure "call result should match (Left (BlockingCommandTimedOut _))",
       testCase "replying to call within the given timeout is successful" $ do
         freshCounter <- newCounterVar
-        runRIO (MkBookStoreEnv {_fresh = freshCounter}) $ do
+        flip runReaderT (MkBookStoreEnv {_fresh = freshCounter}) $ do
           let oneMilliSecond = 1_000 -- one milli second is 1000 micro seconds
           serverOutput <- newMessageBox UnlimitedMessageBox
           serverInput <- newInput serverOutput
@@ -288,7 +262,7 @@ integrationTests =
         \returns 'Left BlockingCommandTimedOut', and the replyTo function returns False"
         $ do
           freshCounter <- newCounterVar
-          runRIO (MkBookStoreEnv {_fresh = freshCounter}) $ do
+          flip runReaderT (MkBookStoreEnv {_fresh = freshCounter}) $ do
             bookStoreOutput <- newMessageBox UnlimitedMessageBox
             bookStoreInput <- newInput bookStoreOutput
             let client = do
@@ -323,7 +297,7 @@ integrationTests =
         $ do
           freshCounter <- newCounterVar
           let env = MkBookStoreEnv {_fresh = freshCounter}
-          (serverResult, clientResult) <- runRIO env $ do
+          (serverResult, clientResult) <- flip runReaderT env $ do
             bookStoreOutput <- newMessageBox (BlockingBoxLimit MessageLimit_16)
             bookStoreInput <- newInput bookStoreOutput
             concurrently
@@ -369,15 +343,15 @@ data BookStore
 
 data instance Command BookStore _ where
   Donate :: Donor -> Book -> Command BookStore 'FireAndForget
-  GetBooks :: Command BookStore ( 'Return [Book])
+  GetBooks :: Command BookStore ('Return [Book])
 
 deriving stock instance Eq (Command BookStore 'FireAndForget)
 
 deriving stock instance Show (Command BookStore 'FireAndForget)
 
-deriving stock instance Eq (Command BookStore ( 'Return [Book]))
+deriving stock instance Eq (Command BookStore ('Return [Book]))
 
-deriving stock instance Show (Command BookStore ( 'Return [Book]))
+deriving stock instance Show (Command BookStore ('Return [Book]))
 
 newtype Year = Year Int
   deriving newtype (Show, Eq, Ord)
@@ -889,9 +863,9 @@ unitTests =
 data Echo
 
 data instance Command Echo _ where
-  Echo :: a -> Command Echo ( 'Return a)
+  Echo :: a -> Command Echo ('Return a)
 
-instance (Show a) => Show (Command Echo ( 'Return a)) where
+instance (Show a) => Show (Command Echo ('Return a)) where
   showsPrec !d (Echo x) = showParen (d >= 9) (showString "Echo " . showsPrec 9 x)
 
 data Tell

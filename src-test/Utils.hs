@@ -17,6 +17,9 @@ module Utils
   )
 where
 
+import Control.Monad.Reader (ReaderT (runReaderT))
+import Data.Foldable (traverse_)
+import Data.Maybe (fromMaybe)
 import qualified Protocol.Command.CallId as CallId
 import Protocol.Fresh (CounterVar)
 import Protocol.Future (Future (Future))
@@ -25,7 +28,6 @@ import Protocol.MessageBox.Class
     IsMessageBox (Input, newInput, receive, tryReceive),
     IsMessageBoxFactory (..),
   )
-import RIO (MonadIO, MonadUnliftIO, RIO, fromMaybe, readTVarIO, registerDelay, runRIO, threadDelay, traverse_)
 import Test.QuickCheck
   ( Arbitrary,
     Property,
@@ -36,6 +38,13 @@ import Test.QuickCheck
     (===),
     (==>),
   )
+import UnliftIO
+  ( MonadIO,
+    MonadUnliftIO,
+    readTVarIO,
+    registerDelay,
+  )
+import UnliftIO.Concurrent (threadDelay)
 
 untilJust :: (Monad m) => m (Maybe a) -> m a
 untilJust loopBody = do
@@ -54,9 +63,9 @@ untilM loopBody = do
     else untilM loopBody
 
 withCallIds ::
-  MonadIO m => RIO (CounterVar CallId.CallId) b -> m b
+  MonadIO m => ReaderT (CounterVar CallId.CallId) m b -> m b
 withCallIds f =
-  CallId.newCallIdCounter >>= flip runRIO f
+  CallId.newCallIdCounter >>= runReaderT f
 
 allEqOrdShowMethodsImplemented :: forall a proxy. (Arbitrary a, Ord a, Show a) => proxy a -> Property
 allEqOrdShowMethodsImplemented _ = property $ \(x :: a) (y :: a) ->
@@ -127,9 +136,9 @@ allEnumMethodsImplemented _ =
             === x
               .&&. last (enumFromTo x y)
             === y
-              .&&.
-            ( x >= maxBound .||.  enumFromThenTo x (succ x) y
-            === enumFromTo x y)
+              .&&. ( x >= maxBound .||. enumFromThenTo x (succ x) y
+                       === enumFromTo x y
+                   )
 
 -- message box dummy implementation
 

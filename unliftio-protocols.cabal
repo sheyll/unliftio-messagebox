@@ -197,9 +197,7 @@ test-suite unliftio-protocols-test
     tasty-hunit,
     tasty-quickcheck,
     unliftio-protocols,
-    HUnit,
-    rio
-
+    HUnit
               
 benchmark unliftio-protocols-bench
   import: deps, compiler-flags-executables
@@ -213,5 +211,4 @@ benchmark unliftio-protocols-bench
   ghc-options:  -Wno-missing-signatures 
   build-depends:
     unliftio-protocols,
-    criterion,
-    rio
+    criterion

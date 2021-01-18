@@ -25,7 +25,7 @@
 -- which are processed by m consumers
 module BookStoreBenchmark (benchmark) where
 
-import Control.Monad (replicateM)
+import Control.Monad (unless, replicateM)
 import Criterion.Types
   (Benchmark,  bench,
     bgroup,
@@ -52,15 +52,14 @@ import Protocol.MessageBox.Class
     ( IsMessageBox(newInput, receive),
       IsMessageBoxFactory(newMessageBox),
       handleMessage )
-import RIO
+import UnliftIO
   ( MonadIO (liftIO),
     MonadUnliftIO,
     conc,
     runConc,
-    runRIO,
-    traverse_,
-    unless,
   )
+import Control.Monad.Reader (ReaderT(runReaderT))
+import Data.Foldable (traverse_)
 
 mkExampleBook :: Int -> Book
 mkExampleBook !i =
@@ -106,7 +105,7 @@ onlyCasts ::
   m ()
 onlyCasts !msgGen !impl (!nP, !nMTotal, !nC) = do
   freshCounter <- newCounterVar
-  runRIO (MkBookStoreEnv {_fresh = freshCounter}) $ do
+  flip runReaderT (MkBookStoreEnv {_fresh = freshCounter}) $ do
     bookStoreOutput <- newMessageBox impl
     bookStoreInput <- newInput bookStoreOutput
     let producer 0 = pure ()
@@ -154,7 +153,7 @@ castsAndCalls
     (!nCustomers, !nRequestsPerStore)
     ) = do
     freshCounter <- newCounterVar
-    runRIO (MkBookStoreEnv {_fresh = freshCounter}) $ do
+    flip runReaderT (MkBookStoreEnv {_fresh = freshCounter}) $ do
       let -- donate nDonationsPerStore books to all bookStores
           donor !bookStores !producerId =
             let books !storeId =

@@ -13,7 +13,9 @@
 -- | Test race conditions
 module CornerCaseTests (test) where
 
+import Control.Monad.Reader (ReaderT (runReaderT))
 import Data.Semigroup (Any (Any, getAny), Semigroup (stimes))
+import GHC.Stack (HasCallStack)
 import Protocol.Command
   ( Command,
     CommandError (BlockingCommandTimedOut),
@@ -35,11 +37,6 @@ import Protocol.MessageBox.Class
   )
 import qualified Protocol.MessageBox.Limited as B
 import qualified Protocol.MessageBox.Unlimited as U
-import RIO
-  ( HasCallStack,
-    runRIO,
-    threadDelay,
-  )
 import System.Mem (performMajorGC, performMinorGC)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit
@@ -58,7 +55,7 @@ import UnliftIO
     takeMVar,
     timeout,
   )
-import UnliftIO.Concurrent (forkIO, yield)
+import UnliftIO.Concurrent (forkIO, threadDelay, yield)
 
 test :: TestTree
 test =
@@ -145,7 +142,7 @@ waitForMessageFromDeadProcess ::
 waitForMessageFromDeadProcess outputCfg =
   do
     firstMessageSent <- newEmptyMVar
-    let msg1 = 42 
+    let msg1 = 42
     output <- newMessageBox outputCfg
     _ <- forkIO $ do
       input <- newInput output
@@ -155,7 +152,7 @@ waitForMessageFromDeadProcess outputCfg =
     receive output
       >>= maybe
         (assertFailure "failed to receive first message")
-        (assertEqual "invalid first message received!" msg1 )
+        (assertEqual "invalid first message received!" msg1)
     threadDelay 10_000
     liftIO performMinorGC
     liftIO performMajorGC
@@ -235,13 +232,13 @@ waitForCallReplyFromDeadServer outputCfg =
     return cr
 
 waitForCallReplyFromDeadServerClient ::
-  (MonadIO m, IsInput o) =>
+  (MonadIO m, IsInput o, MonadUnliftIO m) =>
   MVar (o (Message TestServer)) ->
   m WaitForCallReplyFromDeadServerResult
 waitForCallReplyFromDeadServerClient ready = do
   input <- takeMVar ready
   cic <- CallId.newCallIdCounter
-  runRIO cic (threadDelay 1_000 >> call input TestCall 100_000)
+  runReaderT (threadDelay 1_000 >> call input TestCall 100_000) cic
     >>= either
       (return . CallFailed)
       (const (return WaitForCallReplyFromDeadServerResult))
@@ -280,9 +277,9 @@ waitForCallReplyFromDeadServerServer outputCfg ready = do
 data TestServer
 
 data instance Command TestServer _ where
-  TestCall :: Command TestServer ( 'Return ())
+  TestCall :: Command TestServer ('Return ())
 
-deriving stock instance Show (Command TestServer ( 'Return ()))
+deriving stock instance Show (Command TestServer ('Return ()))
 
 -- Simple server loop
 

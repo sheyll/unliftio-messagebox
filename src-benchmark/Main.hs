@@ -43,7 +43,7 @@ import Protocol.MessageBox.Class
   )
 import qualified Protocol.MessageBox.Limited as L
 import qualified Protocol.MessageBox.Unlimited as U
-import RIO (MonadUnliftIO, conc, runConc)
+import UnliftIO (MonadUnliftIO, conc, runConc)
 
 main =
   defaultMain
