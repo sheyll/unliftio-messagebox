@@ -45,7 +45,6 @@ import Criterion.Types
   )
 import Data.Map (Map)
 import qualified Data.Map.Strict as Map
-import Data.Semigroup (Semigroup (stimes))
 import Data.Set (Set)
 import qualified Data.Set as Set
 import GHC.Stack (HasCallStack)
@@ -90,81 +89,10 @@ benchmark cfg =
     "Media"
     $ [ bench ("Mixing/" ++ show p) (nfAppIO (mediaAppBenchmark cfg) p)
         | p <-
-            [ Param 100 500 4,
+            [ -- Param 100 500 4,
               Param 100 1000 4
             ]
       ]
-      ++ [ bench
-             ( "fetchDsps/"
-                 ++ show nF
-                 ++ "fetches/"
-                 ++ show nC
-                 ++ "clients"
-             )
-             (nfAppIO (fetchDspsBench cfg) (nF, nC))
-           | (nF, nC) <-
-               [(100000, 1), (100000, 1000)]
-         ]
-
--- | Run @nClients@ processes that each call 'FetchDsps' so many times
--- that globally @nFetchesTotal@ times 'FetchDsps' is called.
-fetchDspsBench ::
-  forall cfg.
-  (IsMessageBoxFactory cfg) =>
-  cfg ->
-  (Int, Int) ->
-  IO ()
-fetchDspsBench cfg (nFetchesTotal, nClients) =
-  let startClients serverOut =
-        stimes nClients (conc (client perClientWork))
-        where
-          client 0 = return ()
-          client !workLeft =
-            call serverOut FetchDsps 500_000
-              >>= either
-                (error . show)
-                (const (client (workLeft - 1)))
-
-      startServer ::
-        ReaderT
-          (CounterVar CallId)
-          IO
-          ( Input (MessageBox cfg) (Message MediaApi),
-            Conc (ReaderT (CounterVar CallId) IO) ()
-          )
-      startServer = do
-        serverIn <- newMessageBox cfg
-        serverOut <- newInput serverIn
-        let dspSet = Set.fromList [0 .. 4096]
-        return (serverOut, conc (server serverWork serverIn dspSet))
-        where
-          server ::
-            Int ->
-            MessageBox cfg (Message MediaApi) ->
-            Set DspId ->
-            ReaderT (CounterVar CallId) IO ()
-          server 0 _ _ = return ()
-          server !workLeft !serverIn !dspSet =
-            handleMessage
-              serverIn
-              ( \case
-                  Blocking FetchDsps replyBox -> do
-                    replyTo replyBox dspSet
-                    server (workLeft - 1) serverIn dspSet
-                  Blocking other _ ->
-                    error ("unexpected command: " ++ show other)
-                  NonBlocking other ->
-                    error ("unexpected command: " ++ show other)
-              )
-              >>= maybe (error "handleMessage failed") return
-
-      perClientWork = nFetchesTotal `div` nClients
-      serverWork = perClientWork * nClients -- not the same as nFetchesTotal
-   in do
-        callIdCounter <- newCounterVar
-        flip runReaderT callIdCounter $ do
-          (serverOut, serverConc) <- startServer
-          runConc (serverConc <> startClients serverOut)
 
 -- | A benchmark of a fictional media mixing application.
 --
@@ -346,7 +274,7 @@ mediaAppBenchmark cfg param = do
                 replyTo r ()
                 return Nothing -- exit
               NonBlocking (Join !_mgId !memberId !callBack) ->
-                call mediaInput FetchDsps 50_000
+                call mediaInput FetchDsps 500_000
                   >>= either
                     ( \ !mErr -> do
                         void $ deliver callBack (MemberUnJoined mgId memberId)
@@ -360,7 +288,7 @@ mediaAppBenchmark cfg param = do
                                in ks !! ki
                             doAdd !theMixerId !theMembers =
                               let !m = AddToMixer theMixerId memberId
-                               in call mediaInput m 200_000
+                               in call mediaInput m 500_000
                                     >>= \case
                                       Left !err ->
                                         error (show m ++ " failed: " ++ show err)

@@ -48,11 +48,12 @@ benchmark =
   where
     go :: SomeBench -> [Benchmark]
     go (SomeBench b) =
-      [ (\x -> bgroup (show x) [b x]) U.BlockingUnlimited,
-        (\x -> bgroup (show x) [b x]) (CatchAllFactory U.BlockingUnlimited),
-        (\x -> bgroup (show x) [b x]) (L.BlockingBoxLimit L.MessageLimit_256),
-        (\x -> bgroup (show x) [b x]) (L.WaitingBoxLimit Nothing 5_000_000 L.MessageLimit_256),
-        (\x -> bgroup (show x) [b x]) (L.WaitingBoxLimit (Just 60_000_000) 5_000_000 L.MessageLimit_256)
+      [ (\x -> bgroup "Unlimited" [b x]) U.BlockingUnlimited,
+        (\x -> bgroup "CatchUnlimited" [b x]) (CatchAllFactory U.BlockingUnlimited),
+        -- (\x -> bgroup (show x) [b x]) (L.BlockingBoxLimit L.MessageLimit_256),
+        -- (\x -> bgroup (show x) [b x]) (L.WaitingBoxLimit Nothing 5_000_000 L.MessageLimit_256),
+        (\x -> bgroup "Waiting256" [b x]) (L.WaitingBoxLimit (Just 60_000_000) 5_000_000 L.MessageLimit_256)
       ]
 
-newtype SomeBench = SomeBench {_fromSomeBench :: forall cfg. (Show cfg, IsMessageBoxFactory cfg) => (cfg -> Benchmark)}
+newtype SomeBench = SomeBench
+  {_fromSomeBench :: forall cfg. (Show cfg, IsMessageBoxFactory cfg) => (cfg -> Benchmark)}

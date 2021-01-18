@@ -232,9 +232,9 @@ benchmark cfg =
             )
           | noMessages <- [100_000],
             (senderNo, receiverNo) <-
-              [ (1, 1000),
-                (10, 100),
+              [ -- (1, 1000),
                 (1, 1),
+                (10, 10),
                 (1000, 1)
               ]
         ],
@@ -257,7 +257,7 @@ benchmark cfg =
                 ((nDonors, nDonationsPerStore), nStores, (nCustomers, nGetBooksPerStore))
             )
           | ((nDonors, nDonationsPerStore), nStores, (nCustomers, nGetBooksPerStore)) <-
-              [ ((1, 1), 1, (1, 1)),
+              [ -- ((1, 1), 1, (1, 1)),
                 ((500, 10), 10, (500, 10))
               ]
         ]

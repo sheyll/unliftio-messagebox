@@ -49,7 +49,7 @@ main =
   defaultMain
     [ CommandBenchmark.benchmark,
       bgroup
-        "unidirectionalMessagePassing"
+        "Messaging"
         [ bench
             ( mboxImplTitle <> " "
                 <> show noMessages
@@ -65,36 +65,37 @@ main =
           | noMessages <- [100_000],
             (isNonBlocking, mboxImplTitle, impl) <-
               [ let x = U.BlockingUnlimited
-                 in (False, show x, unidirectionalMessagePassing mkTestMessage x),
-                let x = L.BlockingBoxLimit L.MessageLimit_1
-                 in (False, show x, unidirectionalMessagePassing mkTestMessage x),
-                let x = L.BlockingBoxLimit L.MessageLimit_16
-                 in (False, show x, unidirectionalMessagePassing mkTestMessage x),
-                let x = L.BlockingBoxLimit L.MessageLimit_32
-                 in (False, show x, unidirectionalMessagePassing mkTestMessage x),
-                let x = L.BlockingBoxLimit L.MessageLimit_64
-                 in (False, show x, unidirectionalMessagePassing mkTestMessage x),
-                let x = L.BlockingBoxLimit L.MessageLimit_128
-                 in (False, show x, unidirectionalMessagePassing mkTestMessage x),
-                let x = L.BlockingBoxLimit L.MessageLimit_256
-                 in (False, show x, unidirectionalMessagePassing mkTestMessage x),
-                let x = L.BlockingBoxLimit L.MessageLimit_512
-                 in (False, show x, unidirectionalMessagePassing mkTestMessage x),
-                let x = L.BlockingBoxLimit L.MessageLimit_4096
-                 in (False, show x, unidirectionalMessagePassing mkTestMessage x),
-                let x = L.NonBlockingBoxLimit L.MessageLimit_128
-                 in (True, show x, unidirectionalMessagePassing mkTestMessage x),
-                let x = L.WaitingBoxLimit Nothing 5_000_000 L.MessageLimit_128
-                 in (False, show x, unidirectionalMessagePassing mkTestMessage x),
-                let x = L.WaitingBoxLimit (Just 60_000_000) 5_000_000 L.MessageLimit_128
-                 in (True, show x, unidirectionalMessagePassing mkTestMessage x),
+                 in (False, "Unlimited", unidirectionalMessagePassing mkTestMessage x),
                 let x = CatchAllFactory U.BlockingUnlimited
-                 in (False, show x, unidirectionalMessagePassing mkTestMessage x),
-                let x = CatchAllFactory (L.BlockingBoxLimit L.MessageLimit_128)
-                 in (False, show x, unidirectionalMessagePassing mkTestMessage x)
+                 in (False, "CatchUnlimited", unidirectionalMessagePassing mkTestMessage x),
+                -- let x = L.BlockingBoxLimit L.MessageLimit_1
+                --  in (False, show x, unidirectionalMessagePassing mkTestMessage x),
+                -- let x = L.BlockingBoxLimit L.MessageLimit_16
+                --  in (False, show x, unidirectionalMessagePassing mkTestMessage x),
+                -- let x = L.BlockingBoxLimit L.MessageLimit_32
+                --  in (False, show x, unidirectionalMessagePassing mkTestMessage x),
+                -- let x = L.BlockingBoxLimit L.MessageLimit_64
+                --  in (False, show x, unidirectionalMessagePassing mkTestMessage x),
+                -- let x = L.BlockingBoxLimit L.MessageLimit_128
+                --  in (False, show x, unidirectionalMessagePassing mkTestMessage x),
+                let x = L.BlockingBoxLimit L.MessageLimit_256
+                 in (False, "Blocking256", unidirectionalMessagePassing mkTestMessage x),
+                -- ,
+                -- let x = L.BlockingBoxLimit L.MessageLimit_512
+                --  in (False, show x, unidirectionalMessagePassing mkTestMessage x),
+                -- let x = L.BlockingBoxLimit L.MessageLimit_4096
+                --  in (False, show x, unidirectionalMessagePassing mkTestMessage x),
+                let x = L.NonBlockingBoxLimit L.MessageLimit_128
+                  in (True, show x, unidirectionalMessagePassing mkTestMessage x),
+                -- let x = L.WaitingBoxLimit Nothing 5_000_000 L.MessageLimit_128
+                --  in (False, show x, unidirectionalMessagePassing mkTestMessage x),
+                let x = L.WaitingBoxLimit (Just 60_000_000) 5_000_000 L.MessageLimit_256
+                 in (True, "Waiting256", unidirectionalMessagePassing mkTestMessage x)
+                -- let x = CatchAllFactory (L.BlockingBoxLimit L.MessageLimit_128)
+                --  in (False, show x, unidirectionalMessagePassing mkTestMessage x)
               ],
             (senderNo, receiverNo) <-
-              [ (1, 1000),
+              [ -- (1, 1000),
                 (10, 100),
                 (1, 1),
                 (1000, 1)
