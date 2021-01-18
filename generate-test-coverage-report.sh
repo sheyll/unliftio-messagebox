@@ -9,8 +9,10 @@ TARGET=${1:-/tmp}
 TARGET0=$(mktemp -u)
 
 nix-build \
-    ${HERE}/test-coverage-report.nix \
-    -o ${TARGET0}
+    --cores  0 \
+    --max-jobs auto \
+    -o ${TARGET0} \
+    ${HERE}/generate-test-coverage-report.nix
 
 rm -rf ${TARGET}/test-coverage-report 
 mkdir -p ${TARGET}/test-coverage-report 
@@ -18,7 +20,7 @@ cp --no-preserve=mode \
    --no-preserve=ownership \
    --no-preserve=timestamps \
    --recursive --dereference \
-    ${TARGET0}/test-coverage-report.link/share/hpc/vanilla/html/unliftio-protocols-* \
+    ${TARGET0}/share/hpc/vanilla/html/unliftio-protocols-* \
     ${TARGET}/test-coverage-report
 
 rm ${TARGET0}
