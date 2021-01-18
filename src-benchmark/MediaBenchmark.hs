@@ -67,7 +67,7 @@ import Protocol.Fresh
     HasCounterVar (getCounterVar),
     newCounterVar,
   )
-import Protocol.MessageBox.Class
+import UnliftIO.MessageBox.Class
   ( IsInput (..),
     IsMessageBox (..),
     IsMessageBoxFactory (..),

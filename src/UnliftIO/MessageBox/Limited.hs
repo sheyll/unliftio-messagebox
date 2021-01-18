@@ -12,7 +12,7 @@
 -- If you are sure that the producers fire at a slower rate
 -- then the rate at which the consumer consumes messages, use this
 -- module.
-module Protocol.MessageBox.Limited
+module UnliftIO.MessageBox.Limited
   ( MessageLimit (..),
     messageLimitToInt,
     BlockingBoxLimit (..),
@@ -32,7 +32,7 @@ import Control.Monad (unless)
 import Data.Functor (($>))
 import Data.Maybe (fromMaybe)
 import Protocol.Future (Future (..))
-import qualified Protocol.MessageBox.Class as Class
+import qualified UnliftIO.MessageBox.Class as Class
 import UnliftIO
   ( MonadIO (liftIO),
     MonadUnliftIO,

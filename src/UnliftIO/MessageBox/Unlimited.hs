@@ -10,8 +10,8 @@
 -- consumes messages, use this module.
 --
 -- Otherwise use the more conservative
--- "Protocol.MessageBox.Limited" module.
-module Protocol.MessageBox.Unlimited
+-- "UnliftIO.MessageBox.Limited" module.
+module UnliftIO.MessageBox.Unlimited
   ( UnlimitedMessageBox (..),
     MessageBox (),
     Input (),
@@ -22,7 +22,7 @@ where
 import qualified Control.Concurrent.Chan.Unagi as Unagi
 import Data.Functor (($>))
 import Protocol.Future (Future (..))
-import qualified Protocol.MessageBox.Class as Class
+import qualified UnliftIO.MessageBox.Class as Class
 import UnliftIO
   ( MonadIO (liftIO),
     MonadUnliftIO,

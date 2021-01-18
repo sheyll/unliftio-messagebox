@@ -29,7 +29,7 @@ import Protocol.Command.CallId
     HasCallIdCounter,
   )
 import qualified Protocol.Command.CallId as CallId
-import qualified Protocol.MessageBox.Class as MessageBox
+import qualified UnliftIO.MessageBox.Class as MessageBox
 import UnliftIO
   ( Exception,
     MonadUnliftIO,

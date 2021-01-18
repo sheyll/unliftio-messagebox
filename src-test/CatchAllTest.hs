@@ -5,8 +5,8 @@ module CatchAllTest (test) where
 
 import Data.Proxy
 import Protocol.Future
-import Protocol.MessageBox.CatchAll
-import Protocol.MessageBox.Class
+import UnliftIO.MessageBox.CatchAll
+import UnliftIO.MessageBox.Class
 import QCOrphans ()
 import Test.Tasty
 import Test.Tasty.HUnit

@@ -4,8 +4,8 @@
 module QCOrphans () where
 
 import Protocol.Command.CallId
-import Protocol.MessageBox.CatchAll (CatchAllFactory (..))
-import qualified Protocol.MessageBox.Limited as Limited
+import UnliftIO.MessageBox.CatchAll (CatchAllFactory (..))
+import qualified UnliftIO.MessageBox.Limited as Limited
 import Test.QuickCheck (Arbitrary (arbitrary), elements)
 
 instance Arbitrary Limited.MessageLimit where

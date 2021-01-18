@@ -25,13 +25,13 @@ import Data.Maybe
 import Data.Proxy (Proxy (Proxy))
 import MessageBoxCommon (testContentionRobustness)
 import Protocol.Future (tryNow)
-import Protocol.MessageBox.Class
+import UnliftIO.MessageBox.Class
   ( IsInput (deliver),
     IsMessageBox (newInput, receive, tryReceive),
     IsMessageBoxFactory (MessageBox, newMessageBox),
     receiveAfter,
   )
-import Protocol.MessageBox.Limited
+import UnliftIO.MessageBox.Limited
   ( BlockingBoxLimit (..),
     MessageLimit (..),
     NonBlockingBoxLimit (..),
@@ -61,7 +61,7 @@ import Utils (allEnumMethodsImplemented, allEqOrdShowMethodsImplemented)
 test :: Tasty.TestTree
 test =
   testGroup
-    "Protocol.MessageBox.Limited"
+    "UnliftIO.MessageBox.Limited"
     [ testBlockingBox,
       testWaitingBox,
       testNonBlockingBox,

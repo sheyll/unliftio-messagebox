@@ -27,7 +27,7 @@ import Protocol.Command.CallId
   ( CallId (MkCallId),
   )
 import qualified Protocol.Command.CallId as CallId
-import Protocol.MessageBox.Class
+import UnliftIO.MessageBox.Class
   ( Input,
     IsInput (deliver),
     IsMessageBox (newInput, receive),
@@ -35,8 +35,8 @@ import Protocol.MessageBox.Class
     handleMessage,
     receiveAfter,
   )
-import qualified Protocol.MessageBox.Limited as B
-import qualified Protocol.MessageBox.Unlimited as U
+import qualified UnliftIO.MessageBox.Limited as B
+import qualified UnliftIO.MessageBox.Unlimited as U
 import System.Mem (performMajorGC, performMinorGC)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit

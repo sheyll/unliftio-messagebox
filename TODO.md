@@ -3,8 +3,8 @@ TODO
 
 ## Rename and Refactor Project
 
-* Rename from unliftio-protocols to **unliftio-messagebox**
-* Refactor modules to be in `UnliftIO.MessageBox` 
+* **DONE** Rename from unliftio-protocols to **unliftio-messagebox**
+* **DONE** Move `Protocol.MessageBox.*` to `UnliftIO.MessageBox` 
 * Move `Protocol.Command` to `UnliftIO.MessageBox.Command`
 * Move `Protocol.Fresh` to `UnliftIO.MessageBox.Util.Fresh`
 * Move `Protocol.Future` to `UnliftIO.MessageBox.Util.Future`

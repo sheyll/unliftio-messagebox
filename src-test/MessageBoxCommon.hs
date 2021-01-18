@@ -21,7 +21,7 @@ import qualified Data.Map.Strict as Map
 import Data.Maybe
   ( fromMaybe,
   )
-import Protocol.MessageBox.Class
+import UnliftIO.MessageBox.Class
   ( IsInput (deliver),
     IsMessageBox (newInput, receive),
   )

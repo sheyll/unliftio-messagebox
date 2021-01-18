@@ -46,16 +46,16 @@ import Protocol.Command
 import Protocol.Command.CallId (CallId (MkCallId))
 import qualified Protocol.Command.CallId as CallId
 import Protocol.Fresh (CounterVar, fresh, newCounterVar)
-import Protocol.MessageBox.Class
+import UnliftIO.MessageBox.Class
   ( IsMessageBox (..),
     IsMessageBoxFactory (..),
     handleMessage,
   )
-import Protocol.MessageBox.Limited
+import UnliftIO.MessageBox.Limited
   ( BlockingBoxLimit (BlockingBoxLimit),
     MessageLimit (..),
   )
-import Protocol.MessageBox.Unlimited (UnlimitedMessageBox (UnlimitedMessageBox))
+import UnliftIO.MessageBox.Unlimited (UnlimitedMessageBox (UnlimitedMessageBox))
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit
   ( assertBool,

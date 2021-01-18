@@ -23,7 +23,7 @@ import Data.Maybe (fromMaybe)
 import qualified Protocol.Command.CallId as CallId
 import Protocol.Fresh (CounterVar)
 import Protocol.Future (Future (Future))
-import Protocol.MessageBox.Class
+import UnliftIO.MessageBox.Class
   ( IsInput (..),
     IsMessageBox (Input, newInput, receive, tryReceive),
     IsMessageBoxFactory (..),

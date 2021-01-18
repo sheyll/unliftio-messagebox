@@ -149,10 +149,10 @@ library
     Protocol.Command.CallId,
     Protocol.Fresh,
     Protocol.Future,
-    Protocol.MessageBox.CatchAll,
-    Protocol.MessageBox.Class,
-    Protocol.MessageBox.Limited,
-    Protocol.MessageBox.Unlimited,
+    UnliftIO.MessageBox.CatchAll,
+    UnliftIO.MessageBox.Class,
+    UnliftIO.MessageBox.Limited,
+    UnliftIO.MessageBox.Unlimited,
     Protocol.WeakThreadId
   other-modules:
   

@@ -8,10 +8,10 @@ module MessageBoxClassTest (test) where
 import Control.Monad (forM, replicateM, when)
 import Data.List (sort)
 import Protocol.Future (tryNow)
-import Protocol.MessageBox.CatchAll
+import UnliftIO.MessageBox.CatchAll
   ( CatchAllFactory (CatchAllFactory),
   )
-import Protocol.MessageBox.Class
+import UnliftIO.MessageBox.Class
   ( IsInput (..),
     IsMessageBox (..),
     IsMessageBoxFactory (..),
@@ -20,8 +20,8 @@ import Protocol.MessageBox.Class
     newInput,
     receive,
   )
-import qualified Protocol.MessageBox.Limited as B
-import qualified Protocol.MessageBox.Unlimited as U
+import qualified UnliftIO.MessageBox.Limited as B
+import qualified UnliftIO.MessageBox.Unlimited as U
 import Test.Tasty as Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit
   ( assertBool,
@@ -46,7 +46,7 @@ import Utils
 test :: Tasty.TestTree
 test =
   Tasty.testGroup
-    "Protocol.MessageBox.Class"
+    "UnliftIO.MessageBox.Class"
     [ utilTest,
       testWith U.UnlimitedMessageBox,
       testWith $ CatchAllFactory U.UnlimitedMessageBox,

@@ -27,14 +27,14 @@ import Criterion.Types
     bgroup,
   )
 import qualified MediaBenchmark
-import Protocol.MessageBox.CatchAll
+import UnliftIO.MessageBox.CatchAll
   ( CatchAllFactory (CatchAllFactory),
   )
-import Protocol.MessageBox.Class
+import UnliftIO.MessageBox.Class
   ( IsMessageBoxFactory (..),
   )
-import qualified Protocol.MessageBox.Limited as L
-import qualified Protocol.MessageBox.Unlimited as U
+import qualified UnliftIO.MessageBox.Limited as L
+import qualified UnliftIO.MessageBox.Unlimited as U
 
 benchmark =
   bgroup

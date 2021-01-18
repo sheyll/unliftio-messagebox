@@ -1,7 +1,7 @@
 -- | This module contains a type class that
 -- describes exchangable operations on messages
 -- boxes.
-module Protocol.MessageBox.Class
+module UnliftIO.MessageBox.Class
   ( IsMessageBoxFactory (..),
     IsMessageBox (..),
     IsInput (..),

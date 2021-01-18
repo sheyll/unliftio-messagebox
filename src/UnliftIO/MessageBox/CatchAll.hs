@@ -2,9 +2,9 @@
 
 -- | Utilities for exception safe message boxes.
 --
--- This provides a wrapper around "Protocol.MessageBox.Class" instances
+-- This provides a wrapper around "UnliftIO.MessageBox.Class" instances
 -- to catch 'SomeException' in all methods like 'deliver' and 'receive'.
-module Protocol.MessageBox.CatchAll
+module UnliftIO.MessageBox.CatchAll
   ( CatchAllFactory (..),
     CatchAllBox (..),
     CatchAllInput (..),
@@ -12,7 +12,7 @@ module Protocol.MessageBox.CatchAll
 where
 
 import Protocol.Future (Future (Future))
-import Protocol.MessageBox.Class
+import UnliftIO.MessageBox.Class
   ( IsInput (..),
     IsMessageBox (..),
     IsMessageBoxFactory (..),
