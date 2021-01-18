@@ -1,16 +1,24 @@
 #!/usr/bin/env bash
 
-set -xe
+set -xue
 
 HERE=$(realpath $(dirname "$0"))
 
-rm -rf ${HERE}/test-coverage-report
+TARGET=${1:-/tmp}
 
-#nix-build ${HERE}/test-coverage-report.nix -o ${HERE}/test-coverage-report.link
+TARGET0=$(mktemp -u)
 
-cp --no-preserve=mode --no-preserve=ownership --no-preserve=timestamps\
-     --recursive --dereference \
-    ${HERE}/test-coverage-report.link/share/hpc/vanilla/html/unliftio-protocols-* \
-    ${HERE}/test-coverage-report
+nix-build \
+    ${HERE}/test-coverage-report.nix \
+    -o ${TARGET0}
 
-rm ${HERE}/test-coverage-report.link
+rm -rf ${TARGET}/test-coverage-report 
+mkdir -p ${TARGET}/test-coverage-report 
+cp --no-preserve=mode \
+   --no-preserve=ownership \
+   --no-preserve=timestamps \
+   --recursive --dereference \
+    ${TARGET0}/test-coverage-report.link/share/hpc/vanilla/html/unliftio-protocols-* \
+    ${TARGET}/test-coverage-report
+
+rm ${TARGET0}
