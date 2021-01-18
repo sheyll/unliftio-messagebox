@@ -4,7 +4,7 @@
 }:
 pkgs.haskell-nix.project {
   src = pkgs.haskell-nix.haskellLib.cleanGit {
-    name = "unliftio-protocols";
+    name = "unliftio-messagebox";
     src = ./.;
   };
   projectFileName = "cabal.project";
@@ -12,16 +12,16 @@ pkgs.haskell-nix.project {
   modules =
     [
       {
-        packages.unliftio-protocols.components.library.doCoverage = withCoverage;
-        packages.unliftio-protocols.components.tests.unliftio-protocols-test.doCoverage = withCoverage;
+        packages.unliftio-messagebox.components.library.doCoverage = withCoverage;
+        packages.unliftio-messagebox.components.tests.unliftio-messagebox-test.doCoverage = withCoverage;
       }
     ] ++
     (if withProfiling then
       [{
-        packages.unliftio-protocols.components.library.enableLibraryProfiling = true;
-        packages.unliftio-protocols.components.exes.unliftio-protocols-example-1.enableExecutableProfiling = true;
-        packages.unliftio-protocols.components.tests.unliftio-protocols-test.enableExecutableProfiling = true;
-        packages.unliftio-protocols.components.benchmarks.unliftio-protocols-bench.enableExecutableProfiling = true;
+        packages.unliftio-messagebox.components.library.enableLibraryProfiling = true;
+        packages.unliftio-messagebox.components.exes.unliftio-messagebox-example-1.enableExecutableProfiling = true;
+        packages.unliftio-messagebox.components.tests.unliftio-messagebox-test.enableExecutableProfiling = true;
+        packages.unliftio-messagebox.components.benchmarks.unliftio-messagebox-bench.enableExecutableProfiling = true;
       }] else [ ]);
 
 }

@@ -7,10 +7,10 @@ pkgs.runCommand "test-reports" {
   } ''
   mkdir -p $out
   cd $out
-  $unitTest/bin/unliftio-protocols-test --html test-result.html
-  # produce unliftio-protocols-test.html
-  $hp2html/bin/hp2html unliftio-protocols-test.hp
-  # produce unliftio-protocols-test.svg
-  $hp2pretty/bin/hp2pretty unliftio-protocols-test.hp
+  $unitTest/bin/unliftio-messagebox-test --html test-result.html
+  # produce unliftio-messagebox-test.html
+  $hp2html/bin/hp2html unliftio-messagebox-test.hp
+  # produce unliftio-messagebox-test.svg
+  $hp2pretty/bin/hp2pretty unliftio-messagebox-test.hp
 ''
 

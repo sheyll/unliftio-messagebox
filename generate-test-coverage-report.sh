@@ -20,7 +20,7 @@ cp --no-preserve=mode \
    --no-preserve=ownership \
    --no-preserve=timestamps \
    --recursive --dereference \
-    ${TARGET0}/share/hpc/vanilla/html/unliftio-protocols-*/* \
+    ${TARGET0}/share/hpc/vanilla/html/unliftio-messagebox-*/* \
     ${TARGET}/test-coverage-report
 
 rm ${TARGET0}

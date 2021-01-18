@@ -1,8 +1,8 @@
 cradle:
   cabal:
     - path: "./src/"
-      component: "unliftio-protocols"
+      component: "unliftio-messagebox"
     - path: "./src-benchmark/"
-      component: "unliftio-protocols-bench"
+      component: "unliftio-messagebox-bench"
     - path: "./src-test"
-      component: "unliftio-protocols-test"
+      component: "unliftio-messagebox-test"

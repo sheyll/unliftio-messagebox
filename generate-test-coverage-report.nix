@@ -1,2 +1,2 @@
-(import ./default.nix { withProfiling = false; withCoverage = true; }).unliftio-protocols.coverageReport
+(import ./default.nix { withProfiling = false; withCoverage = true; }).unliftio-messagebox.coverageReport
 

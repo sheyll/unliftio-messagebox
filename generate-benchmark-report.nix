@@ -6,8 +6,8 @@ pkgs.runCommand "test-reports"
   mkdir -p $out
   cd $out
 
-  $benchmark/bin/unliftio-protocols-bench -o benchmark-1-CORES.html +RTS -N1
-  $benchmark/bin/unliftio-protocols-bench -o benchmark-2-CORES.html +RTS -N2
-  $benchmark/bin/unliftio-protocols-bench -o benchmark-ALL-CORES.html +RTS -N
+  $benchmark/bin/unliftio-messagebox-bench -o benchmark-1-CORES.html +RTS -N1
+  $benchmark/bin/unliftio-messagebox-bench -o benchmark-2-CORES.html +RTS -N2
+  $benchmark/bin/unliftio-messagebox-bench -o benchmark-ALL-CORES.html +RTS -N
 ''
 

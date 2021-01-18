@@ -1,10 +1,10 @@
 cabal-version:  3.0
-name:           unliftio-protocols
+name:           unliftio-messagebox
 version:        0.1.0
-description:    Please see the README on GitHub at <https://github.com/sheyll/unliftio-protocols#readme>
+description:    Please see the README on GitHub at <https://github.com/sheyll/unliftio-messagebox#readme>
 synopsis:       Fork processes that receive and reply typed messages
-homepage:       https://github.com/sheyll/unliftio-protocols#readme
-bug-reports:    https://github.com/sheyll/unliftio-protocols/issues
+homepage:       https://github.com/sheyll/unliftio-messagebox#readme
+bug-reports:    https://github.com/sheyll/unliftio-messagebox/issues
 author:         Sven Heyll
 maintainer:     sven.heyll@gmail.com
 category:       Concurrency, Control, Effect
@@ -27,7 +27,7 @@ extra-source-files:
 
 source-repository head
   type: git
-  location: https://github.com/sheyll/unliftio-protocols
+  location: https://github.com/sheyll/unliftio-messagebox
 
 common compiler-flags-executables
   ghc-options:
@@ -156,18 +156,18 @@ library
     Protocol.WeakThreadId
   other-modules:
   
--- executable unliftio-protocols-example-1
+-- executable unliftio-messagebox-example-1
 --   import: deps, compiler-flags
 --   main-is: Main.hs
 --   hs-source-dirs: examples/example-1
---   build-depends: unliftio-protocols
+--   build-depends: unliftio-messagebox
 --   ghc-options: -threaded
 --   ghc-prof-options: -fprof-auto "-with-rtsopts=-T -xt -Pa -hc -L256"
 --   default-extensions:
 --     OverloadedStrings
 -- 
 
-test-suite unliftio-protocols-test
+test-suite unliftio-messagebox-test
   import: deps, compiler-flags-executables
   type: exitcode-stdio-1.0
   main-is: Main.hs
@@ -196,10 +196,10 @@ test-suite unliftio-protocols-test
     tasty-html,
     tasty-hunit,
     tasty-quickcheck,
-    unliftio-protocols,
+    unliftio-messagebox,
     HUnit
               
-benchmark unliftio-protocols-bench
+benchmark unliftio-messagebox-bench
   import: deps, compiler-flags-executables
   type: exitcode-stdio-1.0
   main-is: Main.hs
@@ -210,5 +210,5 @@ benchmark unliftio-protocols-bench
   hs-source-dirs: src-benchmark
   ghc-options:  -Wno-missing-signatures 
   build-depends:
-    unliftio-protocols,
+    unliftio-messagebox,
     criterion

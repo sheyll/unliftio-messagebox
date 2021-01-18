@@ -3,7 +3,7 @@ let
   pkgs = import nix/pkgs.nix;
 in
 (import ./default.nix { inherit pkgs withProfiling; }).shellFor {
-  packages = p: [ p.unliftio-protocols ];
+  packages = p: [ p.unliftio-messagebox ];
   withHoogle = true;
   tools = {
     cabal = "3.2.0.0";
