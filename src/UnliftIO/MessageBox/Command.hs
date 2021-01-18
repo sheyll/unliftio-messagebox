@@ -2,7 +2,7 @@
 
 -- | Abstractions for the definition of
 -- 'Command' 'Messages', that flow between
-module Protocol.Command
+module UnliftIO.MessageBox.Command
   ( Message (..),
     Command,
     ReturnType (..),
@@ -24,11 +24,11 @@ import Control.Applicative (Alternative ((<|>)))
 import Control.Monad (unless)
 import Control.Monad.Reader (MonadReader)
 import Data.Kind (Type)
-import Protocol.Command.CallId
+import UnliftIO.MessageBox.Util.CallId
   ( CallId (),
     HasCallIdCounter,
   )
-import qualified Protocol.Command.CallId as CallId
+import qualified UnliftIO.MessageBox.Util.CallId as CallId
 import qualified UnliftIO.MessageBox.Class as MessageBox
 import UnliftIO
   ( Exception,

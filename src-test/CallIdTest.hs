@@ -5,7 +5,7 @@ module CallIdTest (test) where
 import Control.Monad (replicateM)
 import Data.Data
 import Data.List (nub)
-import qualified Protocol.Command.CallId as CallId
+import qualified UnliftIO.MessageBox.Util.CallId as CallId
 import QCOrphans ()
 import Test.QuickCheck
 import Test.Tasty (TestTree, testGroup)
@@ -23,7 +23,7 @@ import Utils (allEqOrdShowMethodsImplemented, withCallIds)
 test :: TestTree
 test =
   testGroup
-    "Protocol.Command.CallId"
+    "UnliftIO.MessageBox.Util.CallId"
     [ testCase
         "Even when a CallId CounterVar is shared by multiple threads/processes, all callIds are unique"
         $ do

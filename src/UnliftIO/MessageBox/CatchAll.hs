@@ -11,7 +11,7 @@ module UnliftIO.MessageBox.CatchAll
   )
 where
 
-import Protocol.Future (Future (Future))
+import UnliftIO.MessageBox.Util.Future (Future (Future))
 import UnliftIO.MessageBox.Class
   ( IsInput (..),
     IsMessageBox (..),

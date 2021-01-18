@@ -144,16 +144,15 @@ library
       src
   build-depends:
   exposed-modules:
-    -- Protocol,
-    Protocol.Command,
-    Protocol.Command.CallId,
-    Protocol.Fresh,
-    Protocol.Future,
+    UnliftIO.MessageBox
     UnliftIO.MessageBox.CatchAll,
     UnliftIO.MessageBox.Class,
+    UnliftIO.MessageBox.Command,
     UnliftIO.MessageBox.Limited,
     UnliftIO.MessageBox.Unlimited,
-    Protocol.WeakThreadId
+    UnliftIO.MessageBox.Util.CallId,
+    UnliftIO.MessageBox.Util.Fresh,
+    UnliftIO.MessageBox.Util.Future,
   other-modules:
   
 -- executable unliftio-messagebox-example-1

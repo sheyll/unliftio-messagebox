@@ -7,7 +7,7 @@ module MessageBoxClassTest (test) where
 
 import Control.Monad (forM, replicateM, when)
 import Data.List (sort)
-import Protocol.Future (tryNow)
+import UnliftIO.MessageBox.Util.Future (tryNow)
 import UnliftIO.MessageBox.CatchAll
   ( CatchAllFactory (CatchAllFactory),
   )

@@ -31,7 +31,7 @@ import qualified Control.Concurrent.Chan.Unagi.Bounded as Unagi
 import Control.Monad (unless)
 import Data.Functor (($>))
 import Data.Maybe (fromMaybe)
-import Protocol.Future (Future (..))
+import UnliftIO.MessageBox.Util.Future (Future (..))
 import qualified UnliftIO.MessageBox.Class as Class
 import UnliftIO
   ( MonadIO (liftIO),

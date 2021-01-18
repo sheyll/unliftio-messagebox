@@ -10,7 +10,7 @@ module UnliftIO.MessageBox.Class
 where
 
 import Data.Kind (Type)
-import Protocol.Future (Future, awaitFuture)
+import UnliftIO.MessageBox.Util.Future (Future, awaitFuture)
 import UnliftIO (MonadUnliftIO, timeout)
 
 -- | Create 'IsMessageBox' instances from a parameter.

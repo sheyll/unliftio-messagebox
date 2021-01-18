@@ -3,7 +3,7 @@
 -- | Orphan instances of QuickCheck Type Classes
 module QCOrphans () where
 
-import Protocol.Command.CallId
+import UnliftIO.MessageBox.Util.CallId
 import UnliftIO.MessageBox.CatchAll (CatchAllFactory (..))
 import qualified UnliftIO.MessageBox.Limited as Limited
 import Test.QuickCheck (Arbitrary (arbitrary), elements)

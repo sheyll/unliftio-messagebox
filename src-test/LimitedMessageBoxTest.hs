@@ -24,7 +24,7 @@ import Data.Maybe
   )
 import Data.Proxy (Proxy (Proxy))
 import MessageBoxCommon (testContentionRobustness)
-import Protocol.Future (tryNow)
+import UnliftIO.MessageBox.Util.Future (tryNow)
 import UnliftIO.MessageBox.Class
   ( IsInput (deliver),
     IsMessageBox (newInput, receive, tryReceive),

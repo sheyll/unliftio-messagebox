@@ -32,7 +32,7 @@ import Criterion.Types
     nfAppIO,
   )
 import Data.Semigroup (Semigroup (stimes))
-import Protocol.Command as Command
+import UnliftIO.MessageBox.Command as Command
   ( Command,
     Message (Blocking, NonBlocking),
     ReturnType (FireAndForget, Return),
@@ -40,11 +40,11 @@ import Protocol.Command as Command
     cast,
     replyTo,
   )
-import Protocol.Command.CallId
+import UnliftIO.MessageBox.Util.CallId
   ( CallId,
     HasCallIdCounter (getCallIdCounter),
   )
-import Protocol.Fresh
+import UnliftIO.MessageBox.Util.Fresh
   ( CounterVar,
     newCounterVar,
   )

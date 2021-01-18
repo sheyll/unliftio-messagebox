@@ -16,17 +16,17 @@ module CornerCaseTests (test) where
 import Control.Monad.Reader (ReaderT (runReaderT))
 import Data.Semigroup (Any (Any, getAny), Semigroup (stimes))
 import GHC.Stack (HasCallStack)
-import Protocol.Command
+import UnliftIO.MessageBox.Command
   ( Command,
     CommandError (BlockingCommandTimedOut),
     Message (Blocking),
     ReturnType (Return),
     call,
   )
-import Protocol.Command.CallId
+import UnliftIO.MessageBox.Util.CallId
   ( CallId (MkCallId),
   )
-import qualified Protocol.Command.CallId as CallId
+import qualified UnliftIO.MessageBox.Util.CallId as CallId
 import UnliftIO.MessageBox.Class
   ( Input,
     IsInput (deliver),

@@ -1,4 +1,4 @@
-module Protocol.Command.CallId
+module UnliftIO.MessageBox.Util.CallId
   ( CallId (MkCallId),
     HasCallIdCounter (..),
     takeNext,
@@ -7,7 +7,7 @@ module Protocol.Command.CallId
 where
 
 import Control.Monad.Reader (MonadReader, asks)
-import Protocol.Fresh
+import UnliftIO.MessageBox.Util.Fresh
   ( CounterVar,
     incrementAndGet,
     newCounterVar,

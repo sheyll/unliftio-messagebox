@@ -49,7 +49,7 @@ import Data.Semigroup (Semigroup (stimes))
 import Data.Set (Set)
 import qualified Data.Set as Set
 import GHC.Stack (HasCallStack)
-import Protocol.Command as Command
+import UnliftIO.MessageBox.Command as Command
   ( Command,
     Message (..),
     ReturnType (FireAndForget, Return),
@@ -58,11 +58,11 @@ import Protocol.Command as Command
     delegateCall,
     replyTo,
   )
-import Protocol.Command.CallId as CallId
+import UnliftIO.MessageBox.Util.CallId as CallId
   ( CallId,
     HasCallIdCounter (..),
   )
-import Protocol.Fresh
+import UnliftIO.MessageBox.Util.Fresh
   ( CounterVar,
     HasCounterVar (getCounterVar),
     newCounterVar,

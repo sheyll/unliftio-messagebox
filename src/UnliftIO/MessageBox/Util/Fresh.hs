@@ -2,7 +2,7 @@
 --
 -- This is based on "Data.Atomics.Counter".
 -- TODO benchmark, and test uniqueness.
-module Protocol.Fresh
+module UnliftIO.MessageBox.Util.Fresh
   ( fresh,
     incrementAndGet,
     newCounterVar,

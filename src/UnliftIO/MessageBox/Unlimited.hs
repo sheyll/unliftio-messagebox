@@ -21,7 +21,7 @@ where
 -- import qualified Control.Concurrent.Chan.Unagi.NoBlocking as Unagi
 import qualified Control.Concurrent.Chan.Unagi as Unagi
 import Data.Functor (($>))
-import Protocol.Future (Future (..))
+import UnliftIO.MessageBox.Util.Future (Future (..))
 import qualified UnliftIO.MessageBox.Class as Class
 import UnliftIO
   ( MonadIO (liftIO),

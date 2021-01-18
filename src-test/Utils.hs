@@ -20,9 +20,9 @@ where
 import Control.Monad.Reader (ReaderT (runReaderT))
 import Data.Foldable (traverse_)
 import Data.Maybe (fromMaybe)
-import qualified Protocol.Command.CallId as CallId
-import Protocol.Fresh (CounterVar)
-import Protocol.Future (Future (Future))
+import qualified UnliftIO.MessageBox.Util.CallId as CallId
+import UnliftIO.MessageBox.Util.Fresh (CounterVar)
+import UnliftIO.MessageBox.Util.Future (Future (Future))
 import UnliftIO.MessageBox.Class
   ( IsInput (..),
     IsMessageBox (Input, newInput, receive, tryReceive),

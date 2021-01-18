@@ -5,9 +5,10 @@ TODO
 
 * **DONE** Rename from unliftio-protocols to **unliftio-messagebox**
 * **DONE** Move `Protocol.MessageBox.*` to `UnliftIO.MessageBox` 
-* Move `Protocol.Command` to `UnliftIO.MessageBox.Command`
-* Move `Protocol.Fresh` to `UnliftIO.MessageBox.Util.Fresh`
-* Move `Protocol.Future` to `UnliftIO.MessageBox.Util.Future`
+* **DONE** Move `Protocol.Command` to `UnliftIO.MessageBox.Command`
+* **DONE** Move `Protocol.CallId` to `UnliftIO.MessageBox.Util.CallId`
+* **DONE** Move `Protocol.Fresh` to `UnliftIO.MessageBox.Util.Fresh`
+* **DONE** Move `Protocol.Future` to `UnliftIO.MessageBox.Util.Future`
 * Add a `UnliftIO.MessageBox` that re-exports:
   * `UnliftIO.MessageBox.Command`
   * `UnliftIO.MessageBox.CallId`

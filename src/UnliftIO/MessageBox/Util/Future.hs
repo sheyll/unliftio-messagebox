@@ -1,4 +1,4 @@
-module Protocol.Future
+module UnliftIO.MessageBox.Util.Future
   ( Future (Future),
     tryNow,
     awaitFuture,

@@ -4,7 +4,7 @@
 module CatchAllTest (test) where
 
 import Data.Proxy
-import Protocol.Future
+import UnliftIO.MessageBox.Util.Future
 import UnliftIO.MessageBox.CatchAll
 import UnliftIO.MessageBox.Class
 import QCOrphans ()

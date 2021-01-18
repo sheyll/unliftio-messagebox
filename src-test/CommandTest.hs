@@ -29,7 +29,7 @@ import Data.Maybe
     isNothing,
   )
 import Data.Semigroup (All (All, getAll))
-import Protocol.Command
+import UnliftIO.MessageBox.Command
   ( Command,
     CommandError (..),
     DuplicateReply (..),
@@ -43,9 +43,9 @@ import Protocol.Command
     tryTakeReply,
     waitForReply,
   )
-import Protocol.Command.CallId (CallId (MkCallId))
-import qualified Protocol.Command.CallId as CallId
-import Protocol.Fresh (CounterVar, fresh, newCounterVar)
+import UnliftIO.MessageBox.Util.CallId (CallId (MkCallId))
+import qualified UnliftIO.MessageBox.Util.CallId as CallId
+import UnliftIO.MessageBox.Util.Fresh (CounterVar, fresh, newCounterVar)
 import UnliftIO.MessageBox.Class
   ( IsMessageBox (..),
     IsMessageBoxFactory (..),
@@ -91,7 +91,7 @@ import Utils (NoOpInput (OnDeliver), untilJust, withCallIds)
 test :: TestTree
 test =
   testGroup
-    "Protocol.Command"
+    "UnliftIO.MessageBox.Command"
     [ unitTests,
       integrationTests
     ]
