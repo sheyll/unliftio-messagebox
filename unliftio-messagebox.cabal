@@ -8,7 +8,7 @@ bug-reports:    https://github.com/sheyll/unliftio-messagebox/issues
 author:         Sven Heyll
 maintainer:     sven.heyll@gmail.com
 category:       Concurrency, Control, Effect
-tested-with:    GHC==8.10.2
+tested-with:    GHC==8.10.2,GHC==8.10.3
 copyright:      Copyright Sven Heyll
 license:        BSD-2-Clause
 license-file:   LICENSE
@@ -48,7 +48,7 @@ common compiler-flags-executables
     -- -Werror
   ghc-prof-options: 
     -fprof-auto 
-    "-with-rtsopts=-T -xt -Pa -hr -L256"
+    "-with-rtsopts=-T -xt -xc -Pa -hc -L256"
   
 common compiler-flags
   ghc-options:
@@ -144,7 +144,7 @@ library
       src
   build-depends:
   exposed-modules:
-    UnliftIO.MessageBox
+    UnliftIO.MessageBox,
     UnliftIO.MessageBox.CatchAll,
     UnliftIO.MessageBox.Class,
     UnliftIO.MessageBox.Command,
@@ -152,7 +152,7 @@ library
     UnliftIO.MessageBox.Unlimited,
     UnliftIO.MessageBox.Util.CallId,
     UnliftIO.MessageBox.Util.Fresh,
-    UnliftIO.MessageBox.Util.Future,
+    UnliftIO.MessageBox.Util.Future
   other-modules:
   
 -- executable unliftio-messagebox-example-1
