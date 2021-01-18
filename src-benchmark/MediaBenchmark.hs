@@ -430,7 +430,7 @@ mediaAppBenchmark cfg param = do
               return memberId
             replicateM_
               (nMembers param)
-              ( fix $ \again ->
+              ( fix $ \ ~again ->
                   receive eventsIn
                     >>= \case
                       Just (MemberJoined _ _) ->
@@ -448,7 +448,7 @@ mediaAppBenchmark cfg param = do
                 (error ("Failed to cast: " ++ show (UnJoin mixingGroupId memberId eventsOut)))
             replicateM_
               (nMembers param)
-              ( fix $ \again ->
+              ( fix $ \ ~again ->
                   receiveAfter eventsIn 500_000
                     >>= \case
                       Just (MemberUnJoined _ _) ->
