@@ -25,6 +25,7 @@ $graphmod/bin/graphmod \
     --remove-module=System.Environment \
     --remove-module=GHC.Stack \
     --remove-module=GHC.Stats \
+    --no-module-in-cluster \
     -i src \
     > $out/module-graph.dot
 cd $out

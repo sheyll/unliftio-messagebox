@@ -1,6 +1,7 @@
 digraph G {
 size="6,4";
 ratio="fill";
+u3[label="UnliftIO",style="filled",fillcolor="#bbffbb",penwidth="0"];
 subgraph cluster_0 {
 label="Control";
 color="#0000000F";
@@ -13,11 +14,11 @@ subgraph cluster_2 {
 label="Chan";
 color="#0000000F";
 style="filled";
+u14[label="Unagi",style="filled",fillcolor="#ffbbbb",penwidth="0"];
 subgraph cluster_3 {
 label="Unagi";
 color="#0000000F";
 style="filled";
-u14[label="Unagi",style="filled,bold",fillcolor="#ffbbbb"];
 u12[label="Bounded",style="filled",fillcolor="#bbffff",penwidth="0"];
 
 }
@@ -51,25 +52,24 @@ subgraph cluster_7 {
 label="UnliftIO";
 color="#0000000F";
 style="filled";
-u3[label="UnliftIO",style="filled,bold",fillcolor="#bbffbb"];
 u4[label="Concurrent",style="filled",fillcolor="#7777ff",penwidth="0"];
+u0[label="MessageBox",style="filled",fillcolor="#7777ff",penwidth="0"];
 subgraph cluster_8 {
 label="MessageBox";
 color="#0000000F";
 style="filled";
-u0[label="MessageBox",style="filled,bold",fillcolor="#7777ff"];
-u1[label="CatchAll",style="filled",fillcolor="#ff7777",penwidth="0"];
-u5[label="Class",style="filled",fillcolor="#ff7777",penwidth="0"];
-u6[label="Command",style="filled",fillcolor="#ff7777",penwidth="0"];
-u11[label="Limited",style="filled",fillcolor="#ff7777",penwidth="0"];
 u13[label="Unlimited",style="filled",fillcolor="#ff7777",penwidth="0"];
+u11[label="Limited",style="filled",fillcolor="#ff7777",penwidth="0"];
+u6[label="Command",style="filled",fillcolor="#ff7777",penwidth="0"];
+u5[label="Class",style="filled",fillcolor="#ff7777",penwidth="0"];
+u1[label="CatchAll",style="filled",fillcolor="#ff7777",penwidth="0"];
 subgraph cluster_9 {
 label="Util";
 color="#0000000F";
 style="filled";
-u2[label="Future",style="filled",fillcolor="#77ffff",penwidth="0"];
-u8[label="CallId",style="filled",fillcolor="#77ffff",penwidth="0"];
 u9[label="Fresh",style="filled",fillcolor="#77ffff",penwidth="0"];
+u8[label="CallId",style="filled",fillcolor="#77ffff",penwidth="0"];
+u2[label="Future",style="filled",fillcolor="#77ffff",penwidth="0"];
 
 }
 
