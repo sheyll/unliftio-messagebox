@@ -47,9 +47,15 @@ import GHC.Stats
 import UnliftIO
   ( Conc,
     SomeException,
+    TVar,
+    atomically,
+    checkSTM,
     conc,
+    newTVarIO,
+    readTVar,
     runConc,
     try,
+    writeTVar,
   )
 import UnliftIO.Concurrent (forkIO, threadDelay)
 import UnliftIO.MessageBox
@@ -99,12 +105,13 @@ mediaAppBenchmark ::
   Param ->
   IO ()
 mediaAppBenchmark cfg param = do
+  currentIterationVar <- newTVarIO 0
   (mixingOut, c1) <- do
     (mediaInput, mediaConc) <- spawnMediaApi
-    (mixingOut, mixingConc) <- spawnMixingBroker mediaInput
+    (mixingOut, mixingConc) <- spawnMixingBroker currentIterationVar mediaInput
     return (mixingOut, mediaConc <> mixingConc)
   appCounters <- AppCounters <$> newCounterVar <*> newCounterVar
-  let clients = spawnMixingApps mixingOut
+  let clients = spawnMixingApps currentIterationVar mixingOut
   runReaderT (runConc (c1 <> clients)) appCounters
   where
     spawnMediaApi = do
@@ -119,7 +126,11 @@ mediaAppBenchmark cfg param = do
                 hasStats <- getRTSStatsEnabled
                 when hasStats $ do
                   rtsStats <- getRTSStats
-                  print (gc rtsStats)
+                  putStrLn
+                    ( "Total memory in use: "
+                        ++ show (gcdetails_mem_in_use_bytes (gc rtsStats) `div` (1024 * 1024))
+                        ++ "m"
+                    )
                 putStrLn ("===== FINISHED: " ++ show iteration ++ ": Media Server Loop")
             liftIO $ putStrLn "===== END: Media Server Loop"
           mediaServerLoop st = do
@@ -138,9 +149,10 @@ mediaAppBenchmark cfg param = do
       return (mediaInput, conc startMediaServer)
 
     spawnMixingBroker ::
+      TVar Int ->
       Input (MessageBox cfg) (Message MediaApi) ->
       IO (Input (MessageBox cfg) (Message MixingApi), Conc (ReaderT AppCounters IO) ())
-    spawnMixingBroker mediaBoxOut = do
+    spawnMixingBroker currentIterationVar mediaBoxOut = do
       mixingOutput <- newMessageBox cfg
       mixingInput <- newInput mixingOutput
       let startMixingServer = do
@@ -149,12 +161,13 @@ mediaAppBenchmark cfg param = do
             liftIO $ putStrLn "===== BEGIN: Mixing Server Loop"
             forM_ [1 .. nRounds param] $ \iteration -> do
               liftIO $ putStrLn ("===== ITERATION: " ++ show iteration ++ ": Mixing Server Loop ")
-              mixingServerLoop (0, groupMap)
+              atomically $ writeTVar currentIterationVar iteration
+              mixingServerLoop iteration (0, groupMap)
               liftIO $ putStrLn ("===== FINISHED: " ++ show iteration ++ ": Mixing Server Loop")
-              threadDelay 1_000_000
+              when (iteration < nRounds param) (threadDelay 500_000)
             liftIO $ putStrLn "===== END: Mixing Server Loop"
 
-          mixingServerLoop !groupMap =
+          mixingServerLoop !iteration !groupMap =
             try
               ( handleMessage
                   mixingOutput
@@ -171,7 +184,7 @@ mediaAppBenchmark cfg param = do
                     ( \(!nDestroyed', !groupMap') ->
                         if Map.null groupMap' && nDestroyed' == nGroups param
                           then void $ cast mediaBoxOut MediaShutdown
-                          else mixingServerLoop (nDestroyed', groupMap')
+                          else mixingServerLoop iteration (nDestroyed', groupMap')
                     )
                 )
           dispatchMixingApi ::
@@ -314,21 +327,22 @@ mediaAppBenchmark cfg param = do
       void $ forkIO (mgLoop (-1, Map.empty))
       return mgInput
 
-    spawnMixingApps mixingInput =
+    spawnMixingApps currentIterationVar mixingInput =
       let !clients = foldMap spawnClient [0 .. nGroups param - 1]
           spawnClient !mixingGroupId = conc $ do
-            let isLogged = mixingGroupId == nGroups param - 1        
+            let isLogged = mixingGroupId == nGroups param - 1
             when
               isLogged
               (liftIO $ putStrLn ("Client: " ++ show mixingGroupId ++ " started."))
             forM_ [1 .. nRounds param] $ \iteration -> do
+              atomically $ readTVar currentIterationVar >>= checkSTM . (== iteration)
               when
                 isLogged
                 (liftIO $ putStrLn ("Client: " ++ show mixingGroupId ++ " started iteration: " ++ show iteration))
               eventsIn <- newMessageBox cfg
               eventsOut <- newInput eventsIn
               -- create conference,
-              call mixingInput (CreateMixingGroup mixingGroupId) 50_000_000
+              call mixingInput (CreateMixingGroup mixingGroupId) 1_000_000
                 >>= either
                   (error . ((show (CreateMixingGroup mixingGroupId) ++ " failed: ") ++) . show)
                   (const (return ()))
@@ -378,6 +392,7 @@ mediaAppBenchmark cfg param = do
                 >>= either
                   (error . ((show (DestroyMixingGroup mixingGroupId) ++ " failed: ") ++) . show)
                   (const (return ()))
+
               when
                 isLogged
                 ( liftIO $
@@ -402,7 +417,6 @@ mediaAppBenchmark cfg param = do
                                 ++ " sleeping before next iteration."
                             )
                       )
-                    threadDelay 1_000_000
                 )
        in clients
 
