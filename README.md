@@ -24,8 +24,12 @@ The library is contained in modules with names starting with
 
 ![Module Structure](./generated-reports/module-graph/module-graph.png)
 
-Also the module [UnliftIO.MessageBox](http://hackage.haskell.org/package/unliftio-messagebox/docs/UnliftIO-MessageBox.html)
+Also the module 
+[UnliftIO.MessageBox (generated)](./generated-reports/haddock-report/unliftio-messagebox/index.html)
+[UnliftIO.MessageBox (Hackage)](http://hackage.haskell.org/package/unliftio-messagebox/docs/UnliftIO-MessageBox.html)
 exposes the API, and can be used to import everything.
+
+See: [Haddock generation log](./generated-reports/haddock-report/build.log)
 
 ## Benchmarks
 

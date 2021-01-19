@@ -6,7 +6,6 @@ HERE=$(realpath $(dirname "$0"))
 
 TARGET=${1:-/tmp}
 
-
 rm -f ${TARGET}/memleak-test-report
 
 nix build \

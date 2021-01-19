@@ -1,0 +1,67 @@
+Resolving dependencies...
+Build profile: -w ghc-8.10.3 -O1
+In order, the following will be built (use -v for more details):
+ - unliftio-messagebox-0.1.0 (lib) (first run)
+Configuring library for unliftio-messagebox-0.1.0..
+Preprocessing library for unliftio-messagebox-0.1.0..
+Running Haddock on library for unliftio-messagebox-0.1.0..
+Haddock coverage:
+Warning: 'Counter' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+ 100% (  6 /  6) in 'UnliftIO.MessageBox.Util.Fresh'
+Warning: 'call' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+  80% (  4 /  5) in 'UnliftIO.MessageBox.Util.CallId'
+  Missing documentation for:
+    Module header
+  75% (  3 /  4) in 'UnliftIO.MessageBox.Util.Future'
+  Missing documentation for:
+    Module header
+ 100% (  5 /  5) in 'UnliftIO.MessageBox.Class'
+Warning: 'Input' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'MessageBox' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+ 100% (  4 /  4) in 'UnliftIO.MessageBox.Unlimited'
+Warning: 'Input' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'MessageBox' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+ 100% ( 12 / 12) in 'UnliftIO.MessageBox.Limited'
+Warning: 'Messages' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'apiTag' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'Input' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'reply' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'sendRequestError' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'deliver' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+ 100% ( 15 / 15) in 'UnliftIO.MessageBox.Command'
+ 100% (  4 /  4) in 'UnliftIO.MessageBox.CatchAll'
+Warning: UnliftIO.MessageBox: Input is exported separately but will be documented under IsMessageBox. Consider exporting it together with its parent(s) for code clarity.
+Warning: UnliftIO.MessageBox: MessageBox is exported separately but will be documented under IsMessageBoxFactory. Consider exporting it together with its parent(s) for code clarity.
+ 100% ( 48 / 48) in 'UnliftIO.MessageBox'
+Warning: UnliftIO.MessageBox.Util.Fresh: could not find link destinations for:
+    MonadReader MonadIO Coercible Int AtomicCounter
+Warning: UnliftIO.MessageBox.Util.CallId: could not find link destinations for:
+    Int Eq == Bool /= Ord compare Ordering < <= > >= max min Show showsPrec ShowS show String showList MonadReader MonadUnliftIO MonadIO
+Warning: UnliftIO.MessageBox.Util.Future: could not find link destinations for:
+    IO Maybe MonadUnliftIO Just Nothing
+Warning: UnliftIO.MessageBox.Class: could not find link destinations for:
+    Maybe Int MonadUnliftIO Type Just Nothing timeout receive receive Bool deliver deliver
+Warning: UnliftIO.MessageBox.Unlimited: could not find link destinations for:
+    Show showsPrec Int ShowS show String showList Maybe MonadUnliftIO Type receive tryReceive deliver Bool
+Warning: UnliftIO.MessageBox.Limited: could not find link destinations for:
+    Bounded minBound maxBound Enum succ pred toEnum Int fromEnum enumFrom enumFromThen enumFromTo enumFromThenTo Eq == Bool /= Ord compare Ordering < <= > >= max min Show showsPrec ShowS show String showList deliver Maybe MonadUnliftIO Type receive tryReceive tryToDeliver False
+Warning: UnliftIO.MessageBox.Command: could not find link destinations for:
+    Show showsPrec Int ShowS show String showList Type Eq == Bool /= Exception toException SomeException fromException Maybe displayException MonadUnliftIO MonadReader Either TMVar True Typeable Left Nothing
+Warning: UnliftIO.MessageBox.CatchAll: could not find link destinations for:
+    Eq == Bool /= Ord compare Ordering < <= > >= max min Show showsPrec Int ShowS show String showList Maybe MonadUnliftIO Type SomeException
+Warning: UnliftIO.MessageBox: could not find link destinations for:
+    MonadUnliftIO Bool Type deliver deliver Maybe Int timeout Just Nothing receive receive Eq == /= Ord compare Ordering < <= > >= max min Show showsPrec ShowS show String showList False tryToDeliver tryReceive Bounded minBound maxBound Enum succ pred toEnum fromEnum enumFrom enumFromThen enumFromTo enumFromThenTo tryReceive Typeable Exception toException SomeException fromException displayException MonadReader Either TMVar True Left MonadIO AtomicCounter Coercible IO
+Documentation created:
+/home/sven/DEV_PUB/CONF-V.2/unliftio-messagebox/dist-newstyle/build/x86_64-linux/ghc-8.10.3/unliftio-messagebox-0.1.0/doc/html/unliftio-messagebox/index.html
