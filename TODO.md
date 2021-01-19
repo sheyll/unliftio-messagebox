@@ -64,7 +64,7 @@ TODO
 
 ## Goal: No Space Leaks
 
-* **NOW** Extract the media benchmark and create a long
+* **DONE** Extract the media benchmark and create a long
   running example program that checks for memory leaks
 * **DONE** **Goal achieved in a different way** Use Weak References for `Input`s
   * Add 'isActive'

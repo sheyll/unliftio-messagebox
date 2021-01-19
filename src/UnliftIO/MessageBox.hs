@@ -22,6 +22,7 @@ module UnliftIO.MessageBox
     module UnliftIO.MessageBox.CatchAll,
     module UnliftIO.MessageBox.Command,
     module UnliftIO.MessageBox.Util.CallId,
+    module UnliftIO.MessageBox.Util.Fresh,
     module UnliftIO.MessageBox.Util.Future,
   )
 where
@@ -76,6 +77,13 @@ import UnliftIO.MessageBox.Util.CallId
     HasCallIdCounter (..),
     newCallIdCounter,
     takeNext,
+  )
+import UnliftIO.MessageBox.Util.Fresh
+  ( CounterVar,
+    HasCounterVar (..),
+    fresh,
+    incrementAndGet,
+    newCounterVar,
   )
 import UnliftIO.MessageBox.Util.Future
   ( Future (..),

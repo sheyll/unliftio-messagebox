@@ -26,6 +26,7 @@
 -- from the media domain.
 module MediaBenchmark (mediaAppBenchmark, Param (..)) where
 
+import Control.Monad (when)
 import Control.Monad.Reader
   ( MonadIO (liftIO),
     ReaderT (runReaderT),
@@ -42,6 +43,7 @@ import qualified Data.Map.Strict as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 import GHC.Stack (HasCallStack)
+import GHC.Stats
 import UnliftIO
   ( Conc,
     SomeException,
@@ -110,11 +112,16 @@ mediaAppBenchmark cfg param = do
       mediaInput <- newInput mediaOutput
       let startMediaServer = do
             liftIO $ putStrLn "===== BEGIN: Media Server Loop"
-            forM_ [1 .. nRounds param] $ \round -> do
-              liftIO $ putStrLn ("===== ITERATION " ++ show round ++ ": Media Server Loop ")
+            forM_ [1 .. nRounds param] $ \iteration -> do
+              liftIO $ putStrLn ("===== ITERATION: " ++ show iteration ++ ": Media Server Loop ")
               mediaServerLoop (mkMediaSimSt (toDspConfig param))
-              liftIO $ putStrLn "===== FINISED ITERATION " ++ show round ++ ": Media Server Loop"
-            liftIO $ putStrLn "===== END:   Media Server Loop"
+              liftIO $ do
+                hasStats <- getRTSStatsEnabled
+                when hasStats $ do
+                  rtsStats <- getRTSStats
+                  print (gc rtsStats)
+                putStrLn ("===== FINISHED: " ++ show iteration ++ ": Media Server Loop")
+            liftIO $ putStrLn "===== END: Media Server Loop"
           mediaServerLoop st = do
             let !isFinished =
                   shuttingDown st && Map.null (allMixers st)
@@ -140,12 +147,12 @@ mediaAppBenchmark cfg param = do
             let groupMap :: Map MixingGroupId (Input (MessageBox cfg) (Message MixingApi))
                 groupMap = Map.empty
             liftIO $ putStrLn "===== BEGIN: Mixing Server Loop"
-            forM_ [1 .. nRounds param] $ \round -> do
-              liftIO $ putStrLn "===== NEXT ITERATION " ++ show round ++ ": Mixing Server Loop "
+            forM_ [1 .. nRounds param] $ \iteration -> do
+              liftIO $ putStrLn ("===== ITERATION: " ++ show iteration ++ ": Mixing Server Loop ")
               mixingServerLoop (0, groupMap)
-              liftIO $ putStrLn "===== FINISED ITERATION " ++ show round ++ ": Mixing Server Loop"
+              liftIO $ putStrLn ("===== FINISHED: " ++ show iteration ++ ": Mixing Server Loop")
               threadDelay 1_000_000
-            liftIO $ putStrLn "===== END:   Mixing Server Loop"
+            liftIO $ putStrLn "===== END: Mixing Server Loop"
 
           mixingServerLoop !groupMap =
             try
@@ -310,14 +317,14 @@ mediaAppBenchmark cfg param = do
     spawnMixingApps mixingInput =
       let !clients = foldMap spawnClient [0 .. nGroups param - 1]
           spawnClient !mixingGroupId = conc $ do
-            let isLogged = mixingGroupId == 0 || mixingGroupId == nGroups param - 1
+            let isLogged = mixingGroupId == nGroups param - 1        
             when
               isLogged
               (liftIO $ putStrLn ("Client: " ++ show mixingGroupId ++ " started."))
-            forM [1 .. nRounds param] $ \round -> do
+            forM_ [1 .. nRounds param] $ \iteration -> do
               when
                 isLogged
-                (liftIO $ putStrLn ("Client: " ++ show mixingGroupId ++ " started iteration: " ++ show round))
+                (liftIO $ putStrLn ("Client: " ++ show mixingGroupId ++ " started iteration: " ++ show iteration))
               eventsIn <- newMessageBox cfg
               eventsOut <- newInput eventsIn
               -- create conference,
@@ -347,7 +354,7 @@ mediaAppBenchmark cfg param = do
                 )
               when
                 isLogged
-                (liftIO $ putStrLn ("Client: " ++ show mixingGroupId ++ " joined participants: " ++ show round))
+                (liftIO $ putStrLn ("Client: " ++ show mixingGroupId ++ " joined participants: " ++ show iteration))
               -- remove participants and wait for unjoined
               forM_ members $ \ !memberId -> do
                 !castSuccessful <- cast mixingInput (UnJoin mixingGroupId memberId eventsOut)
@@ -378,11 +385,11 @@ mediaAppBenchmark cfg param = do
                       ( "Client: "
                           ++ show mixingGroupId
                           ++ " unjoined participants: "
-                          ++ show round
+                          ++ show iteration
                       )
                 )
               when
-                (round < nRounds param - 1)
+                (iteration < nRounds param)
                 ( do
                     when
                       isLogged
@@ -391,7 +398,7 @@ mediaAppBenchmark cfg param = do
                             ( "Client: "
                                 ++ show mixingGroupId
                                 ++ " finished with iteration: "
-                                ++ show round
+                                ++ show iteration
                                 ++ " sleeping before next iteration."
                             )
                       )
@@ -404,7 +411,7 @@ data AppCounters = AppCounters
     idCounter :: !(CounterVar Int)
   }
 
-instance CallId.HasCallIdCounter AppCounters where
+instance HasCallIdCounter AppCounters where
   getCallIdCounter = asks callIdCounter
 
 instance HasCounterVar Int AppCounters where

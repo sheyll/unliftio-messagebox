@@ -1,8 +1,10 @@
 cradle:
   cabal:
-    - path: "./src/"
+    - path: "./src"
       component: "unliftio-messagebox"
-    - path: "./src-benchmark/"
+    - path: "./src-benchmark"
       component: "unliftio-messagebox-bench"
     - path: "./src-test"
       component: "unliftio-messagebox-test"
+    - path: "./src-memleak-test"
+      component: "unliftio-messagebox-memleak-test"

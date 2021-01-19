@@ -162,7 +162,8 @@ executable unliftio-messagebox-memleak-test
     MediaBenchmark
   hs-source-dirs: src-memleak-test  
   ghc-options:
-      "-with-rtsopts=-T -N -qa -A24M"
+    -rtsopts
+    "-with-rtsopts=-T -N"
   build-depends:
     unliftio-messagebox
 

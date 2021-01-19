@@ -19,7 +19,7 @@ pkgs.haskell-nix.project {
     (if withProfiling then
       [{
         packages.unliftio-messagebox.components.library.enableLibraryProfiling = true;
-        packages.unliftio-messagebox.components.exes.unliftio-messagebox-example-1.enableExecutableProfiling = true;
+        packages.unliftio-messagebox.components.exes.unliftio-messagebox-memleak-test.enableExecutableProfiling = true;
         packages.unliftio-messagebox.components.tests.unliftio-messagebox-test.enableExecutableProfiling = true;
         packages.unliftio-messagebox.components.benchmarks.unliftio-messagebox-bench.enableExecutableProfiling = true;
       }] else [ ]);
