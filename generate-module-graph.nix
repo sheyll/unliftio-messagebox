@@ -15,9 +15,20 @@ $graphmod/bin/graphmod \
     --remove-module=Control.Monad \
     --remove-module=Control.Monad \
     --remove-module=Data.Coerce \
+    --remove-module=Data.Set \
+    --remove-module=Data.Map \
     --remove-module=Data.Kind \
     --remove-module=Data.Functor \
     --remove-module=Data.Maybe \
+    --remove-module=Main \
+    --remove-module=MediaBenchmark \
+    --remove-module=System.Environment \
+    --remove-module=GHC.Stack \
+    --remove-module=GHC.Stats \
+    --collapse=UnliftIO.MessageBox \
+    --collapse=UnliftIO.Concurrent \
+    --collapse=Control.Monad.Reader \
+    --collapse-module=Control.Concurrent.Chan.Unagi \
     -i src \
     > $out/module-graph.dot
 cd $out
