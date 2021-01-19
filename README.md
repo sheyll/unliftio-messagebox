@@ -44,8 +44,7 @@ See: [Haddock generation log](./generated-reports/haddock-report/build.log)
 
 ![Test Heap Profiling Report](./generated-reports/test-profiling-report/unliftio-messagebox-test.svg)
 
-[Test Heap Profiling Report (HTML)](./generated-reports/test-profiling-report/unliftio-messagebox-test.html)
-### Profiling
+### Time Profiling
 
 [Test Profiling Report](./generated-reports/test-profiling-report/unliftio-messagebox-test.prof)
 
@@ -60,5 +59,5 @@ statistics.
 The output is printed into [this log file](./generated-reports/memleak-test-report/test.log).
 
 The test program is executated with the `+RTS -M400m` option that instructs
-the runtime to limit the available heap to 300MB, so when there is a memory
+the runtime to limit the available heap to 400MB, so when there is a memory
 leak, the program would at some point crash with a heap exhaustion error.
