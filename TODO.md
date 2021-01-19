@@ -50,7 +50,7 @@ TODO
 * **DONE** Add graphmod script  
 * **DONE** Add profiling test case execution script
 * **DONE** Reduce the number of benchmarks
-* **NOW** Make a profiling report based on a subset of the benchmarks
+* **UP NEXT** Make a profiling report based on a subset of the benchmarks
 * **NOW** Link to the reports from the README.md
 * Make a benchmark for the Erlang code
 * Make Erlang part of the nix-based environment
@@ -64,7 +64,7 @@ TODO
 
 ## Goal: No Space Leaks
 
-* **UP NEXT** Extract the media benchmark and create a long
+* **NOW** Extract the media benchmark and create a long
   running example program that checks for memory leaks
 * **DONE** **Goal achieved in a different way** Use Weak References for `Input`s
   * Add 'isActive'
@@ -72,7 +72,7 @@ TODO
 
 ## Goal: Robust Code
 
-* **NOW** Fix 'Command.call': Even when the result is there the call waits for the timeout
+* **DONE** Fix 'Command.call': Even when the result is there the call waits for the timeout
 * Make sure that no messages are lost through async exceptions (e.g. timeout)
   when receiving
   * **DONE** Nothing that can be done! Make your application robust.

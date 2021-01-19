@@ -155,16 +155,16 @@ library
     UnliftIO.MessageBox.Util.Future
   other-modules:
   
--- executable unliftio-messagebox-example-1
---   import: deps, compiler-flags
---   main-is: Main.hs
---   hs-source-dirs: examples/example-1
---   build-depends: unliftio-messagebox
---   ghc-options: -threaded
---   ghc-prof-options: -fprof-auto "-with-rtsopts=-T -xt -Pa -hc -L256"
---   default-extensions:
---     OverloadedStrings
--- 
+executable unliftio-messagebox-memleak-test
+  import: deps, compiler-flags-executables
+  main-is: Main.hs
+  other-modules:
+    MediaBenchmark
+  hs-source-dirs: src-memleak-test  
+  ghc-options:
+      "-with-rtsopts=-T -N -qa -A24M"
+  build-depends:
+    unliftio-messagebox
 
 test-suite unliftio-messagebox-test
   import: deps, compiler-flags-executables
@@ -184,11 +184,6 @@ test-suite unliftio-messagebox-test
     QCOrphans,
     UnlimitedMessageBoxTest,
     Utils
-  ghc-options: 
-    -Wno-missing-signatures
-    -Wno-missing-export-lists
-    -Wno-type-defaults
-    "-with-rtsopts=-N"
   build-depends:
     base,
     tasty,
@@ -207,7 +202,7 @@ benchmark unliftio-messagebox-bench
     CommandBenchmark,
     MediaBenchmark
   hs-source-dirs: src-benchmark
-  ghc-options:  -Wno-missing-signatures 
   build-depends:
     unliftio-messagebox,
     criterion
+              
