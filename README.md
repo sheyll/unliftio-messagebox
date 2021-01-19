@@ -1,5 +1,7 @@
 # Fast and Safe Message Passing Between Concurrent Processes
 
+**NOTE:** To be able to fully view this README, use the [web page](https://sheyll.github.io/unliftio-messagebox/).
+
 A small library that wraps around a hopefully safe subset 
 of `unagi-chan`.
 
@@ -49,8 +51,10 @@ This is a subset of the benchmark, that is repeated for many iterations.
 After each iteration, the memory usage is queried from the GHC runtime 
 statistics.
 
-The output is printed into [this log file](./generated-reports/memleak-test.log).
+![Memleak Test Heap Profiling Report](./generated-reports/memleak-test-report/unliftio-messagebox-memleak-test.svg)
 
-The test program is executated with the `+RTS -M300m` option that instructs
+The output is printed into [this log file](./generated-reports/memleak-test-report/memleak-test.log).
+
+The test program is executated with the `+RTS -M400m` option that instructs
 the runtime to limit the available heap to 300MB, so when there is a memory
 leak, the program would at some point crash with a heap exhaustion error.

@@ -164,6 +164,10 @@ executable unliftio-messagebox-memleak-test
   ghc-options:
     -rtsopts
     "-with-rtsopts=-T -N"
+  ghc-prof-options: 
+    -rtsopts
+    -fprof-auto 
+    "-with-rtsopts=-T -hy -pa -L256 -xt -N"
   build-depends:
     unliftio-messagebox
 
