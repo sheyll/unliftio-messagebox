@@ -47,11 +47,11 @@ TODO
   to a branch of the git repo
 * **DONE** **REJECTED: Weeder requires to much recompiling** Add Weeder script
 * **NOW** Add Haddock script
-* **NOW** Add graphmod script  
+* **DONE** Add graphmod script  
 * **DONE** Add profiling test case execution script
 * **DONE** Reduce the number of benchmarks
 * **NOW** Make a profiling report based on a subset of the benchmarks
-* **NOW** Link to the benchmarks and reports from the README.md
+* **NOW** Link to the reports from the README.md
 * Make a benchmark for the Erlang code
 * Make Erlang part of the nix-based environment
 

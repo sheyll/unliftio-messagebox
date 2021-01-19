@@ -31,13 +31,5 @@ cp --no-preserve=mode \
    --no-preserve=timestamps \
    --recursive \
    --dereference \
-   ${TARGET} \ 
+   ${TARGET} \
    ${HERE}/generated-reports/
-
-if [[ -v GIT_COMMIT_REPORTS ]]
-then
-    git -C ${HERE} add generated-reports
-    git -C ${HERE} commit "Update generated-reports"
-    git -C ${HERE} push
-fi
-

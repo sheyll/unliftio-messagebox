@@ -1,6 +1,6 @@
 let pkgs = import nix/pkgs.nix;
 in
-pkgs.runCommand "test-reports" {
+pkgs.runCommand "test-profiling-report" {
    unitTest = import ./test.nix { withProfiling = true; }; 
    hp2html = pkgs.haskellPackages.hp2html;
    hp2pretty = pkgs.haskellPackages.hp2pretty;

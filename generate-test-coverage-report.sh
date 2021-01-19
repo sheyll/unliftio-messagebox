@@ -8,11 +8,12 @@ TARGET=${1:-/tmp}
 
 TARGET0=$(mktemp -u)
 
-nix-build \
+nix build \
+    --print-build-logs \
     --cores  0 \
-    --max-jobs auto \
+    --max-jobs 1 \
     -o ${TARGET0} \
-    ${HERE}/generate-test-coverage-report.nix
+    -f ${HERE}/generate-test-coverage-report.nix
 
 rm -rf ${TARGET}/test-coverage-report 
 mkdir -p ${TARGET}/test-coverage-report 
