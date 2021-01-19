@@ -15,6 +15,6 @@ pkgs.runCommand "memleak-test-report"
   $memleakTest/bin/unliftio-messagebox-memleak-test 100 30 +RTS -M400m -RTS > test.log
   
   # produce unliftio-messagebox-memleak-test.svg
-  $hp2pretty/bin/hp2pretty unliftio-messagebox-memleak-test.hp
+  $hp2pretty/bin/hp2pretty --bands=8 unliftio-messagebox-memleak-test.hp
 ''
 
