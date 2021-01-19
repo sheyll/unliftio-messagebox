@@ -1,13 +1,20 @@
 # Fast and Safe Message Passing Between Concurrent Processes
 
-A small library on top of `unliftio` that reduces the risk of 
-live and dead locks and thread starvation, as well as 
-bad performance in massively concurrent programs.
+A small library that wraps around a hopefully safe subset 
+of `unagi-chan`.
+
+It is also based on `unliftio`.
+
+The goal is to reduce the risk of live and dead locks and 
+thread starvation, as well as acceptable performance 
+even in massively concurrent programs.
 
 The library assumes an architecture with a large number 
 of concurrent processes communicating either one-to-one or
 few-to-many using messages passed to limited queues.
 
+You probably don't want to ever write an application structured
+like this, unless you absolutely have to.
 ## Module Structure
 
 The library is contained in modules with names starting with 
