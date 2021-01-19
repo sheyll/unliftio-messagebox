@@ -20,6 +20,9 @@ $graphmod/bin/graphmod \
     --remove-module=Data.Kind \
     --remove-module=Data.Functor \
     --remove-module=Data.Maybe \
+    --remove-module=UnliftIO \
+    --remove-module=UnliftIO.Concurrent \
+    --remove-module=Control.Monad.Reader \
     --remove-module=Main \
     --remove-module=MediaBenchmark \
     --remove-module=System.Environment \
