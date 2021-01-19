@@ -1,0 +1,132 @@
+digraph G {
+size="6,4";
+ratio="fill";
+u15[label="Main",style="filled",fillcolor="#bbffbb",penwidth="0"];
+u16[label="MediaBenchmark",style="filled",fillcolor="#bbffbb",penwidth="0"];
+subgraph cluster_0 {
+label="Control";
+color="#0000000F";
+style="filled";
+subgraph cluster_1 {
+label="Concurrent";
+color="#0000000F";
+style="filled";
+subgraph cluster_2 {
+label="Chan";
+color="#0000000F";
+style="filled";
+subgraph cluster_3 {
+label="Unagi";
+color="#0000000F";
+style="filled";
+u14[label="Unagi",style="filled,bold",fillcolor="#ffbbbb"];
+u12[label="Bounded",style="filled",fillcolor="#bbffff",penwidth="0"];
+
+}
+
+}
+
+}
+subgraph cluster_4 {
+label="Monad";
+color="#0000000F";
+style="filled";
+u7[label="Reader",style="filled",fillcolor="#ffbbff",penwidth="0"];
+
+}
+
+}
+subgraph cluster_5 {
+label="Data";
+color="#0000000F";
+style="filled";
+u19[label="Set",style="filled",fillcolor="#77ff77",penwidth="0"];
+subgraph cluster_6 {
+label="Atomics";
+color="#0000000F";
+style="filled";
+u10[label="Counter",style="filled",fillcolor="#ffff77",penwidth="0"];
+
+}
+subgraph cluster_7 {
+label="Map";
+color="#0000000F";
+style="filled";
+u17[label="Map",style="filled,bold",fillcolor="#77ff77"];
+u18[label="Strict",style="filled",fillcolor="#7777ff",penwidth="0"];
+
+}
+
+}
+subgraph cluster_8 {
+label="GHC";
+color="#0000000F";
+style="filled";
+u20[label="Stack",style="filled",fillcolor="#ff7777",penwidth="0"];
+u21[label="Stats",style="filled",fillcolor="#ff7777",penwidth="0"];
+
+}
+subgraph cluster_9 {
+label="System";
+color="#0000000F";
+style="filled";
+u22[label="Environment",style="filled",fillcolor="#77ffff",penwidth="0"];
+
+}
+subgraph cluster_10 {
+label="UnliftIO";
+color="#0000000F";
+style="filled";
+u3[label="UnliftIO",style="filled,bold",fillcolor="#bbffbb"];
+u4[label="Concurrent",style="filled",fillcolor="#ff77ff",penwidth="0"];
+subgraph cluster_11 {
+label="MessageBox";
+color="#0000000F";
+style="filled";
+u0[label="MessageBox",style="filled,bold",fillcolor="#ff77ff"];
+u1[label="CatchAll",style="filled",fillcolor="#33ff33",penwidth="0"];
+u5[label="Class",style="filled",fillcolor="#33ff33",penwidth="0"];
+u6[label="Command",style="filled",fillcolor="#33ff33",penwidth="0"];
+u11[label="Limited",style="filled",fillcolor="#33ff33",penwidth="0"];
+u13[label="Unlimited",style="filled",fillcolor="#33ff33",penwidth="0"];
+subgraph cluster_12 {
+label="Util";
+color="#0000000F";
+style="filled";
+u2[label="Future",style="filled",fillcolor="#bbff77",penwidth="0"];
+u8[label="CallId",style="filled",fillcolor="#bbff77",penwidth="0"];
+u9[label="Fresh",style="filled",fillcolor="#bbff77",penwidth="0"];
+
+}
+
+}
+
+}
+u0 -> u1;
+u0 -> u6;
+u0 -> u11;
+u0 -> u13;
+u1 -> u5;
+u2 -> u3;
+u2 -> u4;
+u5 -> u2;
+u6 -> u5;
+u6 -> u8;
+u8 -> u9;
+u9 -> u3;
+u9 -> u7;
+u9 -> u10;
+u11 -> u5;
+u11 -> u12;
+u13 -> u5;
+u13 -> u14;
+u15 -> u16;
+u15 -> u22;
+u16 -> u0;
+u16 -> u17;
+u16 -> u18;
+u16 -> u19;
+u16 -> u20;
+u16 -> u21;
+
+}

@@ -8,32 +8,42 @@ The library assumes an architecture with a large number
 of concurrent processes communicating either one-to-one or
 few-to-many using messages passed to limited queues.
 
+## Module Structure
 
-Benchmarks
-----------
+The library is contained in modules with names starting with 
+**UnliftIO.MessageBox**.
 
-[Results](./command-benchmark.html)
+![Module Structure](./generated-reports/module-graph/module-graph.png)
 
-### Media-Benchmark
+Also the module [UnliftIO.MessageBox](http://hackage.haskell.org/package/unliftio-messagebox/docs/UnliftIO-MessageBox.html)
+exposes the API, and can be used to import everything.
 
-This benchmark consists of several more complex use cases.
+## Benchmarks
 
-#### FetchDsps
+* [Single Core Results](./generated-reports/benchmark-report/benchmark-1-CORES.html)
+* [Multi Core Results](./generated-reports/benchmark-report/benchmark-ALL-CORES.html)
 
-In this use case a large number of concurrent clients all
-request the current set of DSPs from a single server using
-a blocking (RPC-Style) `FetchDsps` command.
+## Unit Tests
 
-The server processes all incoming requests sequentially.
+* [Test Results](./generated-reports/test-profiling-report/test-result.html)
+* [Test Coverage](./generated-reports/test-coverage-report/hpc_index.html)
+### Heap Profiling
 
-#### Results
+![Test Heap Profiling Report](./generated-reports/test-profiling-report/unliftio-messagebox-test.svg)
 
-- very few data points (6 for bech with 1 client, 4 for bench with 1000 clients)
-- The `100000 total fetches 1000 clients` example could be come congested (maximum time was 826ms) ???b
+[Test Heap Profiling Report (HTML)](./generated-reports/test-profiling-report/unliftio-messagebox-test.html)
+### Profiling
 
+[Test Profiling Report](./generated-reports/test-profiling-report/unliftio-messagebox-test.prof)
 
+## Memory Leak Test 
 
-### BookStore-Benchmark
+This is a subset of the benchmark, that is repeated for many iterations.
+After each iteration, the memory usage is queried from the GHC runtime 
+statistics.
 
-Observations:
+The output is printed into [this log file](./generated-reports/memleak-test.log).
 
+The test program is executated with the `+RTS -M300m` option that instructs
+the runtime to limit the available heap to 300MB, so when there is a memory
+leak, the program would at some point crash with a heap exhaustion error.
