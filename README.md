@@ -57,7 +57,7 @@ statistics.
 
 ![Memleak Test Heap Profiling Report](./generated-reports/memleak-test-report/unliftio-messagebox-memleak-test.svg)
 
-The output is printed into [this log file](./generated-reports/memleak-test-report/memleak-test.log).
+The output is printed into [this log file](./generated-reports/memleak-test-report/test.log).
 
 The test program is executated with the `+RTS -M400m` option that instructs
 the runtime to limit the available heap to 300MB, so when there is a memory
