@@ -17,7 +17,7 @@ HERE=$(realpath $(dirname "$0"))
 
 TARGET=$(mktemp -d)
 
-${HERE}/generate-haddock-report.sh ${TARGET}
+# ${HERE}/generate-haddock-report.sh ${TARGET}
 ${HERE}/generate-module-graph.sh ${TARGET}
 ${HERE}/generate-test-coverage-report.sh ${TARGET}
 ${HERE}/generate-test-profiling-report.sh ${TARGET}

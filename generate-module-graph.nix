@@ -25,10 +25,6 @@ $graphmod/bin/graphmod \
     --remove-module=System.Environment \
     --remove-module=GHC.Stack \
     --remove-module=GHC.Stats \
-    --collapse=UnliftIO.MessageBox \
-    --collapse=UnliftIO.Concurrent \
-    --collapse=Control.Monad.Reader \
-    --collapse-module=Control.Concurrent.Chan.Unagi \
     -i src \
     > $out/module-graph.dot
 cd $out
