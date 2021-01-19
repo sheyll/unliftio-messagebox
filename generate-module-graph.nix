@@ -32,5 +32,5 @@ $graphmod/bin/graphmod \
     -i src \
     > $out/module-graph.dot
 cd $out
-$graphviz/bin/dot -Tpng -Gsize=8,4 -Gdpi=200 -o $out/module-graph.png $out/module-graph.dot
+$graphviz/bin/dot -Tpng -Gsize=4,5 -Gdpi=200 -o $out/module-graph.png $out/module-graph.dot
 ''
