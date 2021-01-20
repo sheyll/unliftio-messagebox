@@ -7,7 +7,6 @@ import qualified CornerCaseTests
 import qualified FreshTest
 import qualified LimitedMessageBoxTest
 import qualified MessageBoxClassTest
-import qualified ProtocolsTest
 import System.Environment (setEnv)
 import Test.Tasty
   ( TestTree,
@@ -35,6 +34,5 @@ test =
       MessageBoxClassTest.test,
       LimitedMessageBoxTest.test,
       UnlimitedMessageBoxTest.test,
-      ProtocolsTest.test,
       FreshTest.test
     ]
