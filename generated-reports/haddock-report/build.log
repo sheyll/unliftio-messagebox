@@ -1,10 +1,10 @@
 Resolving dependencies...
 Build profile: -w ghc-8.10.3 -O1
 In order, the following will be built (use -v for more details):
- - unliftio-messagebox-0.1.0 (lib) (first run)
-Configuring library for unliftio-messagebox-0.1.0..
-Preprocessing library for unliftio-messagebox-0.1.0..
-Running Haddock on library for unliftio-messagebox-0.1.0..
+ - unliftio-messagebox-1.0.2 (lib) (configuration changed)
+Configuring library for unliftio-messagebox-1.0.2..
+Preprocessing library for unliftio-messagebox-1.0.2..
+Running Haddock on library for unliftio-messagebox-1.0.2..
 Haddock coverage:
 Warning: 'Counter' is out of scope.
     If you qualify the identifier, haddock can try to link it anyway.
@@ -64,4 +64,4 @@ Warning: UnliftIO.MessageBox.CatchAll: could not find link destinations for:
 Warning: UnliftIO.MessageBox: could not find link destinations for:
     MonadUnliftIO Bool Type deliver deliver Maybe Int timeout Just Nothing receive receive Eq == /= Ord compare Ordering < <= > >= max min Show showsPrec ShowS show String showList False tryToDeliver tryReceive Bounded minBound maxBound Enum succ pred toEnum fromEnum enumFrom enumFromThen enumFromTo enumFromThenTo tryReceive Typeable Exception toException SomeException fromException displayException MonadReader Either TMVar True Left MonadIO AtomicCounter Coercible IO
 Documentation created:
-/home/sven/DEV_PUB/CONF-V.2/unliftio-messagebox/dist-newstyle/build/x86_64-linux/ghc-8.10.3/unliftio-messagebox-0.1.0/doc/html/unliftio-messagebox/index.html
+/home/sven/DEV_PUB/CONF-V.2/unliftio-messagebox/dist-newstyle/build/x86_64-linux/ghc-8.10.3/unliftio-messagebox-1.0.2/doc/html/unliftio-messagebox/index.html

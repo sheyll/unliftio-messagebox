@@ -7,7 +7,7 @@ pkgs.haskell-nix.project {
     name = "unliftio-messagebox";
     src = ./.;
   };
-  configureArgs = "--flags=-release";
+  configureArgs = "--flags=development";
   projectFileName = "cabal.project";
   compiler-nix-name = "ghc8103";
   modules =
