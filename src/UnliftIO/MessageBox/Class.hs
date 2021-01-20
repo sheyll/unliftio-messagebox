@@ -106,7 +106,6 @@ class IsInput input where
 -- ** Utility Functions for Receiving Messages
 
 -- | Receive a message and apply a function to it.
---  TODO exception handling: indefinitely blocked in mvar... is it really necessary to catch here?
 handleMessage ::
   (MonadUnliftIO m, IsMessageBox msgBox) =>
   msgBox message ->

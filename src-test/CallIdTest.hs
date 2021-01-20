@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
-
 module CallIdTest (test) where
 
 import Control.Monad (replicateM)
@@ -45,7 +43,7 @@ test =
       testProperty
         "more recent CallIds are > (greater than) all previous CallIds"
         $ \(Positive (Small n)) -> ioProperty $ do
-          callIds <- withCallIds (replicateM 1000 CallId.takeNext)
+          callIds <- withCallIds (replicateM n CallId.takeNext)
           return $
             n > 1 ==> (head callIds < last callIds),
       -- This ONLY exists because I wanted the test-code coverage to be 100%            

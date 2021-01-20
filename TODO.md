@@ -47,11 +47,11 @@ TODO
   test profiling and test code coverage reports
   to a branch of the git repo
 * **DONE** **REJECTED: Weeder requires to much recompiling** Add Weeder script
-* Add Haddock script
+* **DONE** Add Haddock script
 * **DONE** Add graphmod script  
 * **DONE** Add profiling test case execution script
 * **DONE** Reduce the number of benchmarks
-* Make a profiling report based on a subset of the benchmarks
+* **DONE** Make a profiling report based on a subset of the benchmarks
 * **DONE** Link to the reports from the README.md
 * Make a benchmark for the Erlang code
 * Make Erlang part of the nix-based environment

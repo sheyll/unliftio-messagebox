@@ -1,27 +1,7 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE NumericUnderscores #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
-
 module MessageBoxClassTest (test) where
 
 import Control.Monad (forM, replicateM, when)
 import Data.List (sort)
-import UnliftIO.MessageBox.Util.Future (tryNow)
-import UnliftIO.MessageBox.CatchAll
-  ( CatchAllFactory (CatchAllFactory),
-  )
-import UnliftIO.MessageBox.Class
-  ( IsInput (..),
-    IsMessageBox (..),
-    IsMessageBoxFactory (..),
-    deliver,
-    handleMessage,
-    newInput,
-    receive,
-  )
-import qualified UnliftIO.MessageBox.Limited as B
-import qualified UnliftIO.MessageBox.Unlimited as U
 import Test.Tasty as Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit
   ( assertBool,
@@ -37,6 +17,21 @@ import UnliftIO
     timeout,
   )
 import UnliftIO.Concurrent (threadDelay)
+import UnliftIO.MessageBox.CatchAll
+  ( CatchAllFactory (CatchAllFactory),
+  )
+import UnliftIO.MessageBox.Class
+  ( IsInput (..),
+    IsMessageBox (..),
+    IsMessageBoxFactory (..),
+    deliver,
+    handleMessage,
+    newInput,
+    receive,
+  )
+import qualified UnliftIO.MessageBox.Limited as B
+import qualified UnliftIO.MessageBox.Unlimited as U
+import UnliftIO.MessageBox.Util.Future (tryNow)
 import Utils
   ( NoOpBox (OnReceive),
     untilJust,
@@ -73,7 +68,7 @@ utilTest =
       testCase
         "when receive returns Just x, then handleMessage\
         \ applies the callback to x and returns Just the result"
-        $ handleMessage (OnReceive Nothing (Just "123")) return
+        $ handleMessage (OnReceive Nothing (Just ("123" :: String))) return
           >>= assertEqual "handleMessage should return Just the result" (Just "123")
     ]
 
@@ -203,7 +198,11 @@ commonFunctionality arg =
               testCase "all 113 messages of all 237 outBoxes are received by the messageBox" $ do
                 let n = 113
                     k = 237
-                    expected = [("test message: ", i, j) | i <- [0 .. k - 1], j <- [0 .. n - 1]]
+                    expected =
+                      [ ("test message: " :: String, i, j)
+                        | i <- [0 .. k - 1],
+                          j <- [0 .. n - 1]
+                      ]
                 res <-
                   timeout
                     60_000_000

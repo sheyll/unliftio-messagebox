@@ -1,7 +1,6 @@
 -- | Threadsafe, shared, atomic counters
 --
 -- This is based on "Data.Atomics.Counter".
--- TODO benchmark, and test uniqueness.
 module UnliftIO.MessageBox.Util.Fresh
   ( fresh,
     incrementAndGet,

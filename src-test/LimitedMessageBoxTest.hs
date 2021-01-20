@@ -1,13 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE NumericUnderscores #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE StrictData #-}
-{-# LANGUAGE TupleSections #-}
-{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE NoOverloadedStrings #-}
 
 module LimitedMessageBoxTest (test) where
 
@@ -214,7 +205,7 @@ testBlockingBox =
         i <- newMessageBox (BlockingBoxLimit MessageLimit_16)
         o <- newInput i
         let sendWhileNotFull = do
-              success <- deliver o 666
+              success <- deliver o (666 :: Int)
               when success sendWhileNotFull
         timeout 1_000_000 sendWhileNotFull
           >>= assertBool "deliver must block" . isNothing,

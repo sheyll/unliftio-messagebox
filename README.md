@@ -1,22 +1,20 @@
-# Fast and Safe Message Passing Between Concurrent Processes
+# Fast and Robust Message Queues for Concurrent Processes
 
 **NOTE:** To be able to fully view this README, use the [web page](https://sheyll.github.io/unliftio-messagebox/).
 
-A small library that wraps around a hopefully safe subset 
-of `unagi-chan`.
+A thin wrapper around a subset of `unagi-chan` based on `unliftio`.
 
-It is also based on `unliftio`.
+The unit tests and benchmarks in this project excercise a subset 
+of `unagi-chan`, so hopefully the user of this library doesn't
+have to worry about this.
 
-The goal is to reduce the risk of live and dead locks and 
+This project also aims to implicitly verify parts of `unagi-chan`.
+
+The overall goal is to reduce the risk of live and dead locks and 
 thread starvation, as well as acceptable performance 
 even in massively concurrent programs.
 
-The library assumes an architecture with a large number 
-of concurrent processes communicating either one-to-one or
-few-to-many using messages passed to limited queues.
-
-You probably don't want to ever write an application structured
-like this, unless you absolutely have to.
+Additionally in 
 ## Module Structure
 
 The library is contained in modules with names starting with 
@@ -25,11 +23,12 @@ The library is contained in modules with names starting with
 ![Module Structure](./generated-reports/module-graph/module-graph.png)
 
 Also the module 
-[UnliftIO.MessageBox (generated)](./generated-reports/haddock-report/unliftio-messagebox/index.html)
-[UnliftIO.MessageBox (Hackage)](http://hackage.haskell.org/package/unliftio-messagebox/docs/UnliftIO-MessageBox.html)
+`UnliftIO.MessageBox` [(API docs)](./generated-reports/haddock-report/unliftio-messagebox/UnliftIO-MessageBox.html)
+[(Hackage)](http://hackage.haskell.org/package/unliftio-messagebox/docs/UnliftIO-MessageBox.html)
 exposes the API, and can be used to import everything.
 
-See: [Haddock generation log](./generated-reports/haddock-report/build.log)
+The full documentation is either [on this page](./generated-reports/haddock-report/unliftio-messagebox/index.html)[(build log)](./generated-reports/haddock-report/build.log)
+or on [Hackage](http://hackage.haskell.org/package/unliftio-messagebox).
 
 ## Benchmarks
 
@@ -50,14 +49,25 @@ See: [Haddock generation log](./generated-reports/haddock-report/build.log)
 
 ## Memory Leak Test 
 
-This is a subset of the benchmark, that is repeated for many iterations.
+This is a small application with a 1002 processes, each performing a fix amount of 
+work.
+
+When the work is done, all processes synchronise before starting a new iteration.
 After each iteration, the memory usage is queried from the GHC runtime 
 statistics.
+There are 100 iterations like that. 
 
-![Memleak Test Heap Profiling Report](./generated-reports/memleak-test-report/unliftio-messagebox-memleak-test.svg)
+After that all processes are shutdown, and the process
+starts all over again, 30 times.
 
-The output is printed into [this log file](./generated-reports/memleak-test-report/test.log).
+In total 3000 iterations.
+
+If memory is leaked it should become visible.
 
 The test program is executated with the `+RTS -M400m` option that instructs
 the runtime to limit the available heap to 400MB, so when there is a memory
 leak, the program would at some point crash with a heap exhaustion error.
+
+![Memleak Test Heap Profiling Report](./generated-reports/memleak-test-report/unliftio-messagebox-memleak-test.svg)
+
+The output is printed into [this log file](./generated-reports/memleak-test-report/test.log).

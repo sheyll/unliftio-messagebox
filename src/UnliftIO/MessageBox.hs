@@ -1,7 +1,6 @@
--- | Performant and hopefully reliable and robust
--- message exchange channels for concurrent processes.
+-- | Fast and robust message queues for concurrent processes.
 --
--- If absolutely necessary, processes of an application
+-- Processes of an application
 -- can exchange message using __Message Boxes__.
 --
 -- This library is meant to be a wrapper around a

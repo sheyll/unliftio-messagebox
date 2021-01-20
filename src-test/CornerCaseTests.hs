@@ -1,42 +1,9 @@
-{-# LANGUAGE BlockArguments #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE EmptyDataDecls #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE NumericUnderscores #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeFamilies #-}
-
 -- | Test race conditions
 module CornerCaseTests (test) where
 
 import Control.Monad.Reader (ReaderT (runReaderT))
 import Data.Semigroup (Any (Any, getAny), Semigroup (stimes))
 import GHC.Stack (HasCallStack)
-import UnliftIO.MessageBox.Command
-  ( Command,
-    CommandError (BlockingCommandTimedOut),
-    Message (Blocking),
-    ReturnType (Return),
-    call,
-  )
-import UnliftIO.MessageBox.Util.CallId
-  ( CallId (MkCallId),
-  )
-import qualified UnliftIO.MessageBox.Util.CallId as CallId
-import UnliftIO.MessageBox.Class
-  ( Input,
-    IsInput (deliver),
-    IsMessageBox (newInput, receive),
-    IsMessageBoxFactory (..),
-    handleMessage,
-    receiveAfter,
-  )
-import qualified UnliftIO.MessageBox.Limited as B
-import qualified UnliftIO.MessageBox.Unlimited as U
 import System.Mem (performMajorGC, performMinorGC)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit
@@ -56,6 +23,27 @@ import UnliftIO
     timeout,
   )
 import UnliftIO.Concurrent (forkIO, threadDelay, yield)
+import UnliftIO.MessageBox.Class
+  ( Input,
+    IsInput (deliver),
+    IsMessageBox (newInput, receive),
+    IsMessageBoxFactory (..),
+    handleMessage,
+    receiveAfter,
+  )
+import UnliftIO.MessageBox.Command
+  ( Command,
+    CommandError (BlockingCommandTimedOut),
+    Message (Blocking),
+    ReturnType (Return),
+    call,
+  )
+import qualified UnliftIO.MessageBox.Limited as B
+import qualified UnliftIO.MessageBox.Unlimited as U
+import UnliftIO.MessageBox.Util.CallId
+  ( CallId (MkCallId),
+  )
+import qualified UnliftIO.MessageBox.Util.CallId as CallId
 
 test :: TestTree
 test =
@@ -63,18 +51,7 @@ test =
     "CornerCaseTests"
     [ testGroup
         "waiting for messages from a dead process"
-        [ -- TODO test with Async Exceptions
-          --  testCase "When using the Unlimited Message BlockingBox, an exception is thrown" $
-          --   try @_ @SomeException
-          --     (waitForMessageFromDeadProcess U.UnlimitedMessageBox)
-          --     >>= either
-          --       ( assertEqual
-          --           "wrong exception thrown: "
-          --           (show BlockedIndefinitelyOnMVar)
-          --           . show
-          --       )
-          --       (assertFailure . ("Exception expected, instead of: " <>) . show),
-          testCase "When using the UnlimitedMessageBox, receive will timeout" $
+        [ testCase "When using the UnlimitedMessageBox, receive will timeout" $
             waitForMessageFromDeadProcess U.BlockingUnlimited
               >>= assertEqual "unexpected return value: " SecondReceiveReturnedNothing,
           testCase "When using the Limited Message BlockingBox, the test will timeout" $
@@ -142,7 +119,8 @@ waitForMessageFromDeadProcess ::
 waitForMessageFromDeadProcess outputCfg =
   do
     firstMessageSent <- newEmptyMVar
-    let msg1 = 42
+    let msg1 :: Int
+        msg1 = 42
     output <- newMessageBox outputCfg
     _ <- forkIO $ do
       input <- newInput output
@@ -177,7 +155,8 @@ sendMessagesToDeadProcess outputCfg =
     ready <- newEmptyMVar
     firstMessageSent <- newEmptyMVar
     done <- newEmptyMVar
-    let msg1 = 42
+    let msg1 :: Int
+        msg1 = 42
 
     _receiver <- forkIO $ do
       output <- newMessageBox outputCfg
@@ -199,7 +178,7 @@ sendMessagesToDeadProcess outputCfg =
 
     timeout
       2_000_000
-      (stimes 100 (Any <$> deliver input msg1))
+      (stimes (100 :: Int) (Any <$> deliver input msg1))
       >>= maybe
         (return SendingMoreMessagesTimedOut)
         ( \r ->
