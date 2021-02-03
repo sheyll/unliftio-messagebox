@@ -18,12 +18,12 @@ import UnliftIO
   )
 import UnliftIO.Concurrent (threadDelay)
 import UnliftIO.MessageBox.CatchAll
-  ( CatchAllFactory (CatchAllFactory),
+  ( CatchAllArg (CatchAllArg),
   )
 import UnliftIO.MessageBox.Class
   ( IsInput (..),
     IsMessageBox (..),
-    IsMessageBoxFactory (..),
+    IsMessageBoxArg (..),
     deliver,
     handleMessage,
     newInput,
@@ -44,9 +44,9 @@ test =
     "UnliftIO.MessageBox.Class"
     [ utilTest,
       testWith U.BlockingUnlimited,
-      testWith $ CatchAllFactory U.BlockingUnlimited,
+      testWith $ CatchAllArg U.BlockingUnlimited,
       testWith (B.BlockingBoxLimit B.MessageLimit_256),
-      testWith $ CatchAllFactory (B.BlockingBoxLimit B.MessageLimit_256),
+      testWith $ CatchAllArg (B.BlockingBoxLimit B.MessageLimit_256),
       testWith (B.BlockingBoxLimit B.MessageLimit_1),
       testWith (B.BlockingBoxLimit B.MessageLimit_2),
       testWith (B.NonBlockingBoxLimit B.MessageLimit_1),
@@ -73,7 +73,7 @@ utilTest =
     ]
 
 testWith ::
-  (IsMessageBoxFactory cfg, Show cfg) =>
+  (IsMessageBoxArg cfg, Show cfg) =>
   cfg ->
   TestTree
 testWith arg =
@@ -84,7 +84,7 @@ testWith arg =
 
 -- standard tests
 commonFunctionality ::
-  (IsMessageBoxFactory cfg) =>
+  (IsMessageBoxArg cfg) =>
   cfg ->
   TestTree
 commonFunctionality arg =

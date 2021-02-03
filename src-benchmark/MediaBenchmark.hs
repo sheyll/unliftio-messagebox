@@ -69,7 +69,7 @@ import UnliftIO.MessageBox.Util.Fresh
 import UnliftIO.MessageBox.Class
   ( IsInput (..),
     IsMessageBox (..),
-    IsMessageBoxFactory (..),
+    IsMessageBoxArg (..),
     handleMessage,
     newInput,
     receiveAfter,
@@ -83,7 +83,7 @@ import UnliftIO
   )
 import UnliftIO.Concurrent (forkIO)
 
-benchmark :: (IsMessageBoxFactory cfg) => cfg -> Benchmark
+benchmark :: (IsMessageBoxArg cfg) => cfg -> Benchmark
 benchmark cfg =
   bgroup
     "Media"
@@ -134,7 +134,7 @@ benchmark cfg =
 -- and wait for every process to finish.
 mediaAppBenchmark ::
   forall cfg.
-  (HasCallStack, IsMessageBoxFactory cfg) =>
+  (HasCallStack, IsMessageBoxArg cfg) =>
   cfg ->
   Param ->
   IO ()

@@ -33,7 +33,7 @@ import qualified UnliftIO.MessageBox.Util.CallId as CallId
 import UnliftIO.MessageBox.Util.Fresh (CounterVar, fresh, newCounterVar)
 import UnliftIO.MessageBox.Class
   ( IsMessageBox (..),
-    IsMessageBoxFactory (..),
+    IsMessageBoxArg (..),
     handleMessage,
   )
 import UnliftIO.MessageBox.Limited

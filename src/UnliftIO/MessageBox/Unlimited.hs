@@ -48,13 +48,13 @@ data UnlimitedBox a
 newtype UnlimitedBoxInput a = MkUnlimitedBoxInput (Unagi.InChan a)
 
 -- | The (empty) configuration for creating
--- 'UnlimitedBox'es using the 'Class.IsMessageBoxFactory' methods.
+-- 'UnlimitedBox'es using the 'Class.IsMessageBoxArg' methods.
 data BlockingUnlimited = BlockingUnlimited
 
 instance Show BlockingUnlimited where
   showsPrec _ _ = showString "Unlimited"
 
-instance Class.IsMessageBoxFactory BlockingUnlimited where
+instance Class.IsMessageBoxArg BlockingUnlimited where
   type MessageBox BlockingUnlimited = UnlimitedBox
   {-# INLINE newMessageBox #-}
   newMessageBox BlockingUnlimited = create

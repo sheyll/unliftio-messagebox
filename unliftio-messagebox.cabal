@@ -1,6 +1,6 @@
 cabal-version:  3.0
 name:           unliftio-messagebox
-version:        1.0.2
+version:        2.0.1
 description:    Please see the README on GitHub at <https://github.com/sheyll/unliftio-messagebox#readme>
 synopsis:       Fast and robust message queues for concurrent processes
 homepage:       https://github.com/sheyll/unliftio-messagebox#readme
@@ -40,9 +40,10 @@ common compiler-flags
     -Wmissing-deriving-strategies
     -funbox-strict-fields
     -Wno-missing-signatures
+    -fno-full-laziness
+    -O1
   if flag(development)
     ghc-options:
-      -O2
       -Werror
     ghc-prof-options:
       -fprof-auto 
@@ -133,6 +134,7 @@ library
       src
   exposed-modules:
     UnliftIO.MessageBox,
+    UnliftIO.MessageBox.Broker,
     UnliftIO.MessageBox.CatchAll,
     UnliftIO.MessageBox.Class,
     UnliftIO.MessageBox.Command,
@@ -161,6 +163,7 @@ test-suite unliftio-messagebox-test
   main-is: Main.hs
   hs-source-dirs: src-test
   other-modules:
+    BrokerTest,
     LimitedMessageBoxTest,    
     CallIdTest,
     CatchAllTest,

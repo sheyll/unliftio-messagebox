@@ -50,7 +50,7 @@ import UnliftIO.MessageBox.Util.Fresh
   )
 import UnliftIO.MessageBox.Class
     ( IsMessageBox(newInput, receive),
-      IsMessageBoxFactory(newMessageBox),
+      IsMessageBoxArg(newMessageBox),
       handleMessage )
 import UnliftIO
   ( MonadIO (liftIO),
@@ -98,7 +98,7 @@ instance HasCallIdCounter BookStoreEnv where
   getCallIdCounter MkBookStoreEnv {_fresh} = _fresh
 
 onlyCasts ::
-  (MonadUnliftIO m, IsMessageBoxFactory cfg) =>
+  (MonadUnliftIO m, IsMessageBoxArg cfg) =>
   (Int -> Book) ->
   cfg ->
   (Int, Int, Int) ->
@@ -140,7 +140,7 @@ onlyCasts !msgGen !impl (!nP, !nMTotal, !nC) = do
     runConc (producers <> consumers)
 
 castsAndCalls ::
-  (MonadUnliftIO m, IsMessageBoxFactory cfg) =>
+  (MonadUnliftIO m, IsMessageBoxArg cfg) =>
   (Int -> Book) ->
   cfg ->
   ((Int, Int), Int, (Int, Int)) ->
@@ -213,7 +213,7 @@ castsAndCalls
       let donors = mconcat (donor bookStoresInputes <$> [0 .. nDonors - 1])
       runConc (donors <> customers <> mconcat bookStoresConc)
 
-benchmark :: IsMessageBoxFactory cfg => cfg -> Benchmark
+benchmark :: IsMessageBoxArg cfg => cfg -> Benchmark
 benchmark cfg =
   bgroup
     "BookStore"

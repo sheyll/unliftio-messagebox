@@ -1,5 +1,6 @@
 module Main (main) where
 
+import qualified BrokerTest
 import qualified CallIdTest
 import qualified CatchAllTest
 import qualified CommandTest
@@ -27,7 +28,8 @@ test :: TestTree
 test =
   testGroup
     "Tests"
-    [ CallIdTest.test,
+    [ BrokerTest.test,
+      CallIdTest.test,
       CatchAllTest.test,
       CornerCaseTests.test,
       CommandTest.test,

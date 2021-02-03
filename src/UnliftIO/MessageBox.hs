@@ -28,13 +28,13 @@ where
 
 import UnliftIO.MessageBox.CatchAll
   ( CatchAllBox (..),
-    CatchAllFactory (..),
+    CatchAllArg (..),
     CatchAllInput (..),
   )
 import UnliftIO.MessageBox.Class
   ( IsInput (..),
     IsMessageBox (..),
-    IsMessageBoxFactory (..),
+    IsMessageBoxArg (..),
     handleMessage,
   )
 import UnliftIO.MessageBox.Command

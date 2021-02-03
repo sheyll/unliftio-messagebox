@@ -11,7 +11,8 @@ module Utils
     withCallIds,
     allEqOrdShowMethodsImplemented,
     allEnumMethodsImplemented,
-    NoOpFactory (..),
+    MsgBoxBuilder(..),
+    NoOpArg (..),
     NoOpBox (..),
     NoOpInput (..),
   )
@@ -26,7 +27,7 @@ import UnliftIO.MessageBox.Util.Future (Future (Future))
 import UnliftIO.MessageBox.Class
   ( IsInput (..),
     IsMessageBox (Input, newInput, receive, tryReceive),
-    IsMessageBoxFactory (..),
+    IsMessageBoxArg (..),
   )
 import Test.QuickCheck
   ( Arbitrary,
@@ -142,8 +143,18 @@ allEnumMethodsImplemented _ =
 
 -- message box dummy implementation
 
-data NoOpFactory
-  = NoOpFactory
+data MsgBoxBuilder msgBox = MkMsgBoxBuilder 
+  { boxBuilderMakeBox :: forall m a. MonadUnliftIO m => m (msgBox a)
+  , boxBuilderConfiguredLimit :: !(Maybe Int)
+  }
+
+instance IsMessageBox msgBox => IsMessageBoxArg (MsgBoxBuilder msgBox) where 
+  type MessageBox (MsgBoxBuilder msgBox) = msgBox
+  getConfiguredMessageLimit _ = Nothing
+  newMessageBox b = boxBuilderMakeBox b
+
+data NoOpArg
+  = NoOpArg
   deriving stock (Show)
 
 newtype NoOpInput a
@@ -153,9 +164,9 @@ data NoOpBox a
   = OnReceive (Maybe Int) (Maybe a)
   deriving stock (Show)
 
-instance IsMessageBoxFactory NoOpFactory where
-  type MessageBox NoOpFactory = NoOpBox
-  newMessageBox NoOpFactory = return (OnReceive Nothing Nothing)
+instance IsMessageBoxArg NoOpArg where
+  type MessageBox NoOpArg = NoOpBox
+  newMessageBox NoOpArg = return (OnReceive Nothing Nothing)
   getConfiguredMessageLimit _ = Nothing
 
 instance IsMessageBox NoOpBox where

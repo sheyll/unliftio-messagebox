@@ -84,7 +84,7 @@ messageLimitToInt =
     MessageLimit_2048 -> 2048
     MessageLimit_4096 -> 4096
 
--- * 'Class.IsMessageBoxFactory' instances
+-- * 'Class.IsMessageBoxArg' instances
 
 -- ** Blocking
 
@@ -116,7 +116,7 @@ data BlockingBox a
 --   The 'Input' is the counter part of a 'BlockingBox'.
 newtype BlockingInput a = MkBlockingInput (Unagi.InChan a)
 
-instance Class.IsMessageBoxFactory BlockingBoxLimit where
+instance Class.IsMessageBoxArg BlockingBoxLimit where
   type MessageBox BlockingBoxLimit = BlockingBox
   {-# INLINE newMessageBox #-}
   newMessageBox (BlockingBoxLimit !limit) = create limit
@@ -148,7 +148,7 @@ instance Class.IsInput BlockingInput where
 
 --  ** A wrapper around 'BlockingBox' for Non-Blocking Input (NBI)
 
--- | A 'BlockingBoxLimit' wrapper for non-blocking 'Class.IsMessageBoxFactory' instances.
+-- | A 'BlockingBoxLimit' wrapper for non-blocking 'Class.IsMessageBoxArg' instances.
 newtype NonBlockingBoxLimit = NonBlockingBoxLimit MessageLimit
   deriving stock (Eq, Ord)
 
@@ -156,7 +156,7 @@ instance Show NonBlockingBoxLimit where
   showsPrec _ (NonBlockingBoxLimit !l) =
     showString "NonBlocking" . showsPrec 9 (messageLimitToInt l)
 
-instance Class.IsMessageBoxFactory NonBlockingBoxLimit where
+instance Class.IsMessageBoxArg NonBlockingBoxLimit where
   type MessageBox NonBlockingBoxLimit = NonBlockingBox
   {-# INLINE newMessageBox #-}
   newMessageBox (NonBlockingBoxLimit !l) =
@@ -198,7 +198,7 @@ instance Class.IsInput NonBlockingInput where
 
 --  ** 'BlockingBox' Wrapper with Timeout
 
--- | A 'Class.IsMessageBoxFactory' instance wrapping the 'BlockingBox'
+-- | A 'Class.IsMessageBoxArg' instance wrapping the 'BlockingBox'
 --  with independently configurable timeouts for 'receive' and 'deliver'.
 data WaitingBoxLimit
   = WaitingBoxLimit
@@ -218,7 +218,7 @@ instance Show WaitingBoxLimit where
       . showChar '_'
       . showsPrec 9 (messageLimitToInt l)
 
-instance Class.IsMessageBoxFactory WaitingBoxLimit where
+instance Class.IsMessageBoxArg WaitingBoxLimit where
   type MessageBox WaitingBoxLimit = WaitingBox
   {-# INLINE newMessageBox #-}
   newMessageBox l@(WaitingBoxLimit _ _ !c) =

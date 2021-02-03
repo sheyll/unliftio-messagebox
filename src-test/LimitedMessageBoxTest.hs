@@ -19,7 +19,7 @@ import UnliftIO.MessageBox.Util.Future (tryNow)
 import UnliftIO.MessageBox.Class
   ( IsInput (deliver),
     IsMessageBox (newInput, receive, tryReceive),
-    IsMessageBoxFactory (MessageBox, newMessageBox),
+    IsMessageBoxArg (MessageBox, newMessageBox),
     receiveAfter,
   )
 import UnliftIO.MessageBox.Limited
@@ -65,7 +65,7 @@ test =
 
 testCommon ::
   forall boxCfg cfg.
-  ( IsMessageBoxFactory boxCfg,
+  ( IsMessageBoxArg boxCfg,
     Show boxCfg,
     cfg ~ MessageBox boxCfg
   ) =>

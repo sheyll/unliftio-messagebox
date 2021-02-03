@@ -13,7 +13,7 @@ in
   buildInputs = with pkgs.haskellPackages;
     [
       tasty-discover
-      graphmod      
+      graphmod
       hp2pretty
       pkgs.git
       pkgs.graphviz

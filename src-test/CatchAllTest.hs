@@ -17,7 +17,7 @@ test =
     "CatchAll"
     [ testProperty
         "Derived Classes Coverage"
-        (allEqOrdShowMethodsImplemented (Proxy @(CatchAllFactory Int))),
+        (allEqOrdShowMethodsImplemented (Proxy @(CatchAllArg Int))),
       testCase
         "when the wrapped receive throws an exception,\
         \ CatchAlls receive returns Nothing"

@@ -31,12 +31,12 @@ import Criterion.Types
   )
 import Data.Semigroup (Semigroup (stimes))
 import UnliftIO.MessageBox.CatchAll
-  ( CatchAllFactory (..),
+  ( CatchAllArg (..),
   )
 import UnliftIO.MessageBox.Class
   ( IsInput (..),
     IsMessageBox (..),
-    IsMessageBoxFactory (..),
+    IsMessageBoxArg (..),
     deliver,
     newInput,
     receive,
@@ -66,7 +66,7 @@ main =
             (isNonBlocking, mboxImplTitle, impl) <-
               [ let x = U.BlockingUnlimited
                  in (False, "Unlimited", unidirectionalMessagePassing mkTestMessage x),
-                let x = CatchAllFactory U.BlockingUnlimited
+                let x = CatchAllArg U.BlockingUnlimited
                  in (False, "CatchUnlimited", unidirectionalMessagePassing mkTestMessage x),
                 -- let x = L.BlockingBoxLimit L.MessageLimit_1
                 --  in (False, show x, unidirectionalMessagePassing mkTestMessage x),
@@ -91,7 +91,7 @@ main =
                 --  in (False, show x, unidirectionalMessagePassing mkTestMessage x),
                 let x = L.WaitingBoxLimit (Just 60_000_000) 5_000_000 L.MessageLimit_256
                  in (True, "Waiting256", unidirectionalMessagePassing mkTestMessage x)
-                -- let x = CatchAllFactory (L.BlockingBoxLimit L.MessageLimit_128)
+                -- let x = CatchAllArg (L.BlockingBoxLimit L.MessageLimit_128)
                 --  in (False, show x, unidirectionalMessagePassing mkTestMessage x)
               ],
             (senderNo, receiverNo) <-
@@ -121,7 +121,7 @@ newtype TestMessage = MkTestMessage (String, String, String, (String, String, Bo
   deriving newtype (Show)
 
 unidirectionalMessagePassing ::
-  (MonadUnliftIO m, IsMessageBoxFactory cfg) =>
+  (MonadUnliftIO m, IsMessageBoxArg cfg) =>
   (Int -> TestMessage) ->
   cfg ->
   (Int, Int, Int) ->

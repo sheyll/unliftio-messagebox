@@ -1,6 +1,8 @@
 # Fast and Robust Message Queues for Concurrent Processes
 
-**NOTE:** To be able to fully view this README, use the [web page](https://sheyll.github.io/unliftio-messagebox/).
+**NOTE:** To be able to fully view this README, use the [GitHub Pages Version](https://sheyll.github.io/unliftio-messagebox/).
+* [API docs](./generated-reports/haddock-report/unliftio-messagebox)
+* [API docs on Hackage](http://hackage.haskell.org/package/unliftio-messagebox)
 
 A thin wrapper around a subset of `unagi-chan` based on `unliftio`.
 
