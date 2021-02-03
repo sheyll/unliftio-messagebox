@@ -14,7 +14,7 @@ import Data.Functor (void, ($>))
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import UnliftIO
-  (wait,  Async,
+  (Async,
     MonadUnliftIO,
     SomeException,
     async,
@@ -23,13 +23,9 @@ import UnliftIO
     cancel,
     checkSTM,
     mapConcurrently_,
-    mask_,
-    newEmptyMVar,
     onException,
-    putMVar,
     readTVar,
     registerDelay,
-    takeMVar,
     tryAny,
     waitCatch,
     waitCatchSTM,

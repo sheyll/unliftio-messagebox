@@ -12,6 +12,7 @@ module Utils
     allEqOrdShowMethodsImplemented,
     allEnumMethodsImplemented,
     MsgBoxBuilder(..),
+    MsgBox(..),
     NoOpArg (..),
     NoOpBox (..),
     NoOpInput (..),
@@ -152,6 +153,18 @@ instance IsMessageBox msgBox => IsMessageBoxArg (MsgBoxBuilder msgBox) where
   type MessageBox (MsgBoxBuilder msgBox) = msgBox
   getConfiguredMessageLimit _ = Nothing
   newMessageBox b = boxBuilderMakeBox b
+
+data MsgBox input a = MkMsgBox 
+  { msgBoxNewInput :: forall m . MonadUnliftIO m => m (input a)
+  , msgBoxReceive :: forall m . MonadUnliftIO m => m (Maybe a)
+  , msgBoxTryReceive :: forall m . MonadUnliftIO m => m (Future a)
+  }
+
+instance IsInput input => IsMessageBox (MsgBox input) where
+  type Input (MsgBox input) = input
+  newInput m = msgBoxNewInput m 
+  receive m = msgBoxReceive m
+  tryReceive m = msgBoxTryReceive m
 
 data NoOpArg
   = NoOpArg
