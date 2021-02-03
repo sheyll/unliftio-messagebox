@@ -1,88 +1,129 @@
 module BrokerTest (test) where
 
+import Control.Exception (throw)
 import GHC.Stack
 import Test.Tasty
 import Test.Tasty.HUnit
 import UnliftIO
 import UnliftIO.MessageBox.Broker
+import UnliftIO.MessageBox.Class
 import Utils
 
 noBrokerConfig :: BrokerConfig k w' w f m a
-noBrokerConfig = MkBrokerConfig
-                      { messageToBrokerAction = error "unexpected invokation",
-                        workerMessageBoxArg = error "unexpected invokation",
-                        initWorker = error "unexpected invokation",
-                        terminateWorker = error "unexpected invokation",
-                        workerLoop = error "unexpected invokation"
-                      }
+noBrokerConfig =
+  MkBrokerConfig
+    { messageToBrokerAction = error "unexpected invokation: messageToBrokerAction",
+      workerMessageBoxArg = error "unexpected invokation: workerMessageBoxArg",
+      initWorker = error "unexpected invokation: initWorker",
+      terminateWorker = error "unexpected invokation: terminateWorker",
+      workerLoop = error "unexpected invokation: workerLoop"
+    }
+
+expectedException :: StringException
+expectedException = stringException "Test"
 
 test :: HasCallStack => TestTree
 test =
   testGroup
     "BrokerTests"
-    [       
-      testGroup
+    [ testGroup
         "broker-startup"
-        [ testCase "broker message box creation throws an exception" $ do
-            let expectedException = stringException "Test"
-            Just (Left a) <-
-              timeout 1000000 $
-                spawnBroker @_ @() @() @() @NoOpArg
-                  ( MkMsgBoxBuilder @NoOpBox
-                      (throwIO expectedException)
-                      Nothing
-                  )
-                  noBrokerConfig
-            assertEqual
-              "exception expected"
-              (show (SomeException expectedException))
-              (show a),
-          testCase "broker message box input creation throws an exception" $ do
-            let expectedException = stringException "Test"
-            Just (Left a) <-
-              timeout 1000000 $
-                spawnBroker @_ @() @() @() @NoOpArg
-                  ( MkMsgBoxBuilder
-                      ( return
-                          ( MkMsgBox @NoOpInput
-                              (throwIO expectedException)
-                              (error "unexpected invokation")
-                              (error "unexpected invokation")
-                          )
-                      )
-                      Nothing
-                  )
-                  noBrokerConfig
-            assertEqual
-              "exception expected"
-              (show (SomeException expectedException))
-              (show a),
-          testCase "broker message box receive throws an exception" $ do
-            let expectedException = stringException "Test"
-            Just (Right (_, a)) <-
-              timeout 1000000 $
+        [ testCase
+            "when a broker message box creation throws an exception, \
+            \ the exception is returned in a Left..."
+            $ do
+              Just (Left a) <-
+                timeout 1000000 $
+                  spawnBroker @_ @() @() @() @NoOpArg
+                    ( MkMsgBoxBuilder @NoOpBox
+                        (throwIO expectedException)
+                        Nothing
+                    )
+                    noBrokerConfig
+              assertEqual
+                "exception expected"
+                (show (SomeException expectedException))
+                (show a),
+          testCase
+            "when a broker message box input creation throws an exception,\
+            \ the exception is returned in a Left..."
+            $ do
+              Just (Left a) <-
+                timeout 1000000 $
+                  spawnBroker @_ @() @() @() @NoOpArg
+                    ( MkMsgBoxBuilder
+                        ( return
+                            ( MkMsgBox @NoOpInput
+                                (throwIO expectedException)
+                                (error "unexpected invokation: receive")
+                                (error "unexpected invokation: tryReceive")
+                            )
+                        )
+                        Nothing
+                    )
+                    noBrokerConfig
+              assertEqual
+                "exception expected"
+                (show (SomeException expectedException))
+                (show a),
+          testCase
+            "when broker message box receive throws an exception,\
+            \ then waiting on the async will return the exception"
+            $ do
+              Just (Right (_, a)) <-
+                timeout 1000000 $
+                  spawnBroker @_ @() @() @() @NoOpArg
+                    ( MkMsgBoxBuilder
+                        ( return
+                            ( MkMsgBox
+                                ( return
+                                    (OnDeliver (error "unexpected invokation: OnDeliver"))
+                                )
+                                (throwIO expectedException)
+                                (error "unexpected invokation: tryReceive")
+                            )
+                        )
+                        Nothing
+                    )
+                    noBrokerConfig
+              r <- waitCatch a
+              assertEqual
+                "exception expected"
+                ( show
+                    ( Left (SomeException expectedException) ::
+                        Either SomeException ()
+                    )
+                )
+                (show r),
+          testCase
+            "when evaluation of the first incoming message causes an exception, \
+            \ then the broker exits with that exception?"
+            $ do
+              (Right (brokerIn, brokerA)) <-
                 spawnBroker @_ @() @() @() @NoOpArg
                   ( MkMsgBoxBuilder
                       ( return
                           ( MkMsgBox
                               ( return
-                                  (OnDeliver (error "unexpected invokation"))
+                                  (OnDeliver (const (pure True)))
                               )
-                              (throwIO expectedException)
-                              (error "unexpected invokation")
+                              (return (Just (throw expectedException)))
+                              (error "unexpected invokation: tryReceive")
                           )
                       )
                       Nothing
                   )
                   noBrokerConfig
-            r <- waitCatch a
-            assertEqual
-              "exception expected"
-              ( show
-                  ( Left (SomeException expectedException) ::
-                      Either SomeException ()
-                  )
-              )
-              (show r)
+              deliver brokerIn Nothing
+                >>= assertBool "deliver should succeed"
+              r <- waitCatch brokerA
+              assertEqual
+                "exception expected"
+                ( show
+                    ( Left (SomeException expectedException) ::
+                        Either SomeException ()
+                    )
+                )
+                (show r)
         ]
     ]
