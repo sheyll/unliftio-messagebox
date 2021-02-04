@@ -124,7 +124,7 @@ data TerminateWorker k w f m = MkTerminateWorker
     --   The @key@ and the 'Input' of the workers 'MessageBox' are
     --   passed to the action, so the action may 'deliver' a
     --   shutdown message.
-    terminateWorkerAction :: !(k -> Input (MessageBox f) w -> m Bool),
+    terminateWorkerAction :: !(k -> Input (MessageBox f) w -> m ()),
     -- | Time in micro seconds that the broker will wait after the
     --   'terminateWorkerAction' action has returned before brutally
     --   calling 'cancel' and the worker.

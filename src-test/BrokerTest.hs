@@ -1,14 +1,15 @@
 module BrokerTest (test) where
 
-import Control.Exception (throw)
+import Control.Exception (throw) 
 import GHC.Stack
 import Test.Tasty
 import Test.Tasty.HUnit
 import UnliftIO
+import UnliftIO.Concurrent
 import UnliftIO.MessageBox.Broker
 import UnliftIO.MessageBox.Class
+import UnliftIO.MessageBox.Unlimited
 import Utils
-import UnliftIO.Concurrent
 
 noBrokerConfig :: BrokerConfig k w' w f m a
 noBrokerConfig =
@@ -131,7 +132,7 @@ test =
             \ while the broker is waiting for incoming messages,\
             \ then the broker exits with AsyncCancelled"
             $ do
-              goOn <- newEmptyMVar 
+              goOn <- newEmptyMVar
               (Right (_brokerIn, brokerA)) <-
                 spawnBroker @_ @() @() @() @NoOpArg
                   ( MkMsgBoxBuilder
@@ -140,10 +141,11 @@ test =
                               ( return
                                   (OnDeliver (const (pure True)))
                               )
-                              (do 
-                                putMVar goOn ()
-                                threadDelay 1_000_000
-                                return (Just (error "unexpected evaluation")))
+                              ( do
+                                  putMVar goOn ()
+                                  threadDelay 1_000_000
+                                  return (Just (error "unexpected evaluation"))
+                              )
                               (error "unexpected invokation: tryReceive")
                           )
                       )
@@ -151,7 +153,7 @@ test =
                   )
                   noBrokerConfig
               takeMVar goOn
-              cancel brokerA    
+              cancel brokerA
               r <- waitCatch brokerA
               assertEqual
                 "exception expected"
@@ -159,7 +161,8 @@ test =
                 (show r),
           testCase
             "when a broker receives 'Nothing' as the first message,\
-            \ then the broker exits normally"            $ do
+            \ then the broker exits normally"
+            $ do
               (Right (_brokerIn, brokerA)) <-
                 spawnBroker @_ @() @() @() @NoOpArg
                   ( MkMsgBoxBuilder
@@ -174,10 +177,33 @@ test =
                       )
                       Nothing
                   )
-                  noBrokerConfig              
+                  noBrokerConfig
               r <- waitCatch brokerA
               assertEqual
-                "exception expected"
+                "success expected"
+                "Right ()"
+                (show r),
+          testCase
+            "when a broker receives a message for a missing worker,\
+            \ it silently drops the message"
+            $ do
+              let brokerCfg =
+                    MkBrokerConfig
+                      { messageToBrokerAction = ((),) . Forward,
+                        workerMessageBoxArg = NoOpArg,
+                        initWorker = const (error "unexpected invokation: initWorker"),
+                        terminateWorker = MkTerminateWorker (const (const (pure ()))) 0,
+                        workerLoop = const (error "unexpected invokation: workerLoop")
+                      }
+              (Right (brokerIn, brokerA)) <-
+                spawnBroker @_ @() @_ @_ BlockingUnlimited brokerCfg
+              deliver brokerIn (Just ("test-message" :: String))
+                >>= assertBool "deliver should succeed"
+              deliver brokerIn Nothing
+                >>= assertBool "deliver should succeed"
+              r <- waitCatch brokerA
+              assertEqual
+                "success expected"
                 "Right ()"
                 (show r)
         ]
