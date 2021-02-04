@@ -1,3 +1,5 @@
+[![Build Results](https://github.com/sheyll/unliftio-messagebox/workflows/Test/badge.svg?branch=main)](https://github.com/sheyll/unliftio-messagebox/actions)
+
 # Fast and Robust Message Queues for Concurrent Processes
 
 **NOTE:** To be able to fully view this README, use the [web page](https://sheyll.github.io/unliftio-messagebox/).
