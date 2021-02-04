@@ -1,4 +1,4 @@
-[![Build Results](https://github.com/sheyll/unliftio-messagebox/workflows/Test/badge.svg?branch=main)](https://github.com/sheyll/unliftio-messagebox/actions)
+[![Build Results](https://github.com/sheyll/unliftio-messagebox/workflows/.github/workflows/test.yml/badge.svg?branch=main)](https://github.com/sheyll/unliftio-messagebox/actions)
 
 # Fast and Robust Message Queues for Concurrent Processes
 
