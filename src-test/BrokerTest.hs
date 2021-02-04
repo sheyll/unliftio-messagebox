@@ -97,7 +97,7 @@ test =
                 (show r),
           testCase
             "when evaluation of the first incoming message causes an exception, \
-            \ then the broker exits with that exception?"
+            \ then the broker exits with that exception"
             $ do
               (Right (brokerIn, brokerA)) <-
                 spawnBroker @_ @() @() @() @NoOpArg
