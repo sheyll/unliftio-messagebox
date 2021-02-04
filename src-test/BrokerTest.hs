@@ -8,6 +8,7 @@ import UnliftIO
 import UnliftIO.MessageBox.Broker
 import UnliftIO.MessageBox.Class
 import Utils
+import UnliftIO.Concurrent
 
 noBrokerConfig :: BrokerConfig k w' w f m a
 noBrokerConfig =
@@ -124,6 +125,60 @@ test =
                         Either SomeException ()
                     )
                 )
+                (show r),
+          testCase
+            "when a broker is cancelled while waiting for the first message,\
+            \ while the broker is waiting for incoming messages,\
+            \ then the broker exits with AsyncCancelled"
+            $ do
+              goOn <- newEmptyMVar 
+              (Right (_brokerIn, brokerA)) <-
+                spawnBroker @_ @() @() @() @NoOpArg
+                  ( MkMsgBoxBuilder
+                      ( return
+                          ( MkMsgBox
+                              ( return
+                                  (OnDeliver (const (pure True)))
+                              )
+                              (do 
+                                putMVar goOn ()
+                                threadDelay 1_000_000
+                                return (Just (error "unexpected evaluation")))
+                              (error "unexpected invokation: tryReceive")
+                          )
+                      )
+                      Nothing
+                  )
+                  noBrokerConfig
+              takeMVar goOn
+              cancel brokerA    
+              r <- waitCatch brokerA
+              assertEqual
+                "exception expected"
+                "Left AsyncCancelled"
+                (show r),
+          testCase
+            "when a broker receives 'Nothing' as the first message,\
+            \ then the broker exits normally"            $ do
+              (Right (_brokerIn, brokerA)) <-
+                spawnBroker @_ @() @() @() @NoOpArg
+                  ( MkMsgBoxBuilder
+                      ( return
+                          ( MkMsgBox
+                              ( return
+                                  (OnDeliver (const (pure True)))
+                              )
+                              (return Nothing)
+                              (error "unexpected invokation: tryReceive")
+                          )
+                      )
+                      Nothing
+                  )
+                  noBrokerConfig              
+              r <- waitCatch brokerA
+              assertEqual
+                "exception expected"
+                "Right ()"
                 (show r)
         ]
     ]
