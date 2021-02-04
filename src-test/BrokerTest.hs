@@ -205,6 +205,29 @@ test =
               assertEqual
                 "success expected"
                 "Right ()"
+                (show r),
+          testCase
+            "when a broker receives a STOP message for a missing worker,\
+            \ it silently drops the message"
+            $ do
+              let brokerCfg =
+                    MkBrokerConfig
+                      { messageToBrokerAction = ((),) . ForwardAndStop . Just,
+                        workerMessageBoxArg = NoOpArg,
+                        initWorker = const (error "unexpected invokation: initWorker"),
+                        terminateWorker = MkTerminateWorker (const (const (pure ()))) 0,
+                        workerLoop = const (error "unexpected invokation: workerLoop")
+                      }
+              (Right (brokerIn, brokerA)) <-
+                spawnBroker @_ @() @_ @_ BlockingUnlimited brokerCfg
+              deliver brokerIn (Just ("test-message" :: String))
+                >>= assertBool "deliver should succeed"
+              deliver brokerIn Nothing
+                >>= assertBool "deliver should succeed"
+              r <- waitCatch brokerA
+              assertEqual
+                "success expected"
+                "Right ()"
                 (show r)
         ]
     ]

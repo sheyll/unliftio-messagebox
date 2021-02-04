@@ -102,7 +102,7 @@ data BrokerAction w
     StartAndForward (Maybe w)
   | -- | Forward a message to a worker and stop it afterwards.
     -- Silently ignore if no worker for the key exists.
-    StopAndForward (Maybe w)
+    ForwardAndStop (Maybe w)
   | -- | Pass a message to an existing worker.
     -- Silently ignore if no worker for the key exists.
     Forward w
@@ -188,7 +188,7 @@ dispatchMessage config brokerState w' =
                 else do
                   _brokerState3 <- shutdownWorker k config brokerState
                   return brokerState
-    (k, StopAndForward mw) -> do
+    (k, ForwardAndStop mw) -> do
       brokerState1 <-
         case mw of
           Nothing ->
