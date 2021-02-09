@@ -41,7 +41,7 @@ module UnliftIO.MessageBox.Broker
   )
 where
 
-import Control.Monad (join)
+import Control.Monad (void, join)
 import Data.Foldable (traverse_)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
@@ -51,12 +51,10 @@ import UnliftIO
     SomeException,
     async,
     asyncWithUnmask,
+    mask_,
     onException,
     tryAny,
     waitCatch,
-  )
-import UnliftIO.Concurrent
-  ( yield,
   )
 import UnliftIO.MessageBox.Class
   ( IsMessageBox (Input, newInput, receive),
@@ -101,8 +99,9 @@ spawnBroker brokerBoxArg config = do
     case mBrokerBox of
       Left er -> return (Left er)
       Right (brokerBox, brokerInp) -> do
-        aInner <- asyncWithUnmask $ \unmaskInner ->
-          brokerLoop unmaskInner brokerBox config (0, Map.empty)
+        aInner <- mask_ $
+          asyncWithUnmask $ \unmaskInner ->
+            brokerLoop unmaskInner brokerBox config Map.empty
         return (Right (brokerInp, aInner))
   join <$> waitCatch brokerA
 
@@ -214,39 +213,35 @@ brokerLoop ::
   (forall x. m x -> m x) ->
   msgBox w' ->
   BrokerConfig k w' w a m ->
-  (Int, BrokerState k a) ->
+  BrokerState k a ->
   m BrokerResult
-brokerLoop unmask brokerBox config (receiveRetries, brokerState)
-  | receiveRetries >= 3 = do
-    -- TODO logError
-    cleanupAllResources config brokerState
-    return MkBrokerResult
-  | otherwise =
-    ( ( unmask (receive brokerBox)
-          >>= traverse (tryAny . onIncoming unmask config brokerState)
-      )
-        `onException` ( do
-                          -- TODO logError
-                          cleanupAllResources config brokerState
-                      )
+brokerLoop unmask brokerBox config brokerState =
+  ( ( unmask (receive brokerBox)
+        >>=
+          traverse (tryAny . onIncoming unmask config brokerState)
     )
-      >>= maybe
-        ( do
-            -- TODO logWarning
-            yield
-            return (receiveRetries + 1, brokerState)
-        )
-        ( either
-            ( \_err ->
-                -- TODO logError
-                return (receiveRetries, brokerState)
-            )
-            (return . (0,))
-        )
-      >>= brokerLoop
-        unmask
-        brokerBox
-        config
+      `onException` ( do
+                        -- TODO logError
+                        cleanupAllResources config brokerState
+                    )
+  )
+    >>= maybe
+      ( do
+          -- TODO logError
+          cleanupAllResources config brokerState
+          return MkBrokerResult
+      )
+      ( \res -> do
+          next <-
+            either
+              ( \_err ->
+                  -- TODO logError
+                  return brokerState
+              )
+              return
+              res
+          brokerLoop unmask brokerBox config next
+      )
 
 onIncoming ::
   (Ord k, MonadUnliftIO m) =>
@@ -364,10 +359,6 @@ tryResourceCleaner ::
   a ->
   m ()
 tryResourceCleaner config k res = do
-  tryAny (resourceCleaner config k res)
-    >>= \case
-      Left _err ->
-        -- TODO logError
-        return ()
-      Right _ ->
-        return ()
+  -- TODO logError
+  void $ tryAny (resourceCleaner config k res)
+  
