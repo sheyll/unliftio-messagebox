@@ -1,309 +1,373 @@
+{-# LANGUAGE Strict #-}
+
+-- | A broker extracts a /key/ value from incoming messages
+--  and creates, keeps and destroys a /resource/ for each key.
+--
+-- The demultiplexed messages and their resources are passed to
+-- a custom 'MessageHandler'/
+--
+-- The user provides a 'Demultiplexer' is a pure function that
+-- returns a key for the resource associated
+-- to the message and potientially changes the
+-- message.
+--
+-- The demultiplexer may also return a value indicating that
+-- a new resource must be created, or that a message
+-- shall be ignored.
+--
+-- The broker is run in a seperate process using 'async'.
+-- The usual way to stop a broker is to 'cancel' it.
+--
+-- When cancelling a broker, the resource cleanup
+-- actions for all resources will be called with
+-- async exceptions masked.
+--
+-- In order to prevent the resource map filling up with
+-- /dead/ resources, the user of this module has to ensure
+-- that whenever a resource is not required anymore, a message
+-- will be sent to the broker, that will cause the 'MessageHandler'
+-- to be executed for the resource, which will in turn return,
+-- return 'RemoveResource'.
 module UnliftIO.MessageBox.Broker
   ( spawnBroker,
     BrokerConfig (..),
-    MessageToBrokerAction,
-    BrokerAction (..),
-    InitWorker,
-    TerminateWorker (..),
-    WorkerLoop,
+    BrokerResult (..),
+    ResourceCreator,
+    Demultiplexer,
+    ResourceCleaner,
+    MessageHandler,
+    Demuxed (..),
+    ResourceUpdate (..),
   )
 where
 
-import Control.Applicative (Alternative ((<|>)))
-import Data.Functor (void, ($>))
+import Control.Monad (join)
+import Data.Foldable (traverse_)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import UnliftIO
-  (Async,
+  ( Async,
     MonadUnliftIO,
     SomeException,
     async,
     asyncWithUnmask,
-    atomically,
-    cancel,
-    checkSTM,
-    mapConcurrently_,
     onException,
-    readTVar,
-    registerDelay,
     tryAny,
     waitCatch,
-    waitCatchSTM,
   )
 import UnliftIO.Concurrent
   ( yield,
   )
 import UnliftIO.MessageBox.Class
-  ( IsInput (deliver),
-    IsMessageBox (Input, newInput, receive),
+  ( IsMessageBox (Input, newInput, receive),
     IsMessageBoxArg (MessageBox, newMessageBox),
   )
-import Control.Monad (join)
 
--- | Spawn a process that receives messages dispatches them to /workers/.
+-- | Spawn a broker with a new 'MessageBox',
+--  and return its message 'Input' channel as well as
+-- the 'Async' handle of the spawned process, needed to
+-- stop the broker process.
 --
--- The process runs as long as 'Just' messages come in, and stops
--- when 'Nothing' is received.
---
--- Type parameters:
---  * @m@ is the base monad.
---  * @k@ is the unique _key_ that identifies workers. For example a UDP port, or a database ID.
---  * @brokerBoxArg@ is a type which has an 'IsMessageBoxArg' instance, used to create the
---                   'MessageBox' of the broker process.
---  * @f@ is a type which has an 'IsMessageBoxArg' instance, used to create the
---       'MessageBox' of the worker processes.
---  * @w'@ is the type of the incoming messages, that are passed to 'MessageToBrokerAction'.
---  * @w@ is the type of messages that the broker creates from @w'@ values using
---    the 'MessageToBrokerAction' and then passes to the worker processes.
---  * @a@ is the result that the worker returns when it exits.
+-- * @k@ is the /key/ for the resource associated to an incoming
+--   message
+-- * @w'@ is the type of incoming messages.
+-- * @w@ is the type of the demultiplexed messages.
+-- * @a@ specifies the resource type.
+-- * @m@ is the base monad
 spawnBroker ::
-  forall brokerBoxArg k w' w f m.
+  forall brokerBoxArg k w' w a m.
   ( MonadUnliftIO m,
     Ord k,
-    IsMessageBoxArg brokerBoxArg,
-    IsMessageBoxArg f
+    IsMessageBoxArg brokerBoxArg
   ) =>
   brokerBoxArg ->
-  BrokerConfig k w' w f m () ->
-  m (Either SomeException (Input (MessageBox brokerBoxArg) (Maybe w'), Async ()))
+  BrokerConfig k w' w a m ->
+  m
+    ( Either
+        SomeException
+        ( Input (MessageBox brokerBoxArg) w',
+          Async BrokerResult
+        )
+    )
 spawnBroker brokerBoxArg config = do
   brokerA <- async $ do
-      mBrokerBox <- tryAny (do 
-          b <- newMessageBox brokerBoxArg
-          i <- newInput b
-          return (b, i))
-      case mBrokerBox of
-        Left er -> return (Left er)
-        Right (brokerBox, brokerInp) -> do          
-          aInner <- asyncWithUnmask $ \unmaskInner ->
-            brokerLoop unmaskInner brokerBox config (0, Map.empty)
-          return (Right (brokerInp, aInner))
+    mBrokerBox <-
+      tryAny
+        ( do
+            b <- newMessageBox brokerBoxArg
+            i <- newInput b
+            return (b, i)
+        )
+    case mBrokerBox of
+      Left er -> return (Left er)
+      Right (brokerBox, brokerInp) -> do
+        aInner <- asyncWithUnmask $ \unmaskInner ->
+          brokerLoop unmaskInner brokerBox config (0, Map.empty)
+        return (Right (brokerInp, aInner))
   join <$> waitCatch brokerA
-  
 
--- | Dispatch incoming messages to brokerState.
--- The received messages are discriminated by an id.
-data BrokerConfig k w' w f m a = MkBrokerConfig
-  { messageToBrokerAction :: MessageToBrokerAction w' k w,
-    workerMessageBoxArg :: f,
-    initWorker :: InitWorker k w f m a,
-    terminateWorker :: TerminateWorker k w f m,
-    workerLoop :: WorkerLoop k w f m a
+-- | This is just what the 'Async' returned from
+-- 'spawnBroker' returns, it's current purpose is to
+-- make code easier to read.
+--
+-- Instead of some @Async ()@ that could be anything,
+-- there is @Async BrokerResult@.
+data BrokerResult = MkBrokerResult
+  deriving stock (Show, Eq)
+
+-- | The broker configuration, used by 'spawnBroker'.
+--
+-- * @k@ is the /key/ for the resource associated to an incoming
+--   message
+-- * @w'@ is the type of incoming messages.
+-- * @w@ is the type of the demultiplexed messages.
+-- * @a@ specifies the resource type.
+-- * @m@ is the base monad
+data BrokerConfig k w' w a m = MkBrokerConfig
+  { demultiplexer :: !(Demultiplexer w' k w),
+    messageDispatcher :: !(MessageHandler k w a m),
+    resourceCreator :: !(ResourceCreator k w a m),
+    resourceCleaner :: !(ResourceCleaner k a m)
   }
 
--- | A function to extract the key and the 'BrokerAction' from a
--- message.
-type MessageToBrokerAction w' k w = w' -> (k, BrokerAction w)
+-- | User supplied callback to extract the key and the 'Demuxed'
+--  from a message.
+--  (Sync-) Exceptions thrown from this function are caught and lead
+--  to dropping of the incoming message, while the broker continues.
+--
+-- * @k@ is the /key/ for the resource associated to an incoming
+--   message
+-- * @w'@ is the type of incoming messages.
+-- * @w@ is the type of the demultiplexed messages.
+type Demultiplexer w' k w = w' -> Demuxed k w
+
+-- | User supplied callback to use the 'Demuxed' message and
+--  the associated resource.
+--  (Sync-) Exceptions thrown from this function are caught and lead
+--  to immediate cleanup of the resource but the broker continues.
+--
+-- * Type @k@ is the /key/ for the resource associated to an incoming
+--   message
+-- * Type @w@ is the type of incoming, demultiplexed, messages.
+-- * Type @a@ specifies the resource type.
+-- * Type @m@ is the base monad
+type MessageHandler k w a m = k -> w -> a -> m (ResourceUpdate a)
+
+-- | This value indicates in what state a worker is in after the
+--  'MessageHandler' action was executed.
+data ResourceUpdate a
+  = -- | The resources is still required.
+    KeepResource
+  | -- | The resource is still required but must be updated.
+    UpdateResource a
+  | -- | The resource is obsolete and can
+    --   be removed from the broker.
+    --   The broker will call 'ResourceCleaner' either
+    --   on the current, or an updated resource value.
+    RemoveResource !(Maybe a)
 
 -- | The action that the broker has to take for in incoming message.
-data BrokerAction w
-  = -- | Start a new worker process and pass the message to the new worker.
-    --   If the the key already exists, pass the message to the existing worker.
-    StartAndForward (Maybe w)
-  | -- | Forward a message to a worker and stop it afterwards.
-    -- Silently ignore if no worker for the key exists.
-    ForwardAndStop (Maybe w)
-  | -- | Pass a message to an existing worker.
-    -- Silently ignore if no worker for the key exists.
-    Forward w
+--
+-- * @k@ is the /key/ for the resource associated to an incoming
+--   message
+-- * @w@ is the type of the demultiplexed messages.
+data Demuxed k w
+  = -- | The message is an initialization message, that requires the
+    --   creation of a new resouce for the given key.
+    --   When the resource is created, then /maybe/ additionally
+    --   a message will also be dispatched.
+    Initialize k !(Maybe w)
+  | -- | Dispatch a message using an existing resource.
+    -- Silently ignore if no resource for the key exists.
+    Dispatch k w
 
--- | Create and initialize a 'Worker'. This is required because a
--- worker is impure, and might use mutable references e.g. IORefs,
--- that need to be initialized for every new job.
-type InitWorker k w f m a = k -> Input (MessageBox f) w -> m (WorkerLoop k w f m a)
+-- | User supplied callback to create and initialize a resource.
+--  (Sync-) Exceptions thrown from this function are caught,
+--  and the broker continues.
+--
+-- * @k@ is the /key/ for the resource associated to an incoming
+--   message
+-- * @w@ is the type of the demultiplexed messages.
+-- * @a@ specifies the resource type.
+-- * @m@ is the monad of the returned action.
+type ResourceCreator k w a m = k -> Maybe w -> m a
 
--- | This action should contain a loop that processes the incoming messages
--- of worker until a stop message is received or the 'TerminateWorker' for this
--- worker was called.
-type WorkerLoop k w f m a = k -> MessageBox f w -> m a
+-- | User supplied callback called _with exceptions masked_
+-- when the 'MessageHandler' returns 'RemoveResource'
+-- (Sync-) Exceptions thrown from this function are caught,
+-- and do not prevent the removal of the resource, also the
+-- broker continues.
+--
+-- * @k@ is the /key/ for the resource associated to an incoming
+--   message
+-- * @a@ specifies the resource type.
+-- * @m@ is the monad of the returned action.
+type ResourceCleaner k a m = k -> a -> m ()
 
--- | A configuration that governs how the broker stops a worker.
-data TerminateWorker k w f m = MkTerminateWorker
-  { -- | An action that is called to cause a worker to stop
-    --   and return.
-    --   The @key@ and the 'Input' of the workers 'MessageBox' are
-    --   passed to the action, so the action may 'deliver' a
-    --   shutdown message.
-    terminateWorkerAction :: !(k -> Input (MessageBox f) w -> m ()),
-    -- | Time in micro seconds that the broker will wait after the
-    --   'terminateWorkerAction' action has returned before brutally
-    --   calling 'cancel' and the worker.
-    terminateWorkerTimeout :: !Int
-  }
+type BrokerState k a = Map k a
 
 brokerLoop ::
   ( MonadUnliftIO m,
     Ord k,
-    IsMessageBoxArg f,
     IsMessageBox msgBox
   ) =>
   (forall x. m x -> m x) ->
-  msgBox (Maybe w') ->
-  BrokerConfig k w' w f m a ->
-  (Int, BrokerState k w f a) ->
-  m ()
+  msgBox w' ->
+  BrokerConfig k w' w a m ->
+  (Int, BrokerState k a) ->
+  m BrokerResult
 brokerLoop unmask brokerBox config (receiveRetries, brokerState)
-  | receiveRetries >= 3 =
-    void (shutdownAllWorkers config brokerState)
+  | receiveRetries >= 3 = do
+    -- TODO logError
+    cleanupAllResources config brokerState
+    return MkBrokerResult
   | otherwise =
-    ( unmask
-        ( receive brokerBox
-            >>= traverse
-              ( maybe
-                  (return (Left brokerState))
-                  (fmap Right . dispatchMessage config brokerState)
-              )
-        )
-        `onException` shutdownAllWorkers config brokerState
+    ( ( unmask (receive brokerBox)
+          >>= traverse (tryAny . onIncoming unmask config brokerState)
+      )
+        `onException` ( do
+                          -- TODO logError
+                          cleanupAllResources config brokerState
+                      )
     )
       >>= maybe
-        ( yield >> brokerLoop unmask brokerBox config (receiveRetries + 1, brokerState)
+        ( do
+            -- TODO logWarning
+            yield
+            return (receiveRetries + 1, brokerState)
         )
         ( either
-            (shutdownAllWorkers config)
-            (brokerLoop unmask brokerBox config . (0,))
+            ( \_err ->
+                -- TODO logError
+                return (receiveRetries, brokerState)
+            )
+            (return . (0,))
         )
+      >>= brokerLoop
+        unmask
+        brokerBox
+        config
 
-dispatchMessage ::
-  (Ord k, IsMessageBoxArg f, MonadUnliftIO m) =>
-  BrokerConfig k w' w f m a ->
-  BrokerState k w f a ->
+onIncoming ::
+  (Ord k, MonadUnliftIO m) =>
+  (forall x. m x -> m x) ->
+  BrokerConfig k w' w a m ->
+  BrokerState k a ->
   w' ->
-  m (BrokerState k w f a)
-dispatchMessage config brokerState w' =
-  case messageToBrokerAction config w' of
-    (k, StartAndForward mw) -> do
-      mBrokerState1 <- spawnWorker k config brokerState
-      case mBrokerState1 of
-        Nothing ->
-          return brokerState
-        Just brokerState1 -> do
-          case mw of
-            Nothing ->
-              return brokerState1
-            Just w -> do
-              (msgSent, brokerState2) <- deliverToWorker k w config brokerState1
-              if msgSent
-                then return brokerState2
-                else do
-                  _brokerState3 <- shutdownWorker k config brokerState
-                  return brokerState
-    (k, ForwardAndStop mw) -> do
-      brokerState1 <-
-        case mw of
-          Nothing ->
-            return brokerState
-          Just w ->
-            snd <$> deliverToWorker k w config brokerState
-      mBrokerState2 <- shutdownWorker k config brokerState1
-      return (maybe brokerState1 snd mBrokerState2)
-    (k, Forward w) -> do
-      (_, brokerState2) <- deliverToWorker k w config brokerState
-      return brokerState2
+  m (BrokerState k a)
+onIncoming unmask config brokerState w' =
+  case demultiplexer config w' of
+    Initialize k mw ->
+      onInitialize unmask k config brokerState mw
+    Dispatch k w ->
+      onDispatch unmask k w config brokerState
 
-spawnWorker ::
-  (Ord k, IsMessageBoxArg f, MonadUnliftIO m) =>
+onInitialize ::
+  (Ord k, MonadUnliftIO m) =>
+  (forall x. m x -> m x) ->
   k ->
-  BrokerConfig k w' w f m a ->
-  BrokerState k w f a ->
-  m (Maybe (BrokerState k w f a))
-spawnWorker k config brokerState =
+  BrokerConfig k w' w a m ->
+  BrokerState k a ->
+  Maybe w ->
+  m (BrokerState k a)
+onInitialize unmask k config brokerState mw =
   case Map.lookup k brokerState of
-    Just _ ->
-      return (Just brokerState)
-    Nothing -> do
-      workerBox <- newMessageBox (workerMessageBoxArg config)
-      workerInput <- newInput workerBox
-      tryAny (initWorker config k workerInput)
+    Just _ -> do
+      -- error "Log Error"
+      return brokerState
+    Nothing ->
+      tryAny (unmask (resourceCreator config k mw))
         >>= either
-          (const (tryAny (terminateWorkerAction (terminateWorker config) k workerInput) $> Nothing))
-          ( \workerLoop -> do
-              workerAsync <- async (workerLoop k workerBox)
-              return
-                ( Just
-                    ( Map.insert
-                        k
-                        (workerInput, workerAsync)
-                        brokerState
-                    )
-                )
+          ( \_err ->
+              -- TODO logError
+              return brokerState
+          )
+          ( \res ->
+              let brokerState1 = Map.insert k res brokerState
+               in case mw of
+                    Nothing ->
+                      return brokerState1
+                    Just w ->
+                      onException
+                        (onDispatch unmask k w config brokerState1)
+                        (resourceCleaner config k res)
           )
 
-deliverToWorker ::
-  (Ord k, IsMessageBoxArg f, MonadUnliftIO m) =>
+onDispatch ::
+  (Ord k, MonadUnliftIO m) =>
+  (forall x. m x -> m x) ->
   k ->
   w ->
-  BrokerConfig k w' w f m a ->
-  BrokerState k w f a ->
-  m (Bool, BrokerState k w f a)
-deliverToWorker k w config brokerState =
-  maybe
-    (return (False, brokerState))
-    deliverHelper
-    (Map.lookup k brokerState)
+  BrokerConfig k w' w a m ->
+  BrokerState k a ->
+  m (BrokerState k a)
+onDispatch unmask k w config brokerState =
+  maybe notFound dispatch (Map.lookup k brokerState)
   where
-    deliverHelper (wIn, _) = do
-      deliverRes <- tryAny (deliver wIn w)
-      case deliverRes of
-        Right x ->
-          return (x, brokerState)
-        Left _err ->
-          (False,) . maybe brokerState snd
-            <$> shutdownWorker k config brokerState
+    notFound = do
+      -- TODO "logError"
+      return brokerState
+    dispatch res =
+      tryAny (unmask (messageDispatcher config k w res))
+        >>= either
+          ( \_err -> do
+              -- TODO logError
+              cleanupResource
+                k
+                config
+                brokerState
+          )
+          ( \case
+              KeepResource ->
+                return brokerState
+              UpdateResource newRes ->
+                return (Map.insert k newRes brokerState)
+              RemoveResource mNewRes ->
+                cleanupResource
+                  k
+                  config
+                  ( maybe
+                      brokerState
+                      ( \newRes ->
+                          Map.insert k newRes brokerState
+                      )
+                      mNewRes
+                  )
+          )
 
-shutdownWorker ::
-  (Ord k, MonadUnliftIO m) =>
-  k ->
-  BrokerConfig k w' w f m a ->
-  BrokerState k w f a ->
-  m (Maybe (Result a, BrokerState k w f a))
-shutdownWorker k config brokerState =
-  case Map.lookup k brokerState of
-    Nothing ->
-      return Nothing
-    Just w -> do
-      res <- shutdownWorkerHelper config k w
-      return (Just (res, Map.delete k brokerState))
-
-shutdownAllWorkers ::
+cleanupAllResources ::
   (MonadUnliftIO m) =>
-  BrokerConfig k w' w f m a ->
-  BrokerState k w f a ->
+  BrokerConfig k w' w a m ->
+  BrokerState k a ->
   m ()
-shutdownAllWorkers config brokerState =
-  mapConcurrently_
-    (uncurry (shutdownWorkerHelper config))
+cleanupAllResources config brokerState =
+  traverse_
+    ( uncurry
+        (tryResourceCleaner config)
+    )
     (Map.assocs brokerState)
 
-shutdownWorkerHelper ::
-  (MonadUnliftIO m) =>
-  BrokerConfig k w' w f m a ->
+cleanupResource ::
+  (MonadUnliftIO m, Ord k) =>
   k ->
-  Worker f w a ->
-  m (Result a)
-shutdownWorkerHelper config k (workerInput, workerAsync) =
-  tryAny (terminateWorkerAction (terminateWorker config) k workerInput)
-    >>= either
-      (const (pure Nothing))
-      ( const $ do
-          timeoutVar <- registerDelay (terminateWorkerTimeout (terminateWorker config))
-          atomically
-            ( (Just <$> waitCatchSTM workerAsync)
-                <|> do
-                  isTimeUp <- readTVar timeoutVar
-                  checkSTM isTimeUp
-                  return Nothing
-            )
-      )
-    >>= maybe
-      ( do
-          cancel workerAsync
-          waitCatch workerAsync
-      )
-      return
+  BrokerConfig k w' w a m ->
+  Map k a ->
+  m (Map k a)
+cleanupResource k config brokerState = do
+  traverse_ (tryResourceCleaner config k) (Map.lookup k brokerState)
+  return (Map.delete k brokerState)
 
-type Worker f w a = (Input (MessageBox f) w, Async a)
-
-type Result a = Either SomeException a
-
-type BrokerState k w f a = Map k (Worker f w a)
+tryResourceCleaner ::
+  MonadUnliftIO m =>
+  BrokerConfig k w' w a m ->
+  k ->
+  a ->
+  m ()
+tryResourceCleaner config k res = do
+  tryAny (resourceCleaner config k res)
+    >>= \case
+      Left _err ->
+        -- TODO logError
+        return ()
+      Right _ ->
+        return ()

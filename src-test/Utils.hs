@@ -142,7 +142,10 @@ allEnumMethodsImplemented _ =
                        === enumFromTo x y
                    )
 
--- message box dummy implementation
+-- message box implementation
+-- NOTE: Because of parametricity and the existential quantification
+-- of the message payload, the receive and deliver methods
+-- are only capable of throwing exceptions or bottoming out
 
 data MsgBoxBuilder msgBox = MkMsgBoxBuilder 
   { boxBuilderMakeBox :: forall m a. MonadUnliftIO m => m (msgBox a)
@@ -165,6 +168,8 @@ instance IsInput input => IsMessageBox (MsgBox input) where
   newInput m = msgBoxNewInput m 
   receive m = msgBoxReceive m
   tryReceive m = msgBoxTryReceive m
+
+
 
 data NoOpArg
   = NoOpArg

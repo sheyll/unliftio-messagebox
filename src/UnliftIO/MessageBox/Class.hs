@@ -12,6 +12,7 @@ where
 import Data.Kind (Type)
 import UnliftIO.MessageBox.Util.Future (Future, awaitFuture)
 import UnliftIO (MonadUnliftIO, timeout)
+import Control.Monad (void)
 
 -- | Types that configure and allow the creation of a 'MessageBox'.
 --
@@ -106,6 +107,10 @@ class IsInput input where
   -- build your application in such a way, that it 
   -- anticipates failure.
   deliver :: MonadUnliftIO m => input a -> a -> m Bool
+  -- | See 'deliver' but with @()@ as return value.
+  --   If 'deliver' fails, it fails silently.
+  deliver_ :: MonadUnliftIO m => input a -> a -> m ()
+  deliver_ i a = void (deliver i a)
 
 -- ** Utility Functions for Receiving Messages
 
