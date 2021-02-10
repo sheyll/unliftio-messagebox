@@ -1,0 +1,55 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<style type="text/css">
+span.lineno { color: white; background: #aaaaaa; border-right: solid white 12px }
+span.nottickedoff { background: yellow}
+span.istickedoff { background: white }
+span.tickonlyfalse { margin: -1px; border: 1px solid #f20913; background: #f20913 }
+span.tickonlytrue  { margin: -1px; border: 1px solid #60de51; background: #60de51 }
+span.funcount { font-size: small; color: orange; z-index: 2; position: absolute; right: 20 }
+span.decl { font-weight: bold }
+span.spaces    { background: white }
+</style>
+</head>
+<body>
+<pre>
+<span class="decl"><span class="nottickedoff">never executed</span> <span class="tickonlytrue">always true</span> <span class="tickonlyfalse">always false</span></span>
+</pre>
+<pre>
+<span class="lineno">    1 </span>module UnliftIO.MessageBox.Util.Future
+<span class="lineno">    2 </span>  ( Future (Future),
+<span class="lineno">    3 </span>    tryNow,
+<span class="lineno">    4 </span>    awaitFuture,
+<span class="lineno">    5 </span>  )
+<span class="lineno">    6 </span>where
+<span class="lineno">    7 </span>
+<span class="lineno">    8 </span>import UnliftIO (MonadIO (liftIO), MonadUnliftIO)
+<span class="lineno">    9 </span>import UnliftIO.Concurrent (threadDelay)
+<span class="lineno">   10 </span>
+<span class="lineno">   11 </span>-- | A wrapper around an IO action that returns value
+<span class="lineno">   12 </span>-- in the future.
+<span class="lineno">   13 </span>newtype Future a = Future
+<span class="lineno">   14 </span>  { -- | Return 'Just' the value or 'Nothing',
+<span class="lineno">   15 </span>    --   when the value is not available yet.
+<span class="lineno">   16 </span>    <span class="istickedoff"><span class="decl"><span class="istickedoff">fromFuture</span></span></span> :: IO (Maybe a)
+<span class="lineno">   17 </span>  }
+<span class="lineno">   18 </span>
+<span class="lineno">   19 </span>-- | Return 'Just' the value or 'Nothing',
+<span class="lineno">   20 </span>--   when the value is not available yet.
+<span class="lineno">   21 </span>--
+<span class="lineno">   22 </span>--   Once the value is available, that value
+<span class="lineno">   23 </span>--   will be returned everytime this function is
+<span class="lineno">   24 </span>--   invoked.
+<span class="lineno">   25 </span>{-# INLINE tryNow #-}
+<span class="lineno">   26 </span>tryNow :: MonadUnliftIO m =&gt; Future a -&gt; m (Maybe a)
+<span class="lineno">   27 </span><span class="decl"><span class="istickedoff">tryNow = liftIO . fromFuture</span></span>
+<span class="lineno">   28 </span>
+<span class="lineno">   29 </span>-- | Poll a Future until the value is present.
+<span class="lineno">   30 </span>awaitFuture :: MonadUnliftIO m =&gt; Future b -&gt; m b
+<span class="lineno">   31 </span><span class="decl"><span class="istickedoff">awaitFuture !f =</span>
+<span class="lineno">   32 </span><span class="spaces">  </span><span class="istickedoff">tryNow f &gt;&gt;= maybe (threadDelay 10 &gt;&gt; awaitFuture f) return</span></span>
+
+</pre>
+</body>
+</html>
