@@ -19,6 +19,7 @@ module UnliftIO.MessageBox
     module UnliftIO.MessageBox.Limited,
     module UnliftIO.MessageBox.Unlimited,
     module UnliftIO.MessageBox.CatchAll,
+    module UnliftIO.MessageBox.Broker,
     module UnliftIO.MessageBox.Command,
     module UnliftIO.MessageBox.Util.CallId,
     module UnliftIO.MessageBox.Util.Fresh,
@@ -26,9 +27,20 @@ module UnliftIO.MessageBox
   )
 where
 
+import UnliftIO.MessageBox.Broker
+  ( BrokerConfig (..),
+    BrokerResult (..),
+    Demultiplexer,
+    Multiplexed (..),
+    MessageHandler,
+    ResourceCleaner,
+    ResourceCreator,
+    ResourceUpdate (..),
+    spawnBroker,
+  )
 import UnliftIO.MessageBox.CatchAll
-  ( CatchAllBox (..),
-    CatchAllArg (..),
+  ( CatchAllArg (..),
+    CatchAllBox (..),
     CatchAllInput (..),
   )
 import UnliftIO.MessageBox.Class

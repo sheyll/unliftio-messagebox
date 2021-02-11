@@ -36,7 +36,7 @@ module UnliftIO.MessageBox.Broker
     Demultiplexer,
     ResourceCleaner,
     MessageHandler,
-    Demuxed (..),
+    Multiplexed (..),
     ResourceUpdate (..),
   )
 where
@@ -129,7 +129,7 @@ data BrokerConfig k w' w a m = MkBrokerConfig
     resourceCleaner :: !(ResourceCleaner k a m)
   }
 
--- | User supplied callback to extract the key and the 'Demuxed'
+-- | User supplied callback to extract the key and the 'Multiplexed'
 --  from a message.
 --  (Sync-) Exceptions thrown from this function are caught and lead
 --  to dropping of the incoming message, while the broker continues.
@@ -138,9 +138,9 @@ data BrokerConfig k w' w a m = MkBrokerConfig
 --   message
 -- * @w'@ is the type of incoming messages.
 -- * @w@ is the type of the demultiplexed messages.
-type Demultiplexer w' k w = w' -> Demuxed k w
+type Demultiplexer w' k w = w' -> Multiplexed k w
 
--- | User supplied callback to use the 'Demuxed' message and
+-- | User supplied callback to use the 'Multiplexed' message and
 --  the associated resource.
 --  (Sync-) Exceptions thrown from this function are caught and lead
 --  to immediate cleanup of the resource but the broker continues.
@@ -170,7 +170,7 @@ data ResourceUpdate a
 -- * @k@ is the /key/ for the resource associated to an incoming
 --   message
 -- * @w@ is the type of the demultiplexed messages.
-data Demuxed k w
+data Multiplexed k w
   = -- | The message is an initialization message, that requires the
     --   creation of a new resouce for the given key.
     --   When the resource is created, then /maybe/ additionally

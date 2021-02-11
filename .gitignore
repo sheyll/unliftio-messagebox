@@ -22,4 +22,5 @@ not-in-git.*
 *.tix
 /*.hp
 /*.prof
+/generated-reports/memleak-test-report/unliftio-pool-memleak-test.hp
 /generated-reports/memleak-test-report/unliftio-messagebox-memleak-test.hp

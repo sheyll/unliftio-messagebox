@@ -1,6 +1,6 @@
 cabal-version:  3.0
 name:           unliftio-messagebox
-version:        2.0.1
+version:        2.1.0
 description:    Please see the README on GitHub at <https://github.com/sheyll/unliftio-messagebox#readme>
 synopsis:       Fast and robust message queues for concurrent processes
 homepage:       https://github.com/sheyll/unliftio-messagebox#readme
@@ -155,6 +155,17 @@ executable unliftio-messagebox-memleak-test
     "-with-rtsopts=-T -hy -pa -L256 -xt -N"
   build-depends:
     unliftio-messagebox
+  
+executable unliftio-pool-memleak-test
+  import: deps, compiler-flags, executable-flags
+  default-language: Haskell2010
+  main-is: Main.hs
+  other-modules:    
+  hs-source-dirs: src-pool-memleak-test  
+  ghc-prof-options: 
+    "-with-rtsopts=-T -hy -pa -L256 -xt -N"
+  build-depends:
+    unliftio-messagebox
 
 test-suite unliftio-messagebox-test
   import: deps, compiler-flags, executable-flags
@@ -192,7 +203,8 @@ benchmark unliftio-messagebox-bench
   other-modules:
     BookStoreBenchmark,
     CommandBenchmark,
-    MediaBenchmark
+    MediaBenchmark,
+    PoolBenchmark
   hs-source-dirs: src-benchmark
   build-depends:
     unliftio-messagebox,
