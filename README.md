@@ -68,8 +68,8 @@ In total 50 iterations.
 
 If memory is leaked it should become visible.
 
-The test program is executated with the `+RTS -Mxxxm` option that instructs
-the runtime to limit the available heap to `xxx` MB, so when there is a memory
+The test program is executed with the `+RTS -Mxxxm` option that instructs
+the runtime to limit the available heap to `xxx` MB, so if there is a memory
 leak, the program would at some point crash with a heap exhaustion error.
 
 ![Memleak Test Heap Profiling Report](./generated-reports/messagebox-memleak-test-report/unliftio-messagebox-memleak-test.svg)
