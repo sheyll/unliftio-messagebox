@@ -2,30 +2,22 @@ module Main (main) where
 
 import Control.Monad (forM_, replicateM_, void, when)
 import Data.Foldable (traverse_)
-import Data.Function (fix)
 import System.Environment (getArgs)
 import UnliftIO
-  ( Async,
-    MVar,
-    MonadIO (liftIO),
+  ( MonadIO (liftIO),
     MonadUnliftIO,
-    SomeException,
-    async,
     cancel,
-    finally,
-    mapConcurrently_,
-    newEmptyMVar,
-    putMVar,
-    takeMVar,
-    tryReadMVar,
   )
 import UnliftIO.MessageBox
   ( BlockingUnlimited (BlockingUnlimited),
     IsInput (deliver),
-    IsMessageBox (Input, newInput, receive, receiveAfter),
-    IsMessageBoxArg (MessageBox, newMessageBox),
+    IsMessageBox (newInput, receive, receiveAfter),
+    IsMessageBoxArg (newMessageBox),
+    Multiplexed (..),
+    Pool (..),
+    PoolWorkerCallback (..),
+    spawnPool,
   )
-import UnliftIO.MessageBox.Broker
 
 main :: IO ()
 main = do
@@ -61,55 +53,57 @@ bench repetitions bSize = do
   resultBoxIn <- newInput resultBox
   -- start a pool
   x <-
-    startPool
+    spawnPool
       BlockingUnlimited
       BlockingUnlimited
-      (MkPoolMemberCallback (enterWorkLoop resultBoxIn))
+      (MkPoolWorkerCallback (enterWorkLoop resultBoxIn))
   case x of
     Left err ->
       liftIO (putStrLn ("Error: " ++ show err))
-    Right (poolBoxIn, poolAsync) -> do
+    Right pool -> do
       forM_ [1 .. repetitions] $ \ !rep -> do
-        liftIO $ do 
+        liftIO $ do
           putStrLn ""
           putStrLn ("================= BEGIN (rep: " ++ show rep ++ ") ================")
           putStrLn ""
-        do 
-          traverse_ (sendWork poolBoxIn . Key) [0 .. bSize - 1]
+        do
+          traverse_ (sendWork (poolInput pool) . Key) [0 .. bSize - 1]
           liftIO (putStrLn "Waiting for results: ")
           printResults resultBox
-        liftIO $ do 
+        liftIO $ do
           putStrLn ""
           putStrLn ("================= DONE (rep: " ++ show rep ++ ") ================")
-      cancel poolAsync
-
+      cancel (poolAsync pool)
 
 {-# NOINLINE printResults #-}
 printResults :: (IsMessageBox box, MonadUnliftIO m) => box (Key, Int) -> m ()
-printResults box =   
-    receiveAfter box 500000
-      >>= maybe
-        (liftIO (putStrLn "done!"))
-        ( \res@(Key k, _) -> do
-            when (k `mod` 10000 == 0) 
-              (liftIO (putStrLn ("Result: " ++ show res)))
-            printResults box
-        )
+printResults box =
+  receiveAfter box 500000
+    >>= maybe
+      (liftIO (putStrLn "done!"))
+      ( \res@(Key k, _) -> do
+          when
+            (k `mod` 1000 == 0)
+            (liftIO (putStrLn ("Result: " ++ show res)))
+          printResults box
+      )
 
 {-# NOINLINE sendWork #-}
 sendWork ::
   (IsInput input, MonadUnliftIO m) =>
-  input (Multiplexed Key (PoolMessage Msg)) ->
+  input (Multiplexed Key (Maybe Msg)) ->
   Key ->
   m ()
 sendWork poolBoxIn k@(Key x) = do
-  when (x `mod` 10000 == 0) 
-      (liftIO (putStrLn ("Delivering Messages for: " ++ show k)))
-  void $ deliver poolBoxIn (Initialize k (Just (PoolMemberWork Start)))
-  replicateM_ 10 (deliver poolBoxIn (Dispatch k (PoolMemberWork Work)))
-  void $ deliver poolBoxIn (Dispatch k (PoolMemberWork Stop))
-  when (x `mod` 10000 == 0) 
-      (liftIO (putStrLn ("Delivered all Messages for: " ++ show k)))
+  when
+    (x `mod` 1000 == 0)
+    (liftIO (putStrLn ("Delivering Messages for: " ++ show k)))
+  void $ deliver poolBoxIn (Initialize k (Just (Just Start)))
+  replicateM_ 10 (deliver poolBoxIn (Dispatch k (Just Work)))
+  void $ deliver poolBoxIn (Dispatch k (Just Stop))
+  when
+    (x `mod` 1000 == 0)
+    (liftIO (putStrLn ("Delivered all Messages for: " ++ show k)))
 
 {-# NOINLINE enterWorkLoop #-}
 enterWorkLoop ::
@@ -123,13 +117,15 @@ enterWorkLoop resultBoxIn (Key k) box =
     >>= traverse_
       ( \case
           Start -> do
-            when (k `mod` 10000 == 0) 
+            when
+              (k `mod` 1000 == 0)
               (liftIO (putStrLn ("Started: " ++ show k)))
             workLoop 0
           Work ->
             liftIO (putStrLn ("Got unexpected Work: " ++ show k))
           Stop -> do
-            when (k `mod` 10000 == 0) 
+            when
+              (k `mod` 1000 == 0)
               (liftIO (putStrLn ("Stopped: " ++ show k)))
             liftIO (putStrLn ("Got unexpected Stop: " ++ show k))
       )
@@ -146,112 +142,3 @@ enterWorkLoop resultBoxIn (Key k) box =
               Stop ->
                 void (deliver resultBoxIn (Key k, counter))
           )
-
-data PoolConfig init w m = MkPoolConfig
-  {
-  }
-
-newtype PoolMemberCallback b w k m = MkPoolMemberCallback
-  { runMkPoolMemberCallback :: k -> b w -> m ()
-  }
-
-data PoolMember box w m = MkPoolMember
-  { poolMemberInput :: Input box w,
-    poolMemberAsync :: !(Async ())
-  }
-
-data PoolMessage w
-  = PoolMemberWork w
-  | PoolMemberCleanup
-
-startPool ::
-  ( MonadUnliftIO m,
-    IsMessageBoxArg brokerBoxArg,
-    Ord k,
-    IsMessageBoxArg boxArg
-  ) =>
-  brokerBoxArg ->
-  boxArg ->
-  PoolMemberCallback (MessageBox boxArg) w k m ->
-  m
-    ( Either
-        SomeException
-        ( Input (MessageBox brokerBoxArg) (Multiplexed k (PoolMessage w)),
-          Async BrokerResult
-        )
-    )
-startPool brokerBoxArg workerBoxArg poolMemberImpl = do
-  brInRef <- newEmptyMVar
-  let brCfg =
-        MkBrokerConfig
-          demuxPoolMsg
-          dispatchToPoolMember
-          (spawnPoolMember workerBoxArg brInRef poolMemberImpl)
-          removePoolMember
-  spawnBroker brokerBoxArg brCfg
-    >>= traverse
-      ( \(brIn, brA) -> do
-          putMVar brInRef brIn
-          return (brIn, brA)
-      )
-
-demuxPoolMsg :: Demultiplexer (Multiplexed k (PoolMessage w)) k (PoolMessage w)
-demuxPoolMsg = id
-
-dispatchToPoolMember ::
-  (MonadUnliftIO m, IsInput (Input b)) =>
-  k ->
-  PoolMessage w ->
-  PoolMember b w m ->
-  m (ResourceUpdate (PoolMember b w m))
-dispatchToPoolMember _k pMsg pm =
-  case pMsg of
-    PoolMemberWork w -> do
-      helper w
-    PoolMemberCleanup -> do
-      return (RemoveResource Nothing)
-  where
-    helper msg = do
-      ok <- deliver (poolMemberInput pm) msg
-      if not ok
-        then do
-          return (RemoveResource Nothing)
-        else return KeepResource
-
-spawnPoolMember ::
-  ( IsMessageBoxArg boxArg,
-    MonadUnliftIO m,
-    IsInput brokerBoxIn
-  ) =>
-  boxArg ->
-  MVar (brokerBoxIn (Multiplexed k (PoolMessage w))) ->
-  PoolMemberCallback (MessageBox boxArg) w k m ->
-  k ->
-  Maybe (PoolMessage w) ->
-  m (PoolMember (MessageBox boxArg) w m)
-spawnPoolMember boxArg brInRef pmCb this _mw = do
-  inputRef <- newEmptyMVar
-  a <- async (go inputRef)
-  boxIn <- takeMVar inputRef
-  return MkPoolMember {poolMemberInput = boxIn, poolMemberAsync = a}
-  where
-    go inputRef = do
-      b <- newMessageBox boxArg
-      boxIn <- newInput b
-      putMVar inputRef boxIn
-      runMkPoolMemberCallback pmCb this b
-        `finally` enqueueCleanup
-    enqueueCleanup =
-      tryReadMVar brInRef
-        >>= traverse_
-          ( \brIn ->
-              void (deliver brIn (Dispatch this PoolMemberCleanup))
-          )
-
-removePoolMember ::
-  (MonadUnliftIO m) =>
-  k ->
-  PoolMember boxArg w m ->
-  m ()
-removePoolMember _k pm =
-  void (cancel (poolMemberAsync pm))

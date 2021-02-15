@@ -41,7 +41,7 @@ module UnliftIO.MessageBox.Broker
   )
 where
 
-import Control.Monad (void, join)
+import Control.Monad (join, void)
 import Data.Foldable (traverse_)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
@@ -217,8 +217,7 @@ brokerLoop ::
   m BrokerResult
 brokerLoop unmask brokerBox config brokerState =
   ( ( unmask (receive brokerBox)
-        >>=
-          traverse (tryAny . onIncoming unmask config brokerState)
+        >>= traverse (tryAny . onIncoming unmask config brokerState)
     )
       `onException` ( do
                         -- TODO logError
@@ -361,4 +360,3 @@ tryResourceCleaner ::
 tryResourceCleaner config k res = do
   -- TODO logError
   void $ tryAny (resourceCleaner config k res)
-  

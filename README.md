@@ -49,7 +49,9 @@ or on [Hackage](http://hackage.haskell.org/package/unliftio-messagebox).
 
 [Test Profiling Report](./generated-reports/test-profiling-report/unliftio-messagebox-test.prof)
 
-## Memory Leak Test 
+## Memory Leak Tests
+
+### MessageBox Usage
 
 This is a small application with a 1002 processes, each performing a fix amount of 
 work.
@@ -57,19 +59,34 @@ work.
 When the work is done, all processes synchronise before starting a new iteration.
 After each iteration, the memory usage is queried from the GHC runtime 
 statistics.
-There are 100 iterations like that. 
+There are 10 iterations like that. 
 
 After that all processes are shutdown, and the process
-starts all over again, 30 times.
+starts all over again, 5 times.
 
-In total 3000 iterations.
+In total 50 iterations.
 
 If memory is leaked it should become visible.
 
-The test program is executated with the `+RTS -M400m` option that instructs
-the runtime to limit the available heap to 400MB, so when there is a memory
+The test program is executated with the `+RTS -Mxxxm` option that instructs
+the runtime to limit the available heap to `xxx` MB, so when there is a memory
 leak, the program would at some point crash with a heap exhaustion error.
 
-![Memleak Test Heap Profiling Report](./generated-reports/memleak-test-report/unliftio-messagebox-memleak-test.svg)
+![Memleak Test Heap Profiling Report](./generated-reports/messagebox-memleak-test-report/unliftio-messagebox-memleak-test.svg)
 
-The output is printed into [this log file](./generated-reports/memleak-test-report/test.log).
+The output is printed into [this log file](./generated-reports/messagebox-memleak-test-report/test.log).
+
+### Pool & Broker Usage
+
+Benchmark memory usage of a very simple `Pool` example.
+
+A single dispatcher process sends a `Start`, some `Work` and a
+`Stop` message to a `Pool` that spawns and dispatches the message
+
+Like the previous benchmark this is a rather long running test 
+executed with capped memory so that when space is leaked, it 
+will crash the benchmark.
+
+![Pool Memleak Test Heap Profiling Report](./generated-reports/pool-memleak-test-report/unliftio-pool-memleak-test.svg)
+
+The output is printed into [this log file](./generated-reports/pool-memleak-test-report/test.log).

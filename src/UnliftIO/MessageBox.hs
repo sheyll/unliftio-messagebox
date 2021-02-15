@@ -20,6 +20,7 @@ module UnliftIO.MessageBox
     module UnliftIO.MessageBox.Unlimited,
     module UnliftIO.MessageBox.CatchAll,
     module UnliftIO.MessageBox.Broker,
+    module UnliftIO.MessageBox.Pool,
     module UnliftIO.MessageBox.Command,
     module UnliftIO.MessageBox.Util.CallId,
     module UnliftIO.MessageBox.Util.Fresh,
@@ -31,8 +32,8 @@ import UnliftIO.MessageBox.Broker
   ( BrokerConfig (..),
     BrokerResult (..),
     Demultiplexer,
-    Multiplexed (..),
     MessageHandler,
+    Multiplexed (..),
     ResourceCleaner,
     ResourceCreator,
     ResourceUpdate (..),
@@ -77,6 +78,12 @@ import UnliftIO.MessageBox.Limited
     WaitingBoxLimit (..),
     WaitingInput (..),
     messageLimitToInt,
+  )
+import UnliftIO.MessageBox.Pool
+  ( Pool (..),
+    PoolWorkerCallback (..),
+    removePoolWorkerMessage,
+    spawnPool,
   )
 import UnliftIO.MessageBox.Unlimited
   ( BlockingUnlimited (..),

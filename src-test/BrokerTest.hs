@@ -12,8 +12,8 @@ import UnliftIO.MessageBox.Broker
 import UnliftIO.MessageBox.Class
 import UnliftIO.MessageBox.Unlimited
 import Utils
-  ( MsgBox (MkMsgBox),
-    MsgBoxBuilder (MkMsgBoxBuilder),
+  ( MockBox (MkMockBox),
+    MockBoxInit (MkMockBoxInit),
     NoOpArg (..),
     NoOpBox,
     NoOpInput (..),
@@ -45,7 +45,7 @@ test =
           Just (Left a) <-
             timeout 1000000 $
               spawnBroker @_ @() @() @() @NoOpArg
-                ( MkMsgBoxBuilder @NoOpBox
+                ( MkMockBoxInit @NoOpBox
                     (throwIO expectedException)
                     Nothing
                 )
@@ -61,9 +61,9 @@ test =
           Just (Left a) <-
             timeout 1000000 $
               spawnBroker @_ @() @() @() @NoOpArg
-                ( MkMsgBoxBuilder
+                ( MkMockBoxInit
                     ( return
-                        ( MkMsgBox @NoOpInput
+                        ( MkMockBox @NoOpInput
                             (throwIO expectedException)
                             (error "unexpected invokation: receive")
                             (error "unexpected invokation: tryReceive")
@@ -83,9 +83,9 @@ test =
           Just (Right (_, a)) <-
             timeout 1000000 $
               spawnBroker @_ @() @() @() @NoOpArg
-                ( MkMsgBoxBuilder
+                ( MkMockBoxInit
                     ( return
-                        ( MkMsgBox
+                        ( MkMockBox
                             ( return
                                 (OnDeliver (error "unexpected invokation: OnDeliver"))
                             )
@@ -111,9 +111,9 @@ test =
         $ do
           (Right (brokerIn, brokerA)) <-
             spawnBroker
-              ( MkMsgBoxBuilder
+              ( MkMockBoxInit
                   ( return
-                      ( MkMsgBox
+                      ( MkMockBox
                           ( return
                               (OnDeliver (const (pure True)))
                           )
@@ -146,9 +146,9 @@ test =
         $ do
           (Right (brokerIn, brokerA)) <-
             spawnBroker
-              ( MkMsgBoxBuilder
+              ( MkMockBoxInit
                   ( return
-                      ( MkMsgBox
+                      ( MkMockBox
                           ( return
                               (OnDeliver (const (pure True)))
                           )
@@ -185,9 +185,9 @@ test =
           goOn <- newEmptyMVar
           (Right (_brokerIn, brokerA)) <-
             spawnBroker @_ @() @() @()
-              ( MkMsgBoxBuilder
+              ( MkMockBoxInit
                   ( return
-                      ( MkMsgBox
+                      ( MkMockBox
                           ( return
                               (OnDeliver (const (pure True)))
                           )

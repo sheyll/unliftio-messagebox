@@ -11,8 +11,8 @@ module Utils
     withCallIds,
     allEqOrdShowMethodsImplemented,
     allEnumMethodsImplemented,
-    MsgBoxBuilder(..),
-    MsgBox(..),
+    MockBoxInit(..),
+    MockBox(..),
     NoOpArg (..),
     NoOpBox (..),
     NoOpInput (..),
@@ -147,27 +147,27 @@ allEnumMethodsImplemented _ =
 -- of the message payload, the receive and deliver methods
 -- are only capable of throwing exceptions or bottoming out
 
-data MsgBoxBuilder msgBox = MkMsgBoxBuilder 
-  { boxBuilderMakeBox :: forall m a. MonadUnliftIO m => m (msgBox a)
-  , boxBuilderConfiguredLimit :: !(Maybe Int)
+data MockBoxInit msgBox = MkMockBoxInit 
+  { mockBoxNew :: forall m a. MonadUnliftIO m => m (msgBox a)
+  , mockBoxLimit :: !(Maybe Int)
   }
 
-instance IsMessageBox msgBox => IsMessageBoxArg (MsgBoxBuilder msgBox) where 
-  type MessageBox (MsgBoxBuilder msgBox) = msgBox
-  getConfiguredMessageLimit _ = Nothing
-  newMessageBox b = boxBuilderMakeBox b
+instance IsMessageBox msgBox => IsMessageBoxArg (MockBoxInit msgBox) where 
+  type MessageBox (MockBoxInit msgBox) = msgBox
+  getConfiguredMessageLimit = mockBoxLimit
+  newMessageBox b = mockBoxNew b
 
-data MsgBox input a = MkMsgBox 
-  { msgBoxNewInput :: forall m . MonadUnliftIO m => m (input a)
-  , msgBoxReceive :: forall m . MonadUnliftIO m => m (Maybe a)
-  , msgBoxTryReceive :: forall m . MonadUnliftIO m => m (Future a)
+data MockBox input a = MkMockBox 
+  { mockBoxNewInput :: forall m . MonadUnliftIO m => m (input a)
+  , mockBoxReceive :: forall m . MonadUnliftIO m => m (Maybe a)
+  , mockBoxTryReceive :: forall m . MonadUnliftIO m => m (Future a)
   }
 
-instance IsInput input => IsMessageBox (MsgBox input) where
-  type Input (MsgBox input) = input
-  newInput m = msgBoxNewInput m 
-  receive m = msgBoxReceive m
-  tryReceive m = msgBoxTryReceive m
+instance IsInput input => IsMessageBox (MockBox input) where
+  type Input (MockBox input) = input
+  newInput m = mockBoxNewInput m 
+  receive m = mockBoxReceive m
+  tryReceive m = mockBoxTryReceive m
 
 
 

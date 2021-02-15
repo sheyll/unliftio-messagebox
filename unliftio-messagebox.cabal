@@ -139,6 +139,7 @@ library
     UnliftIO.MessageBox.Class,
     UnliftIO.MessageBox.Command,
     UnliftIO.MessageBox.Limited,
+    UnliftIO.MessageBox.Pool,
     UnliftIO.MessageBox.Unlimited,
     UnliftIO.MessageBox.Util.CallId,
     UnliftIO.MessageBox.Util.Fresh,
@@ -183,6 +184,7 @@ test-suite unliftio-messagebox-test
     CornerCaseTests,
     MessageBoxClassTest,
     MessageBoxCommon,
+    PoolTest,
     QCOrphans,
     UnlimitedMessageBoxTest,
     Utils
