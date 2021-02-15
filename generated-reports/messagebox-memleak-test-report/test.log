@@ -11,7 +11,7 @@ Client: 999 started.
 Client: 999 started iteration: 1
 Client: 999 joined participants: 1
 ===== FINISHED: 1: Mixing Server Loop
-Total memory in use: 184m
+Total memory in use: 191m
 ===== FINISHED: 1: Media Server Loop
 ===== ITERATION: 2: Media Server Loop 
 Client: 999 unjoined participants: 1
@@ -19,44 +19,44 @@ Client: 999 finished with iteration: 1 sleeping before next iteration.
 ===== ITERATION: 2: Mixing Server Loop 
 Client: 999 started iteration: 2
 Client: 999 joined participants: 2
-Client: 999 unjoined participants: 2
-Client: 999 finished with iteration: 2 sleeping before next iteration.
 ===== FINISHED: 2: Mixing Server Loop
-Total memory in use: 190m
+Total memory in use: 191m
 ===== FINISHED: 2: Media Server Loop
 ===== ITERATION: 3: Media Server Loop 
+Client: 999 unjoined participants: 2
+Client: 999 finished with iteration: 2 sleeping before next iteration.
 ===== ITERATION: 3: Mixing Server Loop 
 Client: 999 started iteration: 3
 Client: 999 joined participants: 3
-===== FINISHED: 3: Mixing Server Loop
-Total memory in use: 183m
-===== FINISHED: 3: Media Server Loop
-===== ITERATION: 4: Media Server Loop 
 Client: 999 unjoined participants: 3
 Client: 999 finished with iteration: 3 sleeping before next iteration.
+===== FINISHED: 3: Mixing Server Loop
+Total memory in use: 178m
+===== FINISHED: 3: Media Server Loop
+===== ITERATION: 4: Media Server Loop 
 ===== ITERATION: 4: Mixing Server Loop 
 Client: 999 started iteration: 4
 Client: 999 joined participants: 4
-Client: 999 unjoined participants: 4
-Client: 999 finished with iteration: 4 sleeping before next iteration.
 ===== FINISHED: 4: Mixing Server Loop
-Total memory in use: 187m
+Total memory in use: 192m
 ===== FINISHED: 4: Media Server Loop
 ===== ITERATION: 5: Media Server Loop 
+Client: 999 unjoined participants: 4
+Client: 999 finished with iteration: 4 sleeping before next iteration.
 ===== ITERATION: 5: Mixing Server Loop 
 Client: 999 started iteration: 5
 Client: 999 joined participants: 5
-===== FINISHED: 5: Mixing Server Loop
-Total memory in use: 193m
-===== FINISHED: 5: Media Server Loop
-===== ITERATION: 6: Media Server Loop 
 Client: 999 unjoined participants: 5
 Client: 999 finished with iteration: 5 sleeping before next iteration.
+===== FINISHED: 5: Mixing Server Loop
+Total memory in use: 181m
+===== FINISHED: 5: Media Server Loop
+===== ITERATION: 6: Media Server Loop 
 ===== ITERATION: 6: Mixing Server Loop 
 Client: 999 started iteration: 6
 Client: 999 joined participants: 6
 ===== FINISHED: 6: Mixing Server Loop
-Total memory in use: 178m
+Total memory in use: 195m
 ===== FINISHED: 6: Media Server Loop
 ===== ITERATION: 7: Media Server Loop 
 Client: 999 unjoined participants: 6
@@ -67,14 +67,14 @@ Client: 999 joined participants: 7
 Client: 999 unjoined participants: 7
 Client: 999 finished with iteration: 7 sleeping before next iteration.
 ===== FINISHED: 7: Mixing Server Loop
-Total memory in use: 191m
+Total memory in use: 189m
 ===== FINISHED: 7: Media Server Loop
 ===== ITERATION: 8: Media Server Loop 
 ===== ITERATION: 8: Mixing Server Loop 
 Client: 999 started iteration: 8
 Client: 999 joined participants: 8
 ===== FINISHED: 8: Mixing Server Loop
-Total memory in use: 181m
+Total memory in use: 179m
 ===== FINISHED: 8: Media Server Loop
 ===== ITERATION: 9: Media Server Loop 
 Client: 999 unjoined participants: 8
@@ -82,21 +82,21 @@ Client: 999 finished with iteration: 8 sleeping before next iteration.
 ===== ITERATION: 9: Mixing Server Loop 
 Client: 999 started iteration: 9
 Client: 999 joined participants: 9
-===== FINISHED: 9: Mixing Server Loop
-Total memory in use: 189m
-===== FINISHED: 9: Media Server Loop
-===== ITERATION: 10: Media Server Loop 
 Client: 999 unjoined participants: 9
 Client: 999 finished with iteration: 9 sleeping before next iteration.
+===== FINISHED: 9: Mixing Server Loop
+Total memory in use: 199m
+===== FINISHED: 9: Media Server Loop
+===== ITERATION: 10: Media Server Loop 
 ===== ITERATION: 10: Mixing Server Loop 
 Client: 999 started iteration: 10
 Client: 999 joined participants: 10
+Client: 999 unjoined participants: 10
 ===== FINISHED: 10: Mixing Server Loop
 ===== END: Mixing Server Loop
-Total memory in use: 176m
+Total memory in use: 178m
 ===== FINISHED: 10: Media Server Loop
 ===== END: Media Server Loop
-Client: 999 unjoined participants: 10
 
 ================= DONE (rep: 1) ================
 
@@ -114,7 +114,7 @@ Client: 999 started.
 Client: 999 started iteration: 1
 Client: 999 joined participants: 1
 ===== FINISHED: 1: Mixing Server Loop
-Total memory in use: 242m
+Total memory in use: 234m
 ===== FINISHED: 1: Media Server Loop
 ===== ITERATION: 2: Media Server Loop 
 Client: 999 unjoined participants: 1
@@ -134,7 +134,7 @@ Client: 999 joined participants: 3
 Client: 999 unjoined participants: 3
 Client: 999 finished with iteration: 3 sleeping before next iteration.
 ===== FINISHED: 3: Mixing Server Loop
-Total memory in use: 201m
+Total memory in use: 191m
 ===== FINISHED: 3: Media Server Loop
 ===== ITERATION: 4: Media Server Loop 
 ===== ITERATION: 4: Mixing Server Loop 
@@ -152,32 +152,32 @@ Client: 999 joined participants: 5
 Client: 999 unjoined participants: 5
 Client: 999 finished with iteration: 5 sleeping before next iteration.
 ===== FINISHED: 5: Mixing Server Loop
-Total memory in use: 191m
+Total memory in use: 184m
 ===== FINISHED: 5: Media Server Loop
 ===== ITERATION: 6: Media Server Loop 
 ===== ITERATION: 6: Mixing Server Loop 
 Client: 999 started iteration: 6
 Client: 999 joined participants: 6
-===== FINISHED: 6: Mixing Server Loop
-Total memory in use: 177m
-===== FINISHED: 6: Media Server Loop
-===== ITERATION: 7: Media Server Loop 
 Client: 999 unjoined participants: 6
 Client: 999 finished with iteration: 6 sleeping before next iteration.
+===== FINISHED: 6: Mixing Server Loop
+Total memory in use: 191m
+===== FINISHED: 6: Media Server Loop
+===== ITERATION: 7: Media Server Loop 
 ===== ITERATION: 7: Mixing Server Loop 
 Client: 999 started iteration: 7
 Client: 999 joined participants: 7
-Client: 999 unjoined participants: 7
-Client: 999 finished with iteration: 7 sleeping before next iteration.
 ===== FINISHED: 7: Mixing Server Loop
-Total memory in use: 190m
+Total memory in use: 178m
 ===== FINISHED: 7: Media Server Loop
 ===== ITERATION: 8: Media Server Loop 
+Client: 999 unjoined participants: 7
+Client: 999 finished with iteration: 7 sleeping before next iteration.
 ===== ITERATION: 8: Mixing Server Loop 
 Client: 999 started iteration: 8
 Client: 999 joined participants: 8
 ===== FINISHED: 8: Mixing Server Loop
-Total memory in use: 184m
+Total memory in use: 192m
 ===== FINISHED: 8: Media Server Loop
 ===== ITERATION: 9: Media Server Loop 
 Client: 999 unjoined participants: 8
@@ -185,18 +185,18 @@ Client: 999 finished with iteration: 8 sleeping before next iteration.
 ===== ITERATION: 9: Mixing Server Loop 
 Client: 999 started iteration: 9
 Client: 999 joined participants: 9
-Client: 999 unjoined participants: 9
-Client: 999 finished with iteration: 9 sleeping before next iteration.
 ===== FINISHED: 9: Mixing Server Loop
-Total memory in use: 150m
+Total memory in use: 178m
 ===== FINISHED: 9: Media Server Loop
 ===== ITERATION: 10: Media Server Loop 
+Client: 999 unjoined participants: 9
+Client: 999 finished with iteration: 9 sleeping before next iteration.
 ===== ITERATION: 10: Mixing Server Loop 
 Client: 999 started iteration: 10
 Client: 999 joined participants: 10
 ===== FINISHED: 10: Mixing Server Loop
 ===== END: Mixing Server Loop
-Total memory in use: 193m
+Total memory in use: 190m
 ===== FINISHED: 10: Media Server Loop
 ===== END: Media Server Loop
 Client: 999 unjoined participants: 10
@@ -217,7 +217,7 @@ Client: 999 started.
 Client: 999 started iteration: 1
 Client: 999 joined participants: 1
 ===== FINISHED: 1: Mixing Server Loop
-Total memory in use: 242m
+Total memory in use: 201m
 ===== FINISHED: 1: Media Server Loop
 ===== ITERATION: 2: Media Server Loop 
 Client: 999 unjoined participants: 1
@@ -226,7 +226,7 @@ Client: 999 finished with iteration: 1 sleeping before next iteration.
 Client: 999 started iteration: 2
 Client: 999 joined participants: 2
 ===== FINISHED: 2: Mixing Server Loop
-Total memory in use: 191m
+Total memory in use: 181m
 ===== FINISHED: 2: Media Server Loop
 ===== ITERATION: 3: Media Server Loop 
 Client: 999 unjoined participants: 2
@@ -237,7 +237,7 @@ Client: 999 joined participants: 3
 Client: 999 unjoined participants: 3
 Client: 999 finished with iteration: 3 sleeping before next iteration.
 ===== FINISHED: 3: Mixing Server Loop
-Total memory in use: 196m
+Total memory in use: 173m
 ===== FINISHED: 3: Media Server Loop
 ===== ITERATION: 4: Media Server Loop 
 ===== ITERATION: 4: Mixing Server Loop 
@@ -246,23 +246,23 @@ Client: 999 joined participants: 4
 Client: 999 unjoined participants: 4
 Client: 999 finished with iteration: 4 sleeping before next iteration.
 ===== FINISHED: 4: Mixing Server Loop
-Total memory in use: 193m
+Total memory in use: 197m
 ===== FINISHED: 4: Media Server Loop
 ===== ITERATION: 5: Media Server Loop 
 ===== ITERATION: 5: Mixing Server Loop 
 Client: 999 started iteration: 5
 Client: 999 joined participants: 5
-Client: 999 unjoined participants: 5
-Client: 999 finished with iteration: 5 sleeping before next iteration.
 ===== FINISHED: 5: Mixing Server Loop
-Total memory in use: 180m
+Total memory in use: 177m
 ===== FINISHED: 5: Media Server Loop
 ===== ITERATION: 6: Media Server Loop 
+Client: 999 unjoined participants: 5
+Client: 999 finished with iteration: 5 sleeping before next iteration.
 ===== ITERATION: 6: Mixing Server Loop 
 Client: 999 started iteration: 6
 Client: 999 joined participants: 6
 ===== FINISHED: 6: Mixing Server Loop
-Total memory in use: 179m
+Total memory in use: 191m
 ===== FINISHED: 6: Media Server Loop
 ===== ITERATION: 7: Media Server Loop 
 Client: 999 unjoined participants: 6
@@ -270,30 +270,30 @@ Client: 999 finished with iteration: 6 sleeping before next iteration.
 ===== ITERATION: 7: Mixing Server Loop 
 Client: 999 started iteration: 7
 Client: 999 joined participants: 7
-Client: 999 unjoined participants: 7
-Client: 999 finished with iteration: 7 sleeping before next iteration.
 ===== FINISHED: 7: Mixing Server Loop
-Total memory in use: 190m
+Total memory in use: 194m
 ===== FINISHED: 7: Media Server Loop
 ===== ITERATION: 8: Media Server Loop 
+Client: 999 unjoined participants: 7
+Client: 999 finished with iteration: 7 sleeping before next iteration.
 ===== ITERATION: 8: Mixing Server Loop 
 Client: 999 started iteration: 8
 Client: 999 joined participants: 8
 Client: 999 unjoined participants: 8
 Client: 999 finished with iteration: 8 sleeping before next iteration.
 ===== FINISHED: 8: Mixing Server Loop
-Total memory in use: 189m
+Total memory in use: 180m
 ===== FINISHED: 8: Media Server Loop
 ===== ITERATION: 9: Media Server Loop 
 ===== ITERATION: 9: Mixing Server Loop 
 Client: 999 started iteration: 9
 Client: 999 joined participants: 9
-===== FINISHED: 9: Mixing Server Loop
-Total memory in use: 189m
-===== FINISHED: 9: Media Server Loop
-===== ITERATION: 10: Media Server Loop 
 Client: 999 unjoined participants: 9
 Client: 999 finished with iteration: 9 sleeping before next iteration.
+===== FINISHED: 9: Mixing Server Loop
+Total memory in use: 185m
+===== FINISHED: 9: Media Server Loop
+===== ITERATION: 10: Media Server Loop 
 ===== ITERATION: 10: Mixing Server Loop 
 Client: 999 started iteration: 10
 Client: 999 joined participants: 10
@@ -320,7 +320,7 @@ Client: 999 started.
 Client: 999 started iteration: 1
 Client: 999 joined participants: 1
 ===== FINISHED: 1: Mixing Server Loop
-Total memory in use: 240m
+Total memory in use: 201m
 ===== FINISHED: 1: Media Server Loop
 ===== ITERATION: 2: Media Server Loop 
 Client: 999 unjoined participants: 1
@@ -328,35 +328,35 @@ Client: 999 finished with iteration: 1 sleeping before next iteration.
 ===== ITERATION: 2: Mixing Server Loop 
 Client: 999 started iteration: 2
 Client: 999 joined participants: 2
-Client: 999 unjoined participants: 2
-Client: 999 finished with iteration: 2 sleeping before next iteration.
 ===== FINISHED: 2: Mixing Server Loop
-Total memory in use: 180m
+Total memory in use: 184m
 ===== FINISHED: 2: Media Server Loop
 ===== ITERATION: 3: Media Server Loop 
+Client: 999 unjoined participants: 2
+Client: 999 finished with iteration: 2 sleeping before next iteration.
 ===== ITERATION: 3: Mixing Server Loop 
 Client: 999 started iteration: 3
 Client: 999 joined participants: 3
-Client: 999 unjoined participants: 3
-Client: 999 finished with iteration: 3 sleeping before next iteration.
 ===== FINISHED: 3: Mixing Server Loop
-Total memory in use: 190m
+Total memory in use: 179m
 ===== FINISHED: 3: Media Server Loop
 ===== ITERATION: 4: Media Server Loop 
+Client: 999 unjoined participants: 3
+Client: 999 finished with iteration: 3 sleeping before next iteration.
 ===== ITERATION: 4: Mixing Server Loop 
 Client: 999 started iteration: 4
 Client: 999 joined participants: 4
 Client: 999 unjoined participants: 4
 Client: 999 finished with iteration: 4 sleeping before next iteration.
 ===== FINISHED: 4: Mixing Server Loop
-Total memory in use: 190m
+Total memory in use: 195m
 ===== FINISHED: 4: Media Server Loop
 ===== ITERATION: 5: Media Server Loop 
 ===== ITERATION: 5: Mixing Server Loop 
 Client: 999 started iteration: 5
 Client: 999 joined participants: 5
 ===== FINISHED: 5: Mixing Server Loop
-Total memory in use: 188m
+Total memory in use: 184m
 ===== FINISHED: 5: Media Server Loop
 ===== ITERATION: 6: Media Server Loop 
 Client: 999 unjoined participants: 5
@@ -364,26 +364,26 @@ Client: 999 finished with iteration: 5 sleeping before next iteration.
 ===== ITERATION: 6: Mixing Server Loop 
 Client: 999 started iteration: 6
 Client: 999 joined participants: 6
-===== FINISHED: 6: Mixing Server Loop
-Total memory in use: 177m
-===== FINISHED: 6: Media Server Loop
-===== ITERATION: 7: Media Server Loop 
 Client: 999 unjoined participants: 6
 Client: 999 finished with iteration: 6 sleeping before next iteration.
+===== FINISHED: 6: Mixing Server Loop
+Total memory in use: 178m
+===== FINISHED: 6: Media Server Loop
+===== ITERATION: 7: Media Server Loop 
 ===== ITERATION: 7: Mixing Server Loop 
 Client: 999 started iteration: 7
 Client: 999 joined participants: 7
-Client: 999 unjoined participants: 7
-Client: 999 finished with iteration: 7 sleeping before next iteration.
 ===== FINISHED: 7: Mixing Server Loop
-Total memory in use: 192m
+Total memory in use: 197m
 ===== FINISHED: 7: Media Server Loop
 ===== ITERATION: 8: Media Server Loop 
+Client: 999 unjoined participants: 7
+Client: 999 finished with iteration: 7 sleeping before next iteration.
 ===== ITERATION: 8: Mixing Server Loop 
 Client: 999 started iteration: 8
 Client: 999 joined participants: 8
 ===== FINISHED: 8: Mixing Server Loop
-Total memory in use: 181m
+Total memory in use: 194m
 ===== FINISHED: 8: Media Server Loop
 ===== ITERATION: 9: Media Server Loop 
 Client: 999 unjoined participants: 8
@@ -392,7 +392,7 @@ Client: 999 finished with iteration: 8 sleeping before next iteration.
 Client: 999 started iteration: 9
 Client: 999 joined participants: 9
 ===== FINISHED: 9: Mixing Server Loop
-Total memory in use: 186m
+Total memory in use: 178m
 ===== FINISHED: 9: Media Server Loop
 ===== ITERATION: 10: Media Server Loop 
 Client: 999 unjoined participants: 9
@@ -400,12 +400,12 @@ Client: 999 finished with iteration: 9 sleeping before next iteration.
 ===== ITERATION: 10: Mixing Server Loop 
 Client: 999 started iteration: 10
 Client: 999 joined participants: 10
+Client: 999 unjoined participants: 10
 ===== FINISHED: 10: Mixing Server Loop
 ===== END: Mixing Server Loop
-Total memory in use: 192m
+Total memory in use: 196m
 ===== FINISHED: 10: Media Server Loop
 ===== END: Media Server Loop
-Client: 999 unjoined participants: 10
 
 ================= DONE (rep: 4) ================
 
@@ -423,7 +423,7 @@ Client: 999 started.
 Client: 999 started iteration: 1
 Client: 999 joined participants: 1
 ===== FINISHED: 1: Mixing Server Loop
-Total memory in use: 201m
+Total memory in use: 244m
 ===== FINISHED: 1: Media Server Loop
 ===== ITERATION: 2: Media Server Loop 
 Client: 999 unjoined participants: 1
@@ -431,17 +431,17 @@ Client: 999 finished with iteration: 1 sleeping before next iteration.
 ===== ITERATION: 2: Mixing Server Loop 
 Client: 999 started iteration: 2
 Client: 999 joined participants: 2
-===== FINISHED: 2: Mixing Server Loop
-Total memory in use: 189m
-===== FINISHED: 2: Media Server Loop
-===== ITERATION: 3: Media Server Loop 
 Client: 999 unjoined participants: 2
 Client: 999 finished with iteration: 2 sleeping before next iteration.
+===== FINISHED: 2: Mixing Server Loop
+Total memory in use: 197m
+===== FINISHED: 2: Media Server Loop
+===== ITERATION: 3: Media Server Loop 
 ===== ITERATION: 3: Mixing Server Loop 
 Client: 999 started iteration: 3
 Client: 999 joined participants: 3
 ===== FINISHED: 3: Mixing Server Loop
-Total memory in use: 185m
+Total memory in use: 178m
 ===== FINISHED: 3: Media Server Loop
 ===== ITERATION: 4: Media Server Loop 
 Client: 999 unjoined participants: 3
@@ -449,35 +449,35 @@ Client: 999 finished with iteration: 3 sleeping before next iteration.
 ===== ITERATION: 4: Mixing Server Loop 
 Client: 999 started iteration: 4
 Client: 999 joined participants: 4
-===== FINISHED: 4: Mixing Server Loop
-Total memory in use: 187m
-===== FINISHED: 4: Media Server Loop
-===== ITERATION: 5: Media Server Loop 
 Client: 999 unjoined participants: 4
 Client: 999 finished with iteration: 4 sleeping before next iteration.
+===== FINISHED: 4: Mixing Server Loop
+Total memory in use: 176m
+===== FINISHED: 4: Media Server Loop
+===== ITERATION: 5: Media Server Loop 
 ===== ITERATION: 5: Mixing Server Loop 
 Client: 999 started iteration: 5
 Client: 999 joined participants: 5
-===== FINISHED: 5: Mixing Server Loop
-Total memory in use: 189m
-===== FINISHED: 5: Media Server Loop
-===== ITERATION: 6: Media Server Loop 
 Client: 999 unjoined participants: 5
 Client: 999 finished with iteration: 5 sleeping before next iteration.
+===== FINISHED: 5: Mixing Server Loop
+Total memory in use: 197m
+===== FINISHED: 5: Media Server Loop
+===== ITERATION: 6: Media Server Loop 
 ===== ITERATION: 6: Mixing Server Loop 
 Client: 999 started iteration: 6
 Client: 999 joined participants: 6
 Client: 999 unjoined participants: 6
 Client: 999 finished with iteration: 6 sleeping before next iteration.
 ===== FINISHED: 6: Mixing Server Loop
-Total memory in use: 190m
+Total memory in use: 177m
 ===== FINISHED: 6: Media Server Loop
 ===== ITERATION: 7: Media Server Loop 
 ===== ITERATION: 7: Mixing Server Loop 
 Client: 999 started iteration: 7
 Client: 999 joined participants: 7
 ===== FINISHED: 7: Mixing Server Loop
-Total memory in use: 200m
+Total memory in use: 178m
 ===== FINISHED: 7: Media Server Loop
 ===== ITERATION: 8: Media Server Loop 
 Client: 999 unjoined participants: 7
@@ -485,17 +485,17 @@ Client: 999 finished with iteration: 7 sleeping before next iteration.
 ===== ITERATION: 8: Mixing Server Loop 
 Client: 999 started iteration: 8
 Client: 999 joined participants: 8
-===== FINISHED: 8: Mixing Server Loop
-Total memory in use: 179m
-===== FINISHED: 8: Media Server Loop
-===== ITERATION: 9: Media Server Loop 
 Client: 999 unjoined participants: 8
 Client: 999 finished with iteration: 8 sleeping before next iteration.
+===== FINISHED: 8: Mixing Server Loop
+Total memory in use: 196m
+===== FINISHED: 8: Media Server Loop
+===== ITERATION: 9: Media Server Loop 
 ===== ITERATION: 9: Mixing Server Loop 
 Client: 999 started iteration: 9
 Client: 999 joined participants: 9
 ===== FINISHED: 9: Mixing Server Loop
-Total memory in use: 191m
+Total memory in use: 183m
 ===== FINISHED: 9: Media Server Loop
 ===== ITERATION: 10: Media Server Loop 
 Client: 999 unjoined participants: 9
@@ -503,11 +503,11 @@ Client: 999 finished with iteration: 9 sleeping before next iteration.
 ===== ITERATION: 10: Mixing Server Loop 
 Client: 999 started iteration: 10
 Client: 999 joined participants: 10
-Client: 999 unjoined participants: 10
 ===== FINISHED: 10: Mixing Server Loop
 ===== END: Mixing Server Loop
-Total memory in use: 181m
+Total memory in use: 192m
 ===== FINISHED: 10: Media Server Loop
 ===== END: Media Server Loop
+Client: 999 unjoined participants: 10
 
 ================= DONE (rep: 5) ================

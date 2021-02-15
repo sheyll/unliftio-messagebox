@@ -1,1306 +1,2305 @@
 
 
-Benchmark: Running 50 times a benchmark with 5000 active processes.
+Benchmark: Running 50 times a benchmark with 5000 active processes, each processing 50 work messages.
 
 
 
 ================= BEGIN (rep: 1) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Started: 0
-Waiting for results: 
-Result: (0,10)
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
 Started: 4000
-Result: (4000,10)
-done!
+Started: 0
+Current counter of: 4000 is: 0
+Current counter of: 0 is: 0
+Started: 1000
+Started: 2000
+Current counter of: 1000 is: 0
+Current counter of: 2000 is: 0
+Started: 3000
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Delivering Async Work Messages for: 3000
+Delivered all Messages for: 3000
+Stopped: 4000
+Stopped: 0
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 1) ================
 
 ================= BEGIN (rep: 2) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
-Started: 0
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
 Started: 4000
-Result: (4000,10)
-done!
+Started: 0
+Current counter of: 4000 is: 0
+Current counter of: 0 is: 0
+Started: 1000
+Started: 2000
+Current counter of: 1000 is: 0
+Current counter of: 2000 is: 0
+Started: 3000
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Stopped: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 3000
+Delivered all Messages for: 3000
+Stopped: 1000
+Stopped: 2000
+Stopped: 0
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (0,100)
+Result: (3000,100)
 
 ================= DONE (rep: 2) ================
 
 ================= BEGIN (rep: 3) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
-Started: 0
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
 Started: 4000
-Result: (4000,10)
-done!
+Started: 0
+Current counter of: 4000 is: 0
+Current counter of: 0 is: 0
+Started: 1000
+Started: 2000
+Current counter of: 1000 is: 0
+Current counter of: 2000 is: 0
+Started: 3000
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Stopped: 4000
+Delivering Async Work Messages for: 3000
+Delivered all Messages for: 3000
+Stopped: 0
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 3) ================
 
 ================= BEGIN (rep: 4) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
-Started: 0
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
 Started: 4000
-Result: (4000,10)
-done!
+Started: 0
+Current counter of: 4000 is: 0
+Current counter of: 0 is: 0
+Started: 1000
+Started: 2000
+Current counter of: 1000 is: 0
+Current counter of: 2000 is: 0
+Started: 3000
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Delivering Async Work Messages for: 3000
+Delivered all Messages for: 3000
+Stopped: 4000
+Stopped: 0
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 4) ================
 
 ================= BEGIN (rep: 5) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
-Started: 0
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
 Started: 4000
-Result: (4000,10)
-done!
+Started: 0
+Current counter of: 4000 is: 0
+Current counter of: 0 is: 0
+Started: 1000
+Started: 2000
+Current counter of: 1000 is: 0
+Current counter of: 2000 is: 0
+Started: 3000
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Delivering Async Work Messages for: 3000
+Delivered all Messages for: 3000
+Stopped: 4000
+Stopped: 0
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 5) ================
 
 ================= BEGIN (rep: 6) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
-Started: 0
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
 Started: 4000
-Result: (4000,10)
-done!
+Started: 0
+Current counter of: 4000 is: 0
+Current counter of: 0 is: 0
+Started: 1000
+Started: 2000
+Current counter of: 1000 is: 0
+Current counter of: 2000 is: 0
+Started: 3000
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Stopped: 4000
+Delivering Async Work Messages for: 3000
+Stopped: 0
+Delivered all Messages for: 3000
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 6) ================
 
 ================= BEGIN (rep: 7) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
-Started: 0
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
 Started: 4000
-Result: (4000,10)
-done!
+Started: 0
+Current counter of: 4000 is: 0
+Current counter of: 0 is: 0
+Started: 1000
+Started: 2000
+Current counter of: 1000 is: 0
+Current counter of: 2000 is: 0
+Started: 3000
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Delivering Async Work Messages for: 3000
+Delivered all Messages for: 3000
+Stopped: 4000
+Stopped: 0
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 7) ================
 
 ================= BEGIN (rep: 8) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
-Started: 0
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
 Started: 4000
-Result: (4000,10)
-done!
+Started: 0
+Current counter of: 4000 is: 0
+Current counter of: 0 is: 0
+Started: 1000
+Started: 2000
+Current counter of: 1000 is: 0
+Current counter of: 2000 is: 0
+Started: 3000
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Delivering Async Work Messages for: 3000
+Delivered all Messages for: 3000
+Stopped: 4000
+Stopped: 0
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 8) ================
 
 ================= BEGIN (rep: 9) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
-Started: 0
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
 Started: 4000
-Result: (4000,10)
-done!
+Started: 0
+Current counter of: 4000 is: 0
+Current counter of: 0 is: 0
+Started: 1000
+Started: 2000
+Current counter of: 1000 is: 0
+Current counter of: 2000 is: 0
+Started: 3000
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Stopped: 4000
+Delivering Async Work Messages for: 3000
+Stopped: 0
+Delivered all Messages for: 3000
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 9) ================
 
 ================= BEGIN (rep: 10) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
-Started: 0
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
 Started: 4000
-Result: (4000,10)
-done!
+Started: 0
+Current counter of: 4000 is: 0
+Current counter of: 0 is: 0
+Started: 1000
+Started: 2000
+Current counter of: 1000 is: 0
+Current counter of: 2000 is: 0
+Started: 3000
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Delivering Async Work Messages for: 3000
+Delivered all Messages for: 3000
+Stopped: 4000
+Stopped: 0
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 10) ================
 
 ================= BEGIN (rep: 11) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
-Started: 0
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
 Started: 4000
-Result: (4000,10)
-done!
+Started: 0
+Current counter of: 4000 is: 0
+Current counter of: 0 is: 0
+Started: 1000
+Started: 2000
+Current counter of: 1000 is: 0
+Current counter of: 2000 is: 0
+Started: 3000
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Stopped: 4000
+Delivering Async Work Messages for: 3000
+Stopped: 0
+Delivered all Messages for: 3000
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 11) ================
 
 ================= BEGIN (rep: 12) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
-Started: 0
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
 Started: 4000
-Result: (4000,10)
-done!
+Started: 0
+Current counter of: 4000 is: 0
+Current counter of: 0 is: 0
+Started: 1000
+Started: 2000
+Current counter of: 1000 is: 0
+Current counter of: 2000 is: 0
+Started: 3000
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Stopped: 4000
+Delivering Async Work Messages for: 3000
+Delivered all Messages for: 3000
+Stopped: 0
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 12) ================
 
 ================= BEGIN (rep: 13) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
-Started: 0
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
 Started: 4000
-Result: (4000,10)
-done!
+Started: 0
+Current counter of: 4000 is: 0
+Current counter of: 0 is: 0
+Started: 1000
+Started: 2000
+Current counter of: 1000 is: 0
+Current counter of: 2000 is: 0
+Started: 3000
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Delivering Async Work Messages for: 3000
+Delivered all Messages for: 3000
+Stopped: 4000
+Stopped: 0
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 13) ================
 
 ================= BEGIN (rep: 14) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
+Started: 4000
+Current counter of: 4000 is: 0
 Started: 0
 Started: 1000
-Result: (1000,10)
+Current counter of: 0 is: 0
+Current counter of: 1000 is: 0
 Started: 2000
-Result: (2000,10)
+Current counter of: 2000 is: 0
 Started: 3000
-Result: (3000,10)
-Started: 4000
-Result: (4000,10)
-done!
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Stopped: 4000
+Delivered all Messages for: 2000
+Delivering Async Work Messages for: 3000
+Delivered all Messages for: 3000
+Stopped: 0
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 14) ================
 
 ================= BEGIN (rep: 15) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
+Started: 4000
+Current counter of: 4000 is: 0
 Started: 0
 Started: 1000
-Result: (1000,10)
+Current counter of: 0 is: 0
+Current counter of: 1000 is: 0
 Started: 2000
-Result: (2000,10)
+Current counter of: 2000 is: 0
 Started: 3000
-Result: (3000,10)
-Started: 4000
-Result: (4000,10)
-done!
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Stopped: 4000
+Delivered all Messages for: 2000
+Delivering Async Work Messages for: 3000
+Delivered all Messages for: 3000
+Stopped: 0
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 15) ================
 
 ================= BEGIN (rep: 16) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
-Started: 0
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
 Started: 4000
-Result: (4000,10)
-done!
+Started: 0
+Current counter of: 4000 is: 0
+Current counter of: 0 is: 0
+Started: 1000
+Started: 2000
+Current counter of: 1000 is: 0
+Current counter of: 2000 is: 0
+Started: 3000
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Delivering Async Work Messages for: 3000
+Delivered all Messages for: 3000
+Stopped: 4000
+Stopped: 0
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 16) ================
 
 ================= BEGIN (rep: 17) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
-Started: 0
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
 Started: 4000
-Result: (4000,10)
-done!
+Started: 0
+Current counter of: 4000 is: 0
+Current counter of: 0 is: 0
+Started: 1000
+Current counter of: 1000 is: 0
+Started: 2000
+Current counter of: 2000 is: 0
+Started: 3000
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Stopped: 4000
+Delivered all Messages for: 2000
+Delivering Async Work Messages for: 3000
+Delivered all Messages for: 3000
+Stopped: 0
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 17) ================
 
 ================= BEGIN (rep: 18) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
-Started: 0
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
 Started: 4000
-Result: (4000,10)
-done!
+Started: 0
+Current counter of: 4000 is: 0
+Current counter of: 0 is: 0
+Started: 1000
+Started: 2000
+Current counter of: 1000 is: 0
+Current counter of: 2000 is: 0
+Started: 3000
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Stopped: 4000
+Delivering Async Work Messages for: 3000
+Stopped: 0
+Delivered all Messages for: 3000
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 18) ================
 
 ================= BEGIN (rep: 19) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
-Started: 0
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
 Started: 4000
-Result: (4000,10)
-done!
+Started: 0
+Current counter of: 4000 is: 0
+Current counter of: 0 is: 0
+Started: 1000
+Started: 2000
+Current counter of: 1000 is: 0
+Current counter of: 2000 is: 0
+Started: 3000
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Delivering Async Work Messages for: 3000
+Delivered all Messages for: 3000
+Stopped: 4000
+Stopped: 0
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 19) ================
 
 ================= BEGIN (rep: 20) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
+Started: 4000
+Current counter of: 4000 is: 0
 Started: 0
 Started: 1000
-Result: (1000,10)
+Current counter of: 0 is: 0
+Current counter of: 1000 is: 0
 Started: 2000
-Result: (2000,10)
+Current counter of: 2000 is: 0
 Started: 3000
-Result: (3000,10)
-Started: 4000
-Result: (4000,10)
-done!
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Stopped: 4000
+Delivering Async Work Messages for: 3000
+Stopped: 0
+Stopped: 1000
+Stopped: 2000
+Delivered all Messages for: 3000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 20) ================
 
 ================= BEGIN (rep: 21) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 2000
+Delivering Sync Work Messages for: 3000
 Started: 0
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
 Started: 4000
-Result: (4000,10)
-done!
+Started: 1000
+Started: 2000
+Started: 3000
+Current counter of: 0 is: 0
+Current counter of: 4000 is: 0
+Current counter of: 1000 is: 0
+Current counter of: 2000 is: 0
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Stopped: 0
+Stopped: 4000
+Stopped: 1000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Delivering Async Work Messages for: 3000
+Delivered all Messages for: 3000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (0,100)
+Result: (4000,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 21) ================
 
 ================= BEGIN (rep: 22) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
-Started: 0
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
 Started: 4000
-Result: (4000,10)
-done!
+Started: 0
+Current counter of: 4000 is: 0
+Current counter of: 0 is: 0
+Started: 1000
+Started: 2000
+Current counter of: 1000 is: 0
+Current counter of: 2000 is: 0
+Started: 3000
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Delivering Async Work Messages for: 3000
+Delivered all Messages for: 3000
+Stopped: 4000
+Stopped: 0
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 22) ================
 
 ================= BEGIN (rep: 23) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
+Started: 4000
+Current counter of: 4000 is: 0
 Started: 0
 Started: 1000
-Result: (1000,10)
+Current counter of: 0 is: 0
+Current counter of: 1000 is: 0
 Started: 2000
-Result: (2000,10)
+Current counter of: 2000 is: 0
 Started: 3000
-Result: (3000,10)
-Started: 4000
-Result: (4000,10)
-done!
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Stopped: 4000
+Delivered all Messages for: 2000
+Delivering Async Work Messages for: 3000
+Delivered all Messages for: 3000
+Stopped: 0
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 23) ================
 
 ================= BEGIN (rep: 24) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
+Started: 4000
+Current counter of: 4000 is: 0
 Started: 0
 Started: 1000
-Result: (1000,10)
+Current counter of: 0 is: 0
+Current counter of: 1000 is: 0
 Started: 2000
-Result: (2000,10)
+Current counter of: 2000 is: 0
 Started: 3000
-Result: (3000,10)
-Started: 4000
-Result: (4000,10)
-done!
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Stopped: 4000
+Delivered all Messages for: 2000
+Delivering Async Work Messages for: 3000
+Delivered all Messages for: 3000
+Stopped: 0
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 24) ================
 
 ================= BEGIN (rep: 25) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
-Started: 0
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
 Started: 4000
-Result: (4000,10)
-done!
+Started: 0
+Current counter of: 4000 is: 0
+Current counter of: 0 is: 0
+Started: 1000
+Started: 2000
+Current counter of: 1000 is: 0
+Current counter of: 2000 is: 0
+Started: 3000
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Delivering Async Work Messages for: 3000
+Delivered all Messages for: 3000
+Stopped: 4000
+Stopped: 0
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 25) ================
 
 ================= BEGIN (rep: 26) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
-Started: 0
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
 Started: 4000
-Result: (4000,10)
-done!
+Started: 0
+Current counter of: 4000 is: 0
+Current counter of: 0 is: 0
+Started: 1000
+Started: 2000
+Current counter of: 1000 is: 0
+Current counter of: 2000 is: 0
+Started: 3000
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Delivering Async Work Messages for: 3000
+Delivered all Messages for: 3000
+Stopped: 4000
+Stopped: 0
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 26) ================
 
 ================= BEGIN (rep: 27) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
+Started: 4000
+Current counter of: 4000 is: 0
 Started: 0
 Started: 1000
-Result: (1000,10)
+Current counter of: 0 is: 0
+Current counter of: 1000 is: 0
 Started: 2000
-Result: (2000,10)
+Current counter of: 2000 is: 0
 Started: 3000
-Result: (3000,10)
-Started: 4000
-Result: (4000,10)
-done!
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Stopped: 4000
+Delivered all Messages for: 2000
+Delivering Async Work Messages for: 3000
+Delivered all Messages for: 3000
+Stopped: 0
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 27) ================
 
 ================= BEGIN (rep: 28) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
-Started: 0
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
 Started: 4000
-Result: (4000,10)
-done!
+Started: 0
+Current counter of: 4000 is: 0
+Current counter of: 0 is: 0
+Started: 1000
+Current counter of: 1000 is: 0
+Started: 2000
+Current counter of: 2000 is: 0
+Started: 3000
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Stopped: 4000
+Delivered all Messages for: 2000
+Delivering Async Work Messages for: 3000
+Delivered all Messages for: 3000
+Stopped: 0
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 28) ================
 
 ================= BEGIN (rep: 29) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
-Started: 0
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
 Started: 4000
-Result: (4000,10)
-done!
+Started: 0
+Current counter of: 4000 is: 0
+Current counter of: 0 is: 0
+Started: 1000
+Started: 2000
+Current counter of: 1000 is: 0
+Current counter of: 2000 is: 0
+Started: 3000
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Delivering Async Work Messages for: 3000
+Delivered all Messages for: 3000
+Stopped: 4000
+Stopped: 0
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 29) ================
 
 ================= BEGIN (rep: 30) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
+Started: 4000
+Current counter of: 4000 is: 0
 Started: 0
 Started: 1000
-Result: (1000,10)
+Current counter of: 0 is: 0
+Current counter of: 1000 is: 0
 Started: 2000
-Result: (2000,10)
+Current counter of: 2000 is: 0
 Started: 3000
-Result: (3000,10)
-Started: 4000
-Result: (4000,10)
-done!
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Stopped: 4000
+Delivered all Messages for: 2000
+Delivering Async Work Messages for: 3000
+Delivered all Messages for: 3000
+Stopped: 0
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 30) ================
 
 ================= BEGIN (rep: 31) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
-Started: 0
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
 Started: 4000
-Result: (4000,10)
-done!
+Started: 0
+Current counter of: 4000 is: 0
+Current counter of: 0 is: 0
+Started: 1000
+Started: 2000
+Current counter of: 1000 is: 0
+Current counter of: 2000 is: 0
+Started: 3000
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Delivering Async Work Messages for: 3000
+Delivered all Messages for: 3000
+Stopped: 4000
+Stopped: 0
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 31) ================
 
 ================= BEGIN (rep: 32) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
-Started: 0
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
 Started: 4000
-Result: (4000,10)
-done!
+Started: 0
+Current counter of: 4000 is: 0
+Current counter of: 0 is: 0
+Started: 1000
+Started: 2000
+Current counter of: 1000 is: 0
+Current counter of: 2000 is: 0
+Started: 3000
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Stopped: 4000
+Delivering Async Work Messages for: 3000
+Delivered all Messages for: 3000
+Stopped: 0
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 32) ================
 
 ================= BEGIN (rep: 33) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
-Started: 0
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
 Started: 4000
-Result: (4000,10)
-done!
+Started: 0
+Current counter of: 4000 is: 0
+Current counter of: 0 is: 0
+Started: 1000
+Started: 2000
+Current counter of: 1000 is: 0
+Current counter of: 2000 is: 0
+Started: 3000
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Delivering Async Work Messages for: 3000
+Delivered all Messages for: 3000
+Stopped: 4000
+Stopped: 0
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 33) ================
 
 ================= BEGIN (rep: 34) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
-Started: 0
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
 Started: 4000
-Result: (4000,10)
-done!
+Started: 0
+Current counter of: 4000 is: 0
+Current counter of: 0 is: 0
+Started: 1000
+Started: 2000
+Current counter of: 1000 is: 0
+Current counter of: 2000 is: 0
+Started: 3000
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Stopped: 4000
+Delivering Async Work Messages for: 3000
+Stopped: 0
+Stopped: 1000
+Delivered all Messages for: 3000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 34) ================
 
 ================= BEGIN (rep: 35) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
-Started: 0
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
 Started: 4000
-Result: (4000,10)
-done!
+Started: 0
+Current counter of: 4000 is: 0
+Current counter of: 0 is: 0
+Started: 1000
+Started: 2000
+Current counter of: 1000 is: 0
+Current counter of: 2000 is: 0
+Started: 3000
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Stopped: 4000
+Delivering Async Work Messages for: 3000
+Stopped: 0
+Delivered all Messages for: 3000
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 35) ================
 
 ================= BEGIN (rep: 36) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
+Started: 4000
+Current counter of: 4000 is: 0
 Started: 0
 Started: 1000
-Result: (1000,10)
+Current counter of: 0 is: 0
+Current counter of: 1000 is: 0
 Started: 2000
-Result: (2000,10)
+Current counter of: 2000 is: 0
 Started: 3000
-Result: (3000,10)
-Started: 4000
-Result: (4000,10)
-done!
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Delivering Async Work Messages for: 3000
+Stopped: 4000
+Delivered all Messages for: 3000
+Stopped: 0
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 36) ================
 
 ================= BEGIN (rep: 37) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
-Started: 0
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
 Started: 4000
-Result: (4000,10)
-done!
+Started: 0
+Current counter of: 4000 is: 0
+Current counter of: 0 is: 0
+Started: 1000
+Started: 2000
+Current counter of: 1000 is: 0
+Current counter of: 2000 is: 0
+Started: 3000
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Delivering Async Work Messages for: 3000
+Delivered all Messages for: 3000
+Stopped: 4000
+Stopped: 0
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 37) ================
 
 ================= BEGIN (rep: 38) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
-Started: 0
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
 Started: 4000
-Result: (4000,10)
-done!
+Started: 0
+Current counter of: 4000 is: 0
+Current counter of: 0 is: 0
+Started: 1000
+Started: 2000
+Current counter of: 1000 is: 0
+Current counter of: 2000 is: 0
+Started: 3000
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Delivering Async Work Messages for: 3000
+Delivered all Messages for: 3000
+Stopped: 4000
+Stopped: 0
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 38) ================
 
 ================= BEGIN (rep: 39) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
+Started: 4000
+Current counter of: 4000 is: 0
 Started: 0
 Started: 1000
-Result: (1000,10)
+Current counter of: 0 is: 0
+Current counter of: 1000 is: 0
 Started: 2000
-Result: (2000,10)
+Current counter of: 2000 is: 0
 Started: 3000
-Result: (3000,10)
-Started: 4000
-Result: (4000,10)
-done!
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Stopped: 4000
+Delivered all Messages for: 2000
+Delivering Async Work Messages for: 3000
+Stopped: 0
+Stopped: 1000
+Stopped: 2000
+Delivered all Messages for: 3000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 39) ================
 
 ================= BEGIN (rep: 40) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
-Started: 0
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
 Started: 4000
-Result: (4000,10)
-done!
+Started: 0
+Current counter of: 4000 is: 0
+Current counter of: 0 is: 0
+Started: 1000
+Started: 2000
+Current counter of: 1000 is: 0
+Current counter of: 2000 is: 0
+Started: 3000
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Stopped: 4000
+Delivering Async Work Messages for: 3000
+Delivered all Messages for: 3000
+Stopped: 0
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 40) ================
 
 ================= BEGIN (rep: 41) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
-Started: 0
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
 Started: 4000
-Result: (4000,10)
-done!
+Started: 0
+Current counter of: 4000 is: 0
+Current counter of: 0 is: 0
+Started: 1000
+Started: 2000
+Current counter of: 1000 is: 0
+Current counter of: 2000 is: 0
+Started: 3000
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Stopped: 4000
+Stopped: 0
+Delivering Async Work Messages for: 3000
+Delivered all Messages for: 3000
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 41) ================
 
 ================= BEGIN (rep: 42) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
+Started: 4000
+Current counter of: 4000 is: 0
 Started: 0
 Started: 1000
-Result: (1000,10)
+Current counter of: 0 is: 0
+Current counter of: 1000 is: 0
 Started: 2000
-Result: (2000,10)
+Current counter of: 2000 is: 0
 Started: 3000
-Result: (3000,10)
-Started: 4000
-Result: (4000,10)
-done!
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Stopped: 4000
+Delivering Async Work Messages for: 3000
+Stopped: 0
+Delivered all Messages for: 3000
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 42) ================
 
 ================= BEGIN (rep: 43) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
-Started: 0
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Messages for: 3000
+Delivering Messages for: 2000
 Started: 4000
-Result: (4000,10)
-done!
+Delivering Sync Work Messages for: 1000
+Started: 0
+Delivering Sync Work Messages for: 3000
+Delivering Sync Work Messages for: 2000
+Started: 1000
+Started: 3000
+Current counter of: 4000 is: 0
+Started: 2000
+Current counter of: 0 is: 0
+Current counter of: 1000 is: 0
+Current counter of: 3000 is: 0
+Current counter of: 2000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Stopped: 4000
+Stopped: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Stopped: 1000
+Delivering Async Work Messages for: 3000
+Delivered all Messages for: 3000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Stopped: 3000
+Stopped: 2000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (3000,100)
+Result: (2000,100)
 
 ================= DONE (rep: 43) ================
 
 ================= BEGIN (rep: 44) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
-Started: 0
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
 Started: 4000
-Result: (4000,10)
-done!
+Started: 0
+Current counter of: 4000 is: 0
+Current counter of: 0 is: 0
+Started: 1000
+Current counter of: 1000 is: 0
+Started: 2000
+Current counter of: 2000 is: 0
+Started: 3000
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Stopped: 4000
+Delivered all Messages for: 2000
+Delivering Async Work Messages for: 3000
+Delivered all Messages for: 3000
+Stopped: 0
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 44) ================
 
 ================= BEGIN (rep: 45) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
-Started: 0
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
 Started: 4000
-Result: (4000,10)
-done!
+Started: 0
+Current counter of: 4000 is: 0
+Current counter of: 0 is: 0
+Started: 1000
+Started: 2000
+Current counter of: 1000 is: 0
+Current counter of: 2000 is: 0
+Started: 3000
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Stopped: 4000
+Delivering Async Work Messages for: 3000
+Stopped: 0
+Delivered all Messages for: 3000
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 45) ================
 
 ================= BEGIN (rep: 46) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
+Started: 4000
+Current counter of: 4000 is: 0
 Started: 0
 Started: 1000
-Result: (1000,10)
+Current counter of: 0 is: 0
+Current counter of: 1000 is: 0
 Started: 2000
-Result: (2000,10)
+Current counter of: 2000 is: 0
 Started: 3000
-Result: (3000,10)
-Started: 4000
-Result: (4000,10)
-done!
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Stopped: 4000
+Delivered all Messages for: 2000
+Delivering Async Work Messages for: 3000
+Delivered all Messages for: 3000
+Stopped: 0
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 46) ================
 
 ================= BEGIN (rep: 47) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
-Started: 0
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
 Started: 4000
-Result: (4000,10)
-done!
+Started: 0
+Current counter of: 4000 is: 0
+Current counter of: 0 is: 0
+Started: 1000
+Started: 2000
+Current counter of: 1000 is: 0
+Current counter of: 2000 is: 0
+Started: 3000
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Delivering Async Work Messages for: 3000
+Delivered all Messages for: 3000
+Stopped: 4000
+Stopped: 0
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 47) ================
 
 ================= BEGIN (rep: 48) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
-Started: 0
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
 Started: 4000
-Result: (4000,10)
-done!
+Started: 0
+Current counter of: 4000 is: 0
+Current counter of: 0 is: 0
+Started: 1000
+Started: 2000
+Current counter of: 1000 is: 0
+Current counter of: 2000 is: 0
+Started: 3000
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Delivering Async Work Messages for: 3000
+Delivered all Messages for: 3000
+Stopped: 4000
+Stopped: 0
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 48) ================
 
 ================= BEGIN (rep: 49) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
-Started: 0
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
 Started: 4000
-Result: (4000,10)
-done!
+Started: 0
+Current counter of: 4000 is: 0
+Current counter of: 0 is: 0
+Started: 1000
+Current counter of: 1000 is: 0
+Started: 2000
+Current counter of: 2000 is: 0
+Started: 3000
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Stopped: 4000
+Delivering Async Work Messages for: 3000
+Stopped: 0
+Stopped: 1000
+Stopped: 2000
+Delivered all Messages for: 3000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 49) ================
 
 ================= BEGIN (rep: 50) ================
 
-Delivering Messages for: 0
-Delivered all Messages for: 0
-Delivering Messages for: 1000
-Delivered all Messages for: 1000
-Delivering Messages for: 2000
-Delivered all Messages for: 2000
-Delivering Messages for: 3000
-Delivered all Messages for: 3000
 Delivering Messages for: 4000
-Delivered all Messages for: 4000
-Waiting for results: 
-Started: 0
-Started: 1000
-Result: (1000,10)
-Started: 2000
-Result: (2000,10)
-Started: 3000
-Result: (3000,10)
+Delivering Sync Work Messages for: 4000
+Delivering Messages for: 0
+Delivering Sync Work Messages for: 0
+Delivering Messages for: 1000
+Delivering Sync Work Messages for: 1000
+Delivering Messages for: 2000
+Delivering Sync Work Messages for: 2000
+Delivering Messages for: 3000
+Delivering Sync Work Messages for: 3000
 Started: 4000
-Result: (4000,10)
-done!
+Started: 0
+Current counter of: 4000 is: 0
+Current counter of: 0 is: 0
+Started: 1000
+Started: 2000
+Current counter of: 1000 is: 0
+Current counter of: 2000 is: 0
+Started: 3000
+Current counter of: 3000 is: 0
+Delivering Async Work Messages for: 4000
+Delivered all Messages for: 4000
+Delivering Async Work Messages for: 0
+Delivered all Messages for: 0
+Delivering Async Work Messages for: 1000
+Delivered all Messages for: 1000
+Delivering Async Work Messages for: 2000
+Delivered all Messages for: 2000
+Delivering Async Work Messages for: 3000
+Delivered all Messages for: 3000
+Stopped: 4000
+Stopped: 0
+Stopped: 1000
+Stopped: 2000
+Stopped: 3000
+Waiting for results: 
+Result: (4000,100)
+Result: (0,100)
+Result: (1000,100)
+Result: (2000,100)
+Result: (3000,100)
 
 ================= DONE (rep: 50) ================

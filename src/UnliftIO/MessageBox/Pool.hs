@@ -30,13 +30,13 @@ import UnliftIO
     async,
     cancel,
     finally,
-    mask,
     newEmptyMVar,
     onException,
     putMVar,
     takeMVar,
     tryReadMVar,
   )
+import UnliftIO.Exception (stringException, throwIO)
 import UnliftIO.MessageBox.Broker
   ( BrokerConfig (MkBrokerConfig),
     BrokerResult,
@@ -153,6 +153,7 @@ dispatchToWorker _k pMsg pm =
         else return KeepResource
 
 spawnWorker ::
+  forall k w poolBoxIn workerBox m.
   ( IsMessageBoxArg workerBox,
     MonadUnliftIO m,
     IsInput poolBoxIn
@@ -163,18 +164,27 @@ spawnWorker ::
   k ->
   Maybe (Maybe w) ->
   m (PoolWorker workerBox w)
-spawnWorker workerBox brInRef pmCb this _mw = mask $ \unmask -> do
+spawnWorker workerBox brInRef pmCb this _mw = do
   inputRef <- newEmptyMVar
-  a <- async (go inputRef)
-  boxIn <- unmask (takeMVar inputRef) `onException` cancel a
-  return MkPoolWorker {poolWorkerIn = boxIn, poolWorkerAsync = a}
+  a <- async (go inputRef `finally` enqueueCleanup)
+  boxInM <- takeMVar inputRef
+  case boxInM of
+    Nothing -> do
+      cancel a
+      throwIO (stringException "failed to spawnWorker")
+    Just boxIn ->
+      return MkPoolWorker {poolWorkerIn = boxIn, poolWorkerAsync = a}
   where
     go inputRef = do
-      b <- newMessageBox workerBox
-      boxIn <- newInput b
-      putMVar inputRef boxIn
+      b <-
+        ( do
+            b <- newMessageBox workerBox
+            boxIn <- newInput b
+            putMVar inputRef (Just boxIn)
+            return b
+          )
+          `onException` putMVar inputRef Nothing
       runPoolWorkerCallback pmCb this b
-        `finally` enqueueCleanup
     enqueueCleanup =
       tryReadMVar brInRef
         >>= traverse_

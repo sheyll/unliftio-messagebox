@@ -1,0 +1,224 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<style type="text/css">
+span.lineno { color: white; background: #aaaaaa; border-right: solid white 12px }
+span.nottickedoff { background: yellow}
+span.istickedoff { background: white }
+span.tickonlyfalse { margin: -1px; border: 1px solid #f20913; background: #f20913 }
+span.tickonlytrue  { margin: -1px; border: 1px solid #60de51; background: #60de51 }
+span.funcount { font-size: small; color: orange; z-index: 2; position: absolute; right: 20 }
+span.decl { font-weight: bold }
+span.spaces    { background: white }
+</style>
+</head>
+<body>
+<pre>
+<span class="decl"><span class="nottickedoff">never executed</span> <span class="tickonlytrue">always true</span> <span class="tickonlyfalse">always false</span></span>
+</pre>
+<pre>
+<span class="lineno">    1 </span>-- | Dispatch messages to processes.
+<span class="lineno">    2 </span>--
+<span class="lineno">    3 </span>-- A pool has an 'Input' for 'Multiplexed' messages,
+<span class="lineno">    4 </span>-- and dispatches incoming messges to concurrent
+<span class="lineno">    5 </span>-- processes using user defined @'MessageBox'es@.
+<span class="lineno">    6 </span>--
+<span class="lineno">    7 </span>-- The pool starts and stops the processes and
+<span class="lineno">    8 </span>-- creates the message boxes.
+<span class="lineno">    9 </span>--
+<span class="lineno">   10 </span>-- The 'PoolWorkerCallback' will process the
+<span class="lineno">   11 </span>-- 'MessageBox' until it returns, the pool
+<span class="lineno">   12 </span>-- process will then handle cleanup of the
+<span class="lineno">   13 </span>-- pool internal 'Broker' and the 'Async'
+<span class="lineno">   14 </span>-- process of the worker.
+<span class="lineno">   15 </span>module UnliftIO.MessageBox.Pool
+<span class="lineno">   16 </span>  ( Pool (..),
+<span class="lineno">   17 </span>    spawnPool,
+<span class="lineno">   18 </span>    PoolWorkerCallback (..),
+<span class="lineno">   19 </span>    removePoolWorkerMessage,
+<span class="lineno">   20 </span>  )
+<span class="lineno">   21 </span>where
+<span class="lineno">   22 </span>
+<span class="lineno">   23 </span>import Control.Monad (void)
+<span class="lineno">   24 </span>import Data.Foldable (traverse_)
+<span class="lineno">   25 </span>import UnliftIO
+<span class="lineno">   26 </span>  ( Async,
+<span class="lineno">   27 </span>    MVar,
+<span class="lineno">   28 </span>    MonadUnliftIO,
+<span class="lineno">   29 </span>    SomeException,
+<span class="lineno">   30 </span>    async,
+<span class="lineno">   31 </span>    cancel,
+<span class="lineno">   32 </span>    finally,
+<span class="lineno">   33 </span>    newEmptyMVar,
+<span class="lineno">   34 </span>    onException,
+<span class="lineno">   35 </span>    putMVar,
+<span class="lineno">   36 </span>    takeMVar,
+<span class="lineno">   37 </span>    tryReadMVar,
+<span class="lineno">   38 </span>  )
+<span class="lineno">   39 </span>import UnliftIO.Exception (stringException, throwIO)
+<span class="lineno">   40 </span>import UnliftIO.MessageBox.Broker
+<span class="lineno">   41 </span>  ( BrokerConfig (MkBrokerConfig),
+<span class="lineno">   42 </span>    BrokerResult,
+<span class="lineno">   43 </span>    Multiplexed (Dispatch),
+<span class="lineno">   44 </span>    ResourceUpdate (KeepResource, RemoveResource),
+<span class="lineno">   45 </span>    spawnBroker,
+<span class="lineno">   46 </span>  )
+<span class="lineno">   47 </span>import UnliftIO.MessageBox.Class
+<span class="lineno">   48 </span>  ( IsInput (deliver),
+<span class="lineno">   49 </span>    IsMessageBox (Input, newInput),
+<span class="lineno">   50 </span>    IsMessageBoxArg (MessageBox, newMessageBox),
+<span class="lineno">   51 </span>  )
+<span class="lineno">   52 </span>
+<span class="lineno">   53 </span>-- | Start a 'Pool'.
+<span class="lineno">   54 </span>--
+<span class="lineno">   55 </span>-- Start a process that receives messages sent to the
+<span class="lineno">   56 </span>-- 'poolInput' and dispatches them to the 'Input' of
+<span class="lineno">   57 </span>-- __pool member__ processes. If necessary the
+<span class="lineno">   58 </span>-- pool worker processes are started.
+<span class="lineno">   59 </span>--
+<span class="lineno">   60 </span>-- Each pool worker process is started using 'async' and
+<span class="lineno">   61 </span>-- executes the 'PoolWorkerCallback'.
+<span class="lineno">   62 </span>--
+<span class="lineno">   63 </span>-- When the callback returns, the process will exit.
+<span class="lineno">   64 </span>--
+<span class="lineno">   65 </span>-- Internally the pool uses the 'async' function to wrap
+<span class="lineno">   66 </span>-- the callback.
+<span class="lineno">   67 </span>--
+<span class="lineno">   68 </span>-- When a 'Multiplixed' 'Dispatch' message is received with
+<span class="lineno">   69 </span>-- a @Nothing@ then the worker is @'cancel'led@ and the
+<span class="lineno">   70 </span>-- worker is removed from the map.
+<span class="lineno">   71 </span>--
+<span class="lineno">   72 </span>-- Such a message is automatically sent after the 'PoolWorkerCallback'
+<span class="lineno">   73 </span>-- has returned, even when an exception was thrown. See
+<span class="lineno">   74 </span>-- 'finally'.
+<span class="lineno">   75 </span>spawnPool ::
+<span class="lineno">   76 </span>  forall k w poolBox workerBox m.
+<span class="lineno">   77 </span>  ( IsMessageBoxArg poolBox,
+<span class="lineno">   78 </span>    IsMessageBoxArg workerBox,
+<span class="lineno">   79 </span>    Ord k,
+<span class="lineno">   80 </span>    MonadUnliftIO m
+<span class="lineno">   81 </span>  ) =&gt;
+<span class="lineno">   82 </span>  poolBox -&gt;
+<span class="lineno">   83 </span>  workerBox -&gt;
+<span class="lineno">   84 </span>  PoolWorkerCallback workerBox w k m -&gt;
+<span class="lineno">   85 </span>  m
+<span class="lineno">   86 </span>    ( Either
+<span class="lineno">   87 </span>        SomeException
+<span class="lineno">   88 </span>        (Pool poolBox k w)
+<span class="lineno">   89 </span>    )
+<span class="lineno">   90 </span><span class="decl"><span class="istickedoff">spawnPool poolBox workerBoxArg poolMemberImpl = do</span>
+<span class="lineno">   91 </span><span class="spaces">  </span><span class="istickedoff">brInRef &lt;- newEmptyMVar</span>
+<span class="lineno">   92 </span><span class="spaces">  </span><span class="istickedoff">let brCfg =</span>
+<span class="lineno">   93 </span><span class="spaces">        </span><span class="istickedoff">MkBrokerConfig</span>
+<span class="lineno">   94 </span><span class="spaces">          </span><span class="istickedoff">id</span>
+<span class="lineno">   95 </span><span class="spaces">          </span><span class="istickedoff">dispatchToWorker</span>
+<span class="lineno">   96 </span><span class="spaces">          </span><span class="istickedoff">(spawnWorker workerBoxArg brInRef poolMemberImpl)</span>
+<span class="lineno">   97 </span><span class="spaces">          </span><span class="istickedoff">removeWorker</span>
+<span class="lineno">   98 </span><span class="spaces">  </span><span class="istickedoff">spawnBroker poolBox brCfg</span>
+<span class="lineno">   99 </span><span class="spaces">    </span><span class="istickedoff">&gt;&gt;= traverse</span>
+<span class="lineno">  100 </span><span class="spaces">      </span><span class="istickedoff">( \(brIn, brA) -&gt; do</span>
+<span class="lineno">  101 </span><span class="spaces">          </span><span class="istickedoff">putMVar brInRef brIn</span>
+<span class="lineno">  102 </span><span class="spaces">          </span><span class="istickedoff">return MkPool {poolInput = brIn, poolAsync = brA}</span>
+<span class="lineno">  103 </span><span class="spaces">      </span><span class="istickedoff">)</span></span>
+<span class="lineno">  104 </span>
+<span class="lineno">  105 </span>-- | This message will 'cancel' the worker
+<span class="lineno">  106 </span>-- with the given key.
+<span class="lineno">  107 </span>-- If the 'PoolWorkerCallback' wants to do cleanup
+<span class="lineno">  108 </span>-- it should use 'finally' or 'onException'.
+<span class="lineno">  109 </span>removePoolWorkerMessage :: k -&gt; Multiplexed k (Maybe w)
+<span class="lineno">  110 </span><span class="decl"><span class="istickedoff">removePoolWorkerMessage !k = Dispatch k Nothing</span></span>
+<span class="lineno">  111 </span>
+<span class="lineno">  112 </span>-- | The function that processes a
+<span class="lineno">  113 </span>-- 'MessageBox' of a worker for a specific /key/.
+<span class="lineno">  114 </span>newtype PoolWorkerCallback workerBox w k m = MkPoolWorkerCallback
+<span class="lineno">  115 </span>  { <span class="istickedoff"><span class="decl"><span class="istickedoff">runPoolWorkerCallback</span></span></span> :: k -&gt; MessageBox workerBox w -&gt; m ()
+<span class="lineno">  116 </span>  }
+<span class="lineno">  117 </span>
+<span class="lineno">  118 </span>-- | A record containing the message box 'Input' of the
+<span class="lineno">  119 </span>-- 'Broker' and the 'Async' value required to 'cancel'
+<span class="lineno">  120 </span>-- the pools broker process.
+<span class="lineno">  121 </span>data Pool poolBox k w = MkPool
+<span class="lineno">  122 </span>  { -- | Message sent to this input are dispatched to workers.
+<span class="lineno">  123 </span>    -- If the message is an 'Initialize' message, a new 'async'
+<span class="lineno">  124 </span>    -- process will be started.
+<span class="lineno">  125 </span>    -- If the message value is 'Nothing', the processes is killed.
+<span class="lineno">  126 </span>    <span class="istickedoff"><span class="decl"><span class="istickedoff">poolInput</span></span></span> :: !(Input (MessageBox poolBox) (Multiplexed k (Maybe w))),
+<span class="lineno">  127 </span>    -- | The async of the internal 'Broker'.
+<span class="lineno">  128 </span>    <span class="istickedoff"><span class="decl"><span class="istickedoff">poolAsync</span></span></span> :: !(Async BrokerResult)
+<span class="lineno">  129 </span>  }
+<span class="lineno">  130 </span>
+<span class="lineno">  131 </span>-- | Internal data structure containing a workers
+<span class="lineno">  132 </span>-- message 'Input' and 'Async' value for cancellation.
+<span class="lineno">  133 </span>data PoolWorker workerBox w = MkPoolWorker
+<span class="lineno">  134 </span>  { <span class="istickedoff"><span class="decl"><span class="istickedoff">poolWorkerIn</span></span></span> :: !(Input (MessageBox workerBox) w),
+<span class="lineno">  135 </span>    <span class="istickedoff"><span class="decl"><span class="istickedoff">poolWorkerAsync</span></span></span> :: !(Async ())
+<span class="lineno">  136 </span>  }
+<span class="lineno">  137 </span>
+<span class="lineno">  138 </span>dispatchToWorker ::
+<span class="lineno">  139 </span>  (MonadUnliftIO m, IsInput (Input (MessageBox b))) =&gt;
+<span class="lineno">  140 </span>  k -&gt;
+<span class="lineno">  141 </span>  Maybe w -&gt;
+<span class="lineno">  142 </span>  PoolWorker b w -&gt;
+<span class="lineno">  143 </span>  m (ResourceUpdate (PoolWorker b w))
+<span class="lineno">  144 </span><span class="decl"><span class="istickedoff">dispatchToWorker _k pMsg pm =</span>
+<span class="lineno">  145 </span><span class="spaces">  </span><span class="istickedoff">case pMsg of</span>
+<span class="lineno">  146 </span><span class="spaces">    </span><span class="istickedoff">Just w -&gt; helper w</span>
+<span class="lineno">  147 </span><span class="spaces">    </span><span class="istickedoff">Nothing -&gt; return (RemoveResource Nothing)</span>
+<span class="lineno">  148 </span><span class="spaces">  </span><span class="istickedoff">where</span>
+<span class="lineno">  149 </span><span class="spaces">    </span><span class="istickedoff">helper msg = do</span>
+<span class="lineno">  150 </span><span class="spaces">      </span><span class="istickedoff">ok &lt;- deliver (poolWorkerIn pm) msg</span>
+<span class="lineno">  151 </span><span class="spaces">      </span><span class="istickedoff">if <span class="tickonlyfalse">not ok</span></span>
+<span class="lineno">  152 </span><span class="spaces">        </span><span class="istickedoff">then <span class="nottickedoff">return (RemoveResource Nothing)</span></span>
+<span class="lineno">  153 </span><span class="spaces">        </span><span class="istickedoff">else return KeepResource</span></span>
+<span class="lineno">  154 </span>
+<span class="lineno">  155 </span>spawnWorker ::
+<span class="lineno">  156 </span>  forall k w poolBoxIn workerBox m.
+<span class="lineno">  157 </span>  ( IsMessageBoxArg workerBox,
+<span class="lineno">  158 </span>    MonadUnliftIO m,
+<span class="lineno">  159 </span>    IsInput poolBoxIn
+<span class="lineno">  160 </span>  ) =&gt;
+<span class="lineno">  161 </span>  workerBox -&gt;
+<span class="lineno">  162 </span>  MVar (poolBoxIn (Multiplexed k (Maybe w))) -&gt;
+<span class="lineno">  163 </span>  PoolWorkerCallback workerBox w k m -&gt;
+<span class="lineno">  164 </span>  k -&gt;
+<span class="lineno">  165 </span>  Maybe (Maybe w) -&gt;
+<span class="lineno">  166 </span>  m (PoolWorker workerBox w)
+<span class="lineno">  167 </span><span class="decl"><span class="istickedoff">spawnWorker workerBox brInRef pmCb this _mw = do</span>
+<span class="lineno">  168 </span><span class="spaces">  </span><span class="istickedoff">inputRef &lt;- newEmptyMVar</span>
+<span class="lineno">  169 </span><span class="spaces">  </span><span class="istickedoff">a &lt;- async (go inputRef `finally` enqueueCleanup)</span>
+<span class="lineno">  170 </span><span class="spaces">  </span><span class="istickedoff">boxInM &lt;- takeMVar inputRef</span>
+<span class="lineno">  171 </span><span class="spaces">  </span><span class="istickedoff">case boxInM of</span>
+<span class="lineno">  172 </span><span class="spaces">    </span><span class="istickedoff">Nothing -&gt; do</span>
+<span class="lineno">  173 </span><span class="spaces">      </span><span class="istickedoff">cancel a</span>
+<span class="lineno">  174 </span><span class="spaces">      </span><span class="istickedoff">throwIO <span class="nottickedoff">(stringException &quot;failed to spawnWorker&quot;)</span></span>
+<span class="lineno">  175 </span><span class="spaces">    </span><span class="istickedoff">Just boxIn -&gt;</span>
+<span class="lineno">  176 </span><span class="spaces">      </span><span class="istickedoff">return MkPoolWorker {poolWorkerIn = boxIn, poolWorkerAsync = a}</span>
+<span class="lineno">  177 </span><span class="spaces">  </span><span class="istickedoff">where</span>
+<span class="lineno">  178 </span><span class="spaces">    </span><span class="istickedoff">go inputRef = do</span>
+<span class="lineno">  179 </span><span class="spaces">      </span><span class="istickedoff">b &lt;-</span>
+<span class="lineno">  180 </span><span class="spaces">        </span><span class="istickedoff">( do</span>
+<span class="lineno">  181 </span><span class="spaces">            </span><span class="istickedoff">b &lt;- newMessageBox workerBox</span>
+<span class="lineno">  182 </span><span class="spaces">            </span><span class="istickedoff">boxIn &lt;- newInput b</span>
+<span class="lineno">  183 </span><span class="spaces">            </span><span class="istickedoff">putMVar inputRef (Just boxIn)</span>
+<span class="lineno">  184 </span><span class="spaces">            </span><span class="istickedoff">return <span class="nottickedoff">b</span></span>
+<span class="lineno">  185 </span><span class="spaces">          </span><span class="istickedoff">)</span>
+<span class="lineno">  186 </span><span class="spaces">          </span><span class="istickedoff">`onException` putMVar inputRef Nothing</span>
+<span class="lineno">  187 </span><span class="spaces">      </span><span class="istickedoff">runPoolWorkerCallback pmCb this <span class="nottickedoff">b</span></span>
+<span class="lineno">  188 </span><span class="spaces">    </span><span class="istickedoff">enqueueCleanup =</span>
+<span class="lineno">  189 </span><span class="spaces">      </span><span class="istickedoff">tryReadMVar brInRef</span>
+<span class="lineno">  190 </span><span class="spaces">        </span><span class="istickedoff">&gt;&gt;= traverse_</span>
+<span class="lineno">  191 </span><span class="spaces">          </span><span class="istickedoff">( \brIn -&gt;</span>
+<span class="lineno">  192 </span><span class="spaces">              </span><span class="istickedoff">void (deliver brIn (removePoolWorkerMessage this))</span>
+<span class="lineno">  193 </span><span class="spaces">          </span><span class="istickedoff">)</span></span>
+<span class="lineno">  194 </span>
+<span class="lineno">  195 </span>removeWorker ::
+<span class="lineno">  196 </span>  (MonadUnliftIO m) =&gt;
+<span class="lineno">  197 </span>  k -&gt;
+<span class="lineno">  198 </span>  PoolWorker workerBox w -&gt;
+<span class="lineno">  199 </span>  m ()
+<span class="lineno">  200 </span><span class="decl"><span class="istickedoff">removeWorker _k =</span>
+<span class="lineno">  201 </span><span class="spaces">  </span><span class="istickedoff">void . cancel . poolWorkerAsync</span></span>
+
+</pre>
+</body>
+</html>

@@ -13,7 +13,7 @@ pkgs.runCommand "pool-memleak-test-report"
   echo ""
   echo "This may take more than 45 minutes..."
   echo ""
-  $memleakTest/bin/unliftio-pool-memleak-test 5000 50 +RTS -M1000m -RTS > test.log  
+  $memleakTest/bin/unliftio-pool-memleak-test 5000 50 50 +RTS -M1000m -RTS > test.log  
   # produce unliftio-pool-memleak-test.svg
   $hp2pretty/bin/hp2pretty --bands=8 unliftio-pool-memleak-test.hp
   rm unliftio-pool-memleak-test.hp

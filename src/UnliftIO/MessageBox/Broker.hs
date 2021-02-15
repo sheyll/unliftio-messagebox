@@ -205,6 +205,7 @@ type ResourceCleaner k a m = k -> a -> m ()
 
 type BrokerState k a = Map k a
 
+{-# NOINLINE  brokerLoop #-}
 brokerLoop ::
   ( MonadUnliftIO m,
     Ord k,
@@ -242,6 +243,7 @@ brokerLoop unmask brokerBox config brokerState =
           brokerLoop unmask brokerBox config next
       )
 
+{-# NOINLINE  onIncoming #-}
 onIncoming ::
   (Ord k, MonadUnliftIO m) =>
   (forall x. m x -> m x) ->
