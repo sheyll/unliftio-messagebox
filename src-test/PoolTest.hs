@@ -1,13 +1,14 @@
 module PoolTest (test) where
 
 import qualified Data.Atomics.Counter as Atomic
+import Data.Function (fix)
+import Data.Maybe (isNothing)
 import Test.Tasty
 import Test.Tasty.HUnit
 import UnliftIO
 import UnliftIO.Concurrent
 import UnliftIO.MessageBox
 import Utils
-import Data.Maybe (isNothing)
 
 test :: TestTree
 test =
@@ -139,14 +140,15 @@ test =
                     "the broken worker must be removed from the pool"
                     (workerId1 /= workerId2),
               testCase
-                "when delivering an Initialize with (Just Nothing) as payload,\
+                "when delivering an 'Initialize (Just Nothing)',\
                 \ the worker will be cleaned up and not be in the pool"
                 $ do
-                  counter <- Atomic.newCounter 0                                    
+                  counter <- Atomic.newCounter 0
                   let cb = MkPoolWorkerCallback $ \() box -> do
                         Atomic.incrCounter_ 1 counter
-                        receive box 
-                          >>= maybe (return ()) 
+                        receive box
+                          >>= maybe
+                            (return ())
                             (either id (`putMVar` ()))
                   Right pool <-
                     spawnPool
@@ -161,10 +163,128 @@ test =
                   timeout 10000 (takeMVar failed)
                     >>= assertBool "the worker should not be running" . isNothing
                   deliver_ (poolInput pool) (Initialize () Nothing)
-                  done <- newEmptyMVar 
+                  done <- newEmptyMVar
                   deliver_ (poolInput pool) (Dispatch () (Just (Right done)))
                   takeMVar done
-                  cancel (poolAsync pool)
+                  Atomic.readCounter counter
+                    >>= assertEqual "invalid number of pool worker callback invokations" 2
+                  cancel (poolAsync pool),
+              testCase
+                "when several workers are initialized with different keys,\
+                \ all are created and available in the pool."
+                $ do
+                  startedRef <- newEmptyMVar
+                  let cb = MkPoolWorkerCallback $ \k box -> do
+                        putMVar startedRef k
+                        fix $ \again -> do
+                          m <- receive box
+                          case m of
+                            Nothing -> return ()
+                            Just ref -> do
+                              putMVar ref k
+                              again
 
+                  Right pool <-
+                    spawnPool @Int
+                      BlockingUnlimited
+                      BlockingUnlimited
+                      cb
+                  
+                  deliver_ (poolInput pool) (Initialize 0 Nothing)
+                  takeMVar startedRef >>= assertEqual "wrong startedRef value" 0
+                  deliver_ (poolInput pool) (Initialize 1 Nothing)
+                  takeMVar startedRef >>= assertEqual "wrong startedRef value" 1
+                  deliver_ (poolInput pool) (Initialize 2 Nothing)
+                  takeMVar startedRef >>= assertEqual "wrong startedRef value" 2
+                  deliver_ (poolInput pool) (Initialize 3 Nothing)
+                  takeMVar startedRef >>= assertEqual "wrong startedRef value" 3
+
+                  workRef <- newEmptyMVar 
+                  deliver_ (poolInput pool) (Dispatch 0 (Just workRef))
+                  takeMVar workRef >>= assertEqual "wrong workRef value" 0
+                  deliver_ (poolInput pool) (Dispatch 1 (Just workRef))
+                  takeMVar workRef >>= assertEqual "wrong workRef value" 1
+                  deliver_ (poolInput pool) (Dispatch 2 (Just workRef))
+                  takeMVar workRef >>= assertEqual "wrong workRef value" 2
+                  deliver_ (poolInput pool) (Dispatch 3 (Just workRef))
+                  takeMVar workRef >>= assertEqual "wrong workRef value" 3
+
+
+                  cancel (poolAsync pool),
+              testCase
+                "when 'Dispatch k (Just x)' is delivered, and a worker k exists,\
+                \ the worker will receive the message x, otherwise it will silently be dropped."
+                $ do
+                  startedRef <- newEmptyMVar
+                  let cb = MkPoolWorkerCallback $ \k box -> do
+                        putMVar startedRef k
+                        fix $ \again -> do
+                          m <- receive box
+                          case m of
+                            Nothing -> return ()
+                            Just ref -> do
+                              putMVar ref k
+                              again
+
+                  Right pool <-
+                    spawnPool @Int
+                      BlockingUnlimited
+                      BlockingUnlimited
+                      cb
+
+                  deliver_ (poolInput pool) (Initialize 0 Nothing)
+                  takeMVar startedRef >>= assertEqual "wrong startedRef value" 0
+                  deliver_ (poolInput pool) (Initialize 1 Nothing)
+                  takeMVar startedRef >>= assertEqual "wrong startedRef value" 1
+
+                  workRef <- newEmptyMVar 
+                  deliver_ (poolInput pool) (Dispatch 0 (Just workRef))
+                  takeMVar workRef >>= assertEqual "wrong workRef value" 0
+
+                  deliver_ (poolInput pool) (Dispatch 666 (Just workRef))
+                  timeout 10000 (takeMVar workRef) 
+                    >>= assertEqual "wrong workRef value" Nothing
+
+                  cancel (poolAsync pool),
+              testCase
+                "when Dispatch k Nothing is delivered, and a worker k exists,\
+                \ the worker will be cleaned up and removed from the pool"
+                $ do
+                  startedRef <- newEmptyMVar
+                  let cb = MkPoolWorkerCallback $ \k box -> do
+                        putMVar startedRef k
+                        fix $ \again -> do
+                          m <- receive box
+                          case m of
+                            Nothing -> return ()
+                            Just ref -> do
+                              putMVar ref k
+                              again
+
+                  Right pool <-
+                    spawnPool @Int
+                      BlockingUnlimited
+                      BlockingUnlimited
+                      cb
+
+                  deliver_ (poolInput pool) (Initialize 0 Nothing)
+                  takeMVar startedRef >>= assertEqual "wrong startedRef value" 0
+                  deliver_ (poolInput pool) (Initialize 1 Nothing)
+                  takeMVar startedRef >>= assertEqual "wrong startedRef value" 1
+
+                  workRef <- newEmptyMVar 
+                  deliver_ (poolInput pool) (Dispatch 0 (Just workRef))
+                  takeMVar workRef >>= assertEqual "wrong workRef value" 0
+                  
+                  deliver_ (poolInput pool) (Dispatch 1 Nothing)
+
+                  deliver_ (poolInput pool) (Dispatch 1 (Just workRef))
+                  timeout 10000 (takeMVar workRef) 
+                    >>= assertEqual "wrong workRef value" Nothing
+
+                  deliver_ (poolInput pool) (Dispatch 0 (Just workRef))
+                  takeMVar workRef >>= assertEqual "wrong workRef value" 0
+
+                  cancel (poolAsync pool)
             ]
         ]
