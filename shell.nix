@@ -6,9 +6,9 @@ in
   packages = p: [ p.unliftio-messagebox ];
   withHoogle = true;
   tools = {
-    cabal = "3.2.0.0";
-    ormolu = "0.1.4.1";
-    haskell-language-server = "0.8.0";
+    cabal = "latest";
+    ormolu = "latest";
+    haskell-language-server = "latest";
   };
   buildInputs = with pkgs.haskellPackages;
     [
