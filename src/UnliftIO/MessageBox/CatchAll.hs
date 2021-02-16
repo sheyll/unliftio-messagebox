@@ -5,7 +5,7 @@
 -- This provides a wrapper around "UnliftIO.MessageBox.Class" instances
 -- to catch 'SomeException' in all methods like 'deliver' and 'receive'.
 module UnliftIO.MessageBox.CatchAll
-  ( CatchAllFactory (..),
+  ( CatchAllArg (..),
     CatchAllBox (..),
     CatchAllInput (..),
   )
@@ -15,16 +15,16 @@ import UnliftIO.MessageBox.Util.Future (Future (Future))
 import UnliftIO.MessageBox.Class
   ( IsInput (..),
     IsMessageBox (..),
-    IsMessageBoxFactory (..),
+    IsMessageBoxArg (..),
   )
 import UnliftIO (SomeException, liftIO, try)
 import UnliftIO.Concurrent (threadDelay)
 
 -- | A wrapper around values that are instances
--- of 'IsMessageBoxFactory'. The factory wraps
+-- of 'IsMessageBoxArg'. The factory wraps
 -- the result of the delegated 'newMessageBox'
 -- invocation into a 'CatchAllBox'.
-newtype CatchAllFactory cfg = CatchAllFactory cfg
+newtype CatchAllArg cfg = CatchAllArg cfg
   deriving stock (Eq, Ord, Show)
 
 -- | A wrapper around values that are instances
@@ -38,11 +38,11 @@ newtype CatchAllBox box a = CatchAllBox (box a)
 -- of 'IsInput'.
 newtype CatchAllInput i a = CatchAllInput (i a)
 
-instance IsMessageBoxFactory cfg => IsMessageBoxFactory (CatchAllFactory cfg) where
-  type MessageBox (CatchAllFactory cfg) = CatchAllBox (MessageBox cfg)
+instance IsMessageBoxArg cfg => IsMessageBoxArg (CatchAllArg cfg) where
+  type MessageBox (CatchAllArg cfg) = CatchAllBox (MessageBox cfg)
   {-# INLINE newMessageBox #-}
-  newMessageBox (CatchAllFactory !cfg) = CatchAllBox <$> newMessageBox cfg
-  getConfiguredMessageLimit (CatchAllFactory !cfg) =
+  newMessageBox (CatchAllArg !cfg) = CatchAllBox <$> newMessageBox cfg
+  getConfiguredMessageLimit (CatchAllArg !cfg) =
     getConfiguredMessageLimit cfg
 
 instance IsMessageBox box => IsMessageBox (CatchAllBox box) where

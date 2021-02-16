@@ -4,7 +4,7 @@
 module QCOrphans () where
 
 import UnliftIO.MessageBox.Util.CallId
-import UnliftIO.MessageBox.CatchAll (CatchAllFactory (..))
+import UnliftIO.MessageBox.CatchAll (CatchAllArg (..))
 import qualified UnliftIO.MessageBox.Limited as Limited
 import Test.QuickCheck (Arbitrary (arbitrary), elements)
 
@@ -23,8 +23,8 @@ instance Arbitrary Limited.WaitingBoxLimit where
       <*> arbitrary
       <*> arbitrary
 
-instance Arbitrary a => Arbitrary (CatchAllFactory a) where
-  arbitrary = CatchAllFactory <$> arbitrary
+instance Arbitrary a => Arbitrary (CatchAllArg a) where
+  arbitrary = CatchAllArg <$> arbitrary
 
 instance Arbitrary CallId where
   arbitrary = MkCallId <$> arbitrary

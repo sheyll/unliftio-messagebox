@@ -14,6 +14,7 @@ TAGS
 *.iml
 /dist/
 /dist-newstyle/
+/dist-newstyle-*/
 /out/
 *.hie
 *.dump-hi
@@ -22,4 +23,5 @@ not-in-git.*
 *.tix
 /*.hp
 /*.prof
+/generated-reports/memleak-test-report/unliftio-pool-memleak-test.hp
 /generated-reports/memleak-test-report/unliftio-messagebox-memleak-test.hp

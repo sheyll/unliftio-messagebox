@@ -22,7 +22,7 @@ ${HERE}/generate-module-graph.sh ${TARGET}
 ${HERE}/generate-test-coverage-report.sh ${TARGET}
 ${HERE}/generate-test-profiling-report.sh ${TARGET}
 ${HERE}/generate-benchmark-report.sh ${TARGET}
-${HERE}/generate-memleak-test-report.sh ${TARGET}
+${HERE}/generate-messagebox-memleak-test-report.sh ${TARGET}
 
 # copy all reports to the workspace folder
 

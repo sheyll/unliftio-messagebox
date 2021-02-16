@@ -1,6 +1,6 @@
 cabal-version:  3.0
 name:           unliftio-messagebox
-version:        1.0.2
+version:        2.0.0
 description:    Please see the README on GitHub at <https://github.com/sheyll/unliftio-messagebox#readme>
 synopsis:       Fast and robust message queues for concurrent processes
 homepage:       https://github.com/sheyll/unliftio-messagebox#readme
@@ -8,7 +8,7 @@ bug-reports:    https://github.com/sheyll/unliftio-messagebox/issues
 author:         Sven Heyll
 maintainer:     sven.heyll@gmail.com
 category:       Concurrency
-tested-with:    GHC==8.10.2,GHC==8.10.3
+tested-with:    GHC==8.10.2,GHC==8.10.3,GHC==8.10.4
 copyright:      Copyright Sven Heyll
 license:        BSD-2-Clause
 license-file:   LICENSE
@@ -40,9 +40,10 @@ common compiler-flags
     -Wmissing-deriving-strategies
     -funbox-strict-fields
     -Wno-missing-signatures
+    -fno-full-laziness
+    -O1
   if flag(development)
     ghc-options:
-      -O2
       -Werror
     ghc-prof-options:
       -fprof-auto 

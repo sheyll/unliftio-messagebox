@@ -2,7 +2,7 @@
 -- describes exchangable operations on messages
 -- boxes.
 module UnliftIO.MessageBox.Class
-  ( IsMessageBoxFactory (..),
+  ( IsMessageBoxArg (..),
     IsMessageBox (..),
     IsInput (..),
     handleMessage,
@@ -12,17 +12,22 @@ where
 import Data.Kind (Type)
 import UnliftIO.MessageBox.Util.Future (Future, awaitFuture)
 import UnliftIO (MonadUnliftIO, timeout)
+import Control.Monad (void)
 
--- | Create 'IsMessageBox' instances from a parameter.
+-- | Types that configure and allow the creation of a 'MessageBox'.
+--
+-- Create 'IsMessageBox' instances from a parameter.
 -- Types that determine 'MessageBox' values.
 --
 -- For a limited message box this might be the limit of
 -- the message queue.
 class
-  (IsMessageBox (MessageBox cfg), IsInput (Input (MessageBox cfg))) =>
-  IsMessageBoxFactory cfg
+  (IsMessageBox (MessageBox argument), IsInput (Input (MessageBox argument))) =>
+  IsMessageBoxArg argument
   where
-  type MessageBox cfg :: Type -> Type
+  -- | The message box that can be created from the
+  -- message box argument
+  type MessageBox argument :: Type -> Type
 
   -- | Return a message limit.
   --
@@ -32,18 +37,18 @@ class
   -- Also note that the naming follows the rule:
   -- Reserve short names for entities that are
   -- used often.
-  getConfiguredMessageLimit :: cfg -> Maybe Int
+  getConfiguredMessageLimit :: argument -> Maybe Int
 
-  -- | Create a new @msgBox@.
+  -- | Create a new @msgBox@ according to the @argument@.
   -- This is required to receive a message.
   -- NOTE: Only one process may receive on an msgBox.
-  newMessageBox :: MonadUnliftIO m => cfg -> m (MessageBox cfg a)
+  newMessageBox :: MonadUnliftIO m => argument -> m (MessageBox argument a)
 
 -- | A type class for msgBox types.
 -- A common interface for receiving messages.
-class IsInput (Input msgBox) => IsMessageBox msgBox where
+class IsInput (Input box) => IsMessageBox box where
   -- | Type of the corresponding input
-  type Input msgBox :: Type -> Type
+  type Input box :: Type -> Type
 
   -- | Receive a message. Take whatever time it takes.
   -- Return 'Just' the value or 'Nothing' when an error
@@ -53,14 +58,14 @@ class IsInput (Input msgBox) => IsMessageBox msgBox where
   -- when there is a lot of load, so please make sure to 
   -- build your application in such a way, that it 
   -- anticipates failure.
-  receive :: MonadUnliftIO m => msgBox a -> m (Maybe a)
+  receive :: MonadUnliftIO m => box a -> m (Maybe a)
 
   -- | Return a 'Future' that can be used to wait for the
   -- arrival of the next message.
   -- NOTE: Each future value represents the next slot in the queue
   -- so one future corresponds to exactly that message (should it arrive)
   -- and if that future value is dropped, that message will be lost!
-  tryReceive :: MonadUnliftIO m => msgBox a -> m (Future a)
+  tryReceive :: MonadUnliftIO m => box a -> m (Future a)
 
   -- | Wait for an incoming message or return Nothing.
   --
@@ -77,7 +82,7 @@ class IsInput (Input msgBox) => IsMessageBox msgBox where
   receiveAfter ::
     MonadUnliftIO m =>
     -- | Message box
-    msgBox a ->
+    box a ->
     -- | Time in micro seconds to wait until the
     -- action is invoked.
     Int ->
@@ -86,8 +91,8 @@ class IsInput (Input msgBox) => IsMessageBox msgBox where
     tryReceive mbox >>= timeout t . awaitFuture
 
   -- | Create a new @input@ that enqueus messages,
-  -- which are received by the @msgBox@
-  newInput :: MonadUnliftIO m => msgBox a -> m (Input msgBox a)
+  -- which are received by the @box@
+  newInput :: MonadUnliftIO m => box a -> m (Input box a)
 
 -- | A type class for input types.
 -- A common interface for delivering messages.
@@ -102,17 +107,21 @@ class IsInput input where
   -- build your application in such a way, that it 
   -- anticipates failure.
   deliver :: MonadUnliftIO m => input a -> a -> m Bool
+  -- | See 'deliver' but with @()@ as return value.
+  --   If 'deliver' fails, it fails silently.
+  deliver_ :: MonadUnliftIO m => input a -> a -> m ()
+  deliver_ i a = void (deliver i a)
 
 -- ** Utility Functions for Receiving Messages
 
 -- | Receive a message and apply a function to it.
 handleMessage ::
-  (MonadUnliftIO m, IsMessageBox msgBox) =>
-  msgBox message ->
+  (MonadUnliftIO m, IsMessageBox box) =>
+  box message ->
   (message -> m b) ->
   m (Maybe b)
-handleMessage !msgBox !onMessage = do
-  !maybeMessage <- receive msgBox
+handleMessage !box !onMessage = do
+  !maybeMessage <- receive box
   case maybeMessage of
     Nothing -> pure Nothing
     Just !message -> do

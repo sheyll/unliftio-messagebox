@@ -8,3 +8,5 @@ cradle:
       component: "unliftio-messagebox-test"
     - path: "./src-memleak-test"
       component: "unliftio-messagebox-memleak-test"
+    - path: "./src-pool-memleak-test"
+      component: "unliftio-pool-memleak-test"

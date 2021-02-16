@@ -11,7 +11,9 @@ module Utils
     withCallIds,
     allEqOrdShowMethodsImplemented,
     allEnumMethodsImplemented,
-    NoOpFactory (..),
+    MockBoxInit(..),
+    MockBox(..),
+    NoOpArg (..),
     NoOpBox (..),
     NoOpInput (..),
   )
@@ -26,7 +28,7 @@ import UnliftIO.MessageBox.Util.Future (Future (Future))
 import UnliftIO.MessageBox.Class
   ( IsInput (..),
     IsMessageBox (Input, newInput, receive, tryReceive),
-    IsMessageBoxFactory (..),
+    IsMessageBoxArg (..),
   )
 import Test.QuickCheck
   ( Arbitrary,
@@ -140,10 +142,37 @@ allEnumMethodsImplemented _ =
                        === enumFromTo x y
                    )
 
--- message box dummy implementation
+-- message box implementation
+-- NOTE: Because of parametricity and the existential quantification
+-- of the message payload, the receive and deliver methods
+-- are only capable of throwing exceptions or bottoming out
 
-data NoOpFactory
-  = NoOpFactory
+data MockBoxInit msgBox = MkMockBoxInit 
+  { mockBoxNew :: forall m a. MonadUnliftIO m => m (msgBox a)
+  , mockBoxLimit :: !(Maybe Int)
+  }
+
+instance IsMessageBox msgBox => IsMessageBoxArg (MockBoxInit msgBox) where 
+  type MessageBox (MockBoxInit msgBox) = msgBox
+  getConfiguredMessageLimit = mockBoxLimit
+  newMessageBox b = mockBoxNew b
+
+data MockBox input a = MkMockBox 
+  { mockBoxNewInput :: forall m . MonadUnliftIO m => m (input a)
+  , mockBoxReceive :: forall m . MonadUnliftIO m => m (Maybe a)
+  , mockBoxTryReceive :: forall m . MonadUnliftIO m => m (Future a)
+  }
+
+instance IsInput input => IsMessageBox (MockBox input) where
+  type Input (MockBox input) = input
+  newInput m = mockBoxNewInput m 
+  receive m = mockBoxReceive m
+  tryReceive m = mockBoxTryReceive m
+
+
+
+data NoOpArg
+  = NoOpArg
   deriving stock (Show)
 
 newtype NoOpInput a
@@ -153,9 +182,9 @@ data NoOpBox a
   = OnReceive (Maybe Int) (Maybe a)
   deriving stock (Show)
 
-instance IsMessageBoxFactory NoOpFactory where
-  type MessageBox NoOpFactory = NoOpBox
-  newMessageBox NoOpFactory = return (OnReceive Nothing Nothing)
+instance IsMessageBoxArg NoOpArg where
+  type MessageBox NoOpArg = NoOpBox
+  newMessageBox NoOpArg = return (OnReceive Nothing Nothing)
   getConfiguredMessageLimit _ = Nothing
 
 instance IsMessageBox NoOpBox where

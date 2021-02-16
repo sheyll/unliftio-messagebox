@@ -100,7 +100,7 @@ import UnliftIO.MessageBox
 -- and wait for every process to finish.
 mediaAppBenchmark ::
   forall cfg.
-  (HasCallStack, IsMessageBoxFactory cfg) =>
+  (HasCallStack, IsMessageBoxArg cfg) =>
   cfg ->
   Param ->
   IO ()

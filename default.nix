@@ -9,7 +9,7 @@ pkgs.haskell-nix.project {
   };
   configureArgs = "--flags=development";
   projectFileName = "cabal.project";
-  compiler-nix-name = "ghc8103";
+  compiler-nix-name = "ghc8104";
   modules =
     [
       {

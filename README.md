@@ -3,7 +3,9 @@
 
 # Fast and Robust Message Queues for Concurrent Processes
 
-**NOTE:** To be able to fully view this README, use the [web page](https://sheyll.github.io/unliftio-messagebox/).
+**NOTE:** To be able to fully view this README, use the [GitHub Pages Version](https://sheyll.github.io/unliftio-messagebox/).
+* [API docs](./generated-reports/haddock-report/unliftio-messagebox)
+* [API docs on Hackage](http://hackage.haskell.org/package/unliftio-messagebox)
 
 A thin wrapper around a subset of `unagi-chan` based on `unliftio`.
 
@@ -17,7 +19,6 @@ The overall goal is to reduce the risk of live and dead locks and
 thread starvation, as well as acceptable performance 
 even in massively concurrent programs.
 
-Additionally in 
 ## Module Structure
 
 The library is contained in modules with names starting with 
@@ -50,7 +51,7 @@ or on [Hackage](http://hackage.haskell.org/package/unliftio-messagebox).
 
 [Test Profiling Report](./generated-reports/test-profiling-report/unliftio-messagebox-test.prof)
 
-## Memory Leak Test 
+## Memory Leak Tests
 
 This is a small application with a 1002 processes, each performing a fix amount of 
 work.
@@ -58,19 +59,19 @@ work.
 When the work is done, all processes synchronise before starting a new iteration.
 After each iteration, the memory usage is queried from the GHC runtime 
 statistics.
-There are 100 iterations like that. 
+There are 10 iterations like that. 
 
 After that all processes are shutdown, and the process
-starts all over again, 30 times.
+starts all over again, 5 times.
 
-In total 3000 iterations.
+In total 50 iterations.
 
 If memory is leaked it should become visible.
 
-The test program is executated with the `+RTS -M400m` option that instructs
-the runtime to limit the available heap to 400MB, so when there is a memory
+The test program is executed with the `+RTS -Mxxxm` option that instructs
+the runtime to limit the available heap to `xxx` MB, so if there is a memory
 leak, the program would at some point crash with a heap exhaustion error.
 
-![Memleak Test Heap Profiling Report](./generated-reports/memleak-test-report/unliftio-messagebox-memleak-test.svg)
+![Memleak Test Heap Profiling Report](./generated-reports/messagebox-memleak-test-report/unliftio-messagebox-memleak-test.svg)
 
-The output is printed into [this log file](./generated-reports/memleak-test-report/test.log).
+The output is printed into [this log file](./generated-reports/messagebox-memleak-test-report/test.log).

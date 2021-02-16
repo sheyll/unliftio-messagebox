@@ -27,7 +27,7 @@ import UnliftIO.MessageBox.Class
   ( Input,
     IsInput (deliver),
     IsMessageBox (newInput, receive),
-    IsMessageBoxFactory (..),
+    IsMessageBoxArg (..),
     handleMessage,
     receiveAfter,
   )
@@ -113,7 +113,7 @@ data WaitForMessageFromDeadProcessResult
   deriving stock (Show, Eq)
 
 waitForMessageFromDeadProcess ::
-  (HasCallStack, IsMessageBoxFactory cfg) =>
+  (HasCallStack, IsMessageBoxArg cfg) =>
   cfg ->
   IO WaitForMessageFromDeadProcessResult
 waitForMessageFromDeadProcess outputCfg =
@@ -147,7 +147,7 @@ data SendMessageToDeadProcessResult
   deriving stock (Show, Eq)
 
 sendMessagesToDeadProcess ::
-  (HasCallStack, IsMessageBoxFactory cfg) =>
+  (HasCallStack, IsMessageBoxArg cfg) =>
   cfg ->
   IO SendMessageToDeadProcessResult
 sendMessagesToDeadProcess outputCfg =
@@ -197,7 +197,7 @@ data WaitForCallReplyFromDeadServerResult
   deriving stock (Show, Eq)
 
 waitForCallReplyFromDeadServer ::
-  (IsMessageBoxFactory cfg) =>
+  (IsMessageBoxArg cfg) =>
   cfg ->
   IO WaitForCallReplyFromDeadServerResult
 waitForCallReplyFromDeadServer outputCfg =
@@ -223,7 +223,7 @@ waitForCallReplyFromDeadServerClient ready = do
       (const (return WaitForCallReplyFromDeadServerResult))
 
 waitForCallReplyFromDeadServerServer ::
-  (IsMessageBoxFactory cfg) =>
+  (IsMessageBoxArg cfg) =>
   cfg ->
   MVar (Input (MessageBox cfg) (Message TestServer)) ->
   IO ()
