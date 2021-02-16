@@ -41,7 +41,6 @@ common compiler-flags
     -funbox-strict-fields
     -Wno-missing-signatures
     -fno-full-laziness
-    -O1
   if flag(development)
     ghc-options:
       -Werror
