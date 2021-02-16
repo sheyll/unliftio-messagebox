@@ -16,7 +16,6 @@ The overall goal is to reduce the risk of live and dead locks and
 thread starvation, as well as acceptable performance 
 even in massively concurrent programs.
 
-Additionally in 
 ## Module Structure
 
 The library is contained in modules with names starting with 

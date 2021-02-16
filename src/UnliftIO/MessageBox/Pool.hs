@@ -34,7 +34,7 @@ import UnliftIO
     onException,
     putMVar,
     takeMVar,
-    tryReadMVar,
+    tryReadMVar, liftIO
   )
 import UnliftIO.Exception (stringException, throwIO)
 import UnliftIO.MessageBox.Broker

@@ -1,5 +1,6 @@
 module PoolTest (test) where
 
+import Control.Monad (replicateM_)
 import qualified Data.Atomics.Counter as Atomic
 import Data.Function (fix)
 import Data.Maybe (isNothing)
@@ -113,6 +114,33 @@ test =
                   workerIdRef <- newEmptyMVar
                   let badWorkerBox =
                         MkMockBoxInit
+                          ( do
+                              myThreadId >>= putMVar workerIdRef
+                              throwIO expectedException
+                          )
+                          Nothing
+                  let cb = MkPoolWorkerCallback $ \() _box ->
+                        error "unexpected invokation: callback"
+                  Right pool <-
+                    spawnPool @() @_ @_ @(MockBoxInit (MockBox NoOpInput))
+                      BlockingUnlimited
+                      badWorkerBox
+                      cb
+                  deliver_ (poolInput pool) (Initialize () (Just (Just ())))
+                  workerId1 <- takeMVar workerIdRef
+                  deliver_ (poolInput pool) (Initialize () (Just (Just ())))
+                  workerId2 <- takeMVar workerIdRef
+                  cancel (poolAsync pool)
+                  assertBool
+                    "the broken worker must be removed from the pool"
+                    (workerId1 /= workerId2),
+              testCase
+                "when delivering an Initialize and the worker message box input creation fails,\
+                \ the worker will be cleaned up and not be in the pool"
+                $ do
+                  workerIdRef <- newEmptyMVar
+                  let badWorkerBox =
+                        MkMockBoxInit
                           ( return
                               ( MkMockBox
                                   ( do
@@ -189,7 +217,7 @@ test =
                       BlockingUnlimited
                       BlockingUnlimited
                       cb
-                  
+
                   deliver_ (poolInput pool) (Initialize 0 Nothing)
                   takeMVar startedRef >>= assertEqual "wrong startedRef value" 0
                   deliver_ (poolInput pool) (Initialize 1 Nothing)
@@ -199,7 +227,7 @@ test =
                   deliver_ (poolInput pool) (Initialize 3 Nothing)
                   takeMVar startedRef >>= assertEqual "wrong startedRef value" 3
 
-                  workRef <- newEmptyMVar 
+                  workRef <- newEmptyMVar
                   deliver_ (poolInput pool) (Dispatch 0 (Just workRef))
                   takeMVar workRef >>= assertEqual "wrong workRef value" 0
                   deliver_ (poolInput pool) (Dispatch 1 (Just workRef))
@@ -208,7 +236,6 @@ test =
                   takeMVar workRef >>= assertEqual "wrong workRef value" 2
                   deliver_ (poolInput pool) (Dispatch 3 (Just workRef))
                   takeMVar workRef >>= assertEqual "wrong workRef value" 3
-
 
                   cancel (poolAsync pool),
               testCase
@@ -237,12 +264,12 @@ test =
                   deliver_ (poolInput pool) (Initialize 1 Nothing)
                   takeMVar startedRef >>= assertEqual "wrong startedRef value" 1
 
-                  workRef <- newEmptyMVar 
+                  workRef <- newEmptyMVar
                   deliver_ (poolInput pool) (Dispatch 0 (Just workRef))
                   takeMVar workRef >>= assertEqual "wrong workRef value" 0
 
                   deliver_ (poolInput pool) (Dispatch 666 (Just workRef))
-                  timeout 10000 (takeMVar workRef) 
+                  timeout 10000 (takeMVar workRef)
                     >>= assertEqual "wrong workRef value" Nothing
 
                   cancel (poolAsync pool),
@@ -272,18 +299,69 @@ test =
                   deliver_ (poolInput pool) (Initialize 1 Nothing)
                   takeMVar startedRef >>= assertEqual "wrong startedRef value" 1
 
-                  workRef <- newEmptyMVar 
+                  workRef <- newEmptyMVar
                   deliver_ (poolInput pool) (Dispatch 0 (Just workRef))
                   takeMVar workRef >>= assertEqual "wrong workRef value" 0
-                  
+
                   deliver_ (poolInput pool) (Dispatch 1 Nothing)
 
                   deliver_ (poolInput pool) (Dispatch 1 (Just workRef))
-                  timeout 10000 (takeMVar workRef) 
+                  timeout 10000 (takeMVar workRef)
                     >>= assertEqual "wrong workRef value" Nothing
 
                   deliver_ (poolInput pool) (Dispatch 0 (Just workRef))
                   takeMVar workRef >>= assertEqual "wrong workRef value" 0
+
+                  cancel (poolAsync pool),
+              testCase
+                "when 'deliver' to a worker message box returns False,\
+                \ the worker is removed (and cancelled)"
+                $ do
+                  startedRef <- newEmptyMVar
+                  let cb = MkPoolWorkerCallback $ \k box -> do
+                        putMVar startedRef k
+                        fix $ \again -> do
+                          m <- receive box
+                          case m of
+                            Nothing -> return ()
+                            Just (Left ref) -> do
+                              putMVar ref k
+                              again
+                            Just (Right ()) -> do
+                              threadDelay 100000000
+
+                  Right pool <-
+                    spawnPool @Int
+                      BlockingUnlimited
+                      (NonBlockingBoxLimit MessageLimit_2)
+                      cb
+
+                  deliver_ (poolInput pool) (Initialize 0 Nothing)
+                  takeMVar startedRef >>= assertEqual "wrong startedRef value" 0
+
+                  deliver_ (poolInput pool) (Initialize 1 Nothing)
+                  takeMVar startedRef >>= assertEqual "wrong startedRef value" 1
+
+                  workRef <- newEmptyMVar
+
+                  deliver_ (poolInput pool) (Dispatch 0 (Just (Left workRef)))
+                  takeMVar workRef >>= assertEqual "wrong workRef value" 0
+
+                  -- Now overflow the input by first sending a Right message and then
+                  -- so many messages, that the message limit will cause 'deliver'
+                  -- to return 'False':
+                  replicateM_
+                    16
+                    (deliver_ (poolInput pool) (Dispatch 0 (Just (Right ()))))
+
+                  -- Now the process should be dead:
+                  deliver_ (poolInput pool) (Dispatch 0 (Just (Left workRef)))
+                  timeout 10000 (takeMVar workRef)
+                    >>= assertEqual "wrong workRef value" Nothing
+
+                  -- ... while the other process should be alive:
+                  deliver_ (poolInput pool) (Dispatch 1 (Just (Left workRef)))
+                  takeMVar workRef >>= assertEqual "wrong workRef value" 1
 
                   cancel (poolAsync pool)
             ]
