@@ -1,6 +1,6 @@
 cabal-version:  3.0
 name:           unliftio-messagebox
-version:        2.1.0
+version:        2.0.0
 description:    Please see the README on GitHub at <https://github.com/sheyll/unliftio-messagebox#readme>
 synopsis:       Fast and robust message queues for concurrent processes
 homepage:       https://github.com/sheyll/unliftio-messagebox#readme
@@ -134,12 +134,10 @@ library
       src
   exposed-modules:
     UnliftIO.MessageBox,
-    UnliftIO.MessageBox.Broker,
     UnliftIO.MessageBox.CatchAll,
     UnliftIO.MessageBox.Class,
     UnliftIO.MessageBox.Command,
     UnliftIO.MessageBox.Limited,
-    UnliftIO.MessageBox.Pool,
     UnliftIO.MessageBox.Unlimited,
     UnliftIO.MessageBox.Util.CallId,
     UnliftIO.MessageBox.Util.Fresh,
@@ -156,17 +154,6 @@ executable unliftio-messagebox-memleak-test
     "-with-rtsopts=-T -hy -pa -L256 -xt -N"
   build-depends:
     unliftio-messagebox
-  
-executable unliftio-pool-memleak-test
-  import: deps, compiler-flags, executable-flags
-  default-language: Haskell2010
-  main-is: Main.hs
-  other-modules:    
-  hs-source-dirs: src-pool-memleak-test  
-  ghc-prof-options: 
-    "-with-rtsopts=-T -hy -pa -L256 -xt -N"
-  build-depends:
-    unliftio-messagebox
 
 test-suite unliftio-messagebox-test
   import: deps, compiler-flags, executable-flags
@@ -175,7 +162,6 @@ test-suite unliftio-messagebox-test
   main-is: Main.hs
   hs-source-dirs: src-test
   other-modules:
-    BrokerTest,
     LimitedMessageBoxTest,    
     CallIdTest,
     CatchAllTest,
@@ -184,7 +170,6 @@ test-suite unliftio-messagebox-test
     CornerCaseTests,
     MessageBoxClassTest,
     MessageBoxCommon,
-    PoolTest,
     QCOrphans,
     UnlimitedMessageBoxTest,
     Utils
@@ -205,8 +190,7 @@ benchmark unliftio-messagebox-bench
   other-modules:
     BookStoreBenchmark,
     CommandBenchmark,
-    MediaBenchmark,
-    PoolBenchmark
+    MediaBenchmark
   hs-source-dirs: src-benchmark
   build-depends:
     unliftio-messagebox,

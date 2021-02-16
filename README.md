@@ -50,8 +50,6 @@ or on [Hackage](http://hackage.haskell.org/package/unliftio-messagebox).
 
 ## Memory Leak Tests
 
-### MessageBox Usage
-
 This is a small application with a 1002 processes, each performing a fix amount of 
 work.
 
@@ -74,18 +72,3 @@ leak, the program would at some point crash with a heap exhaustion error.
 ![Memleak Test Heap Profiling Report](./generated-reports/messagebox-memleak-test-report/unliftio-messagebox-memleak-test.svg)
 
 The output is printed into [this log file](./generated-reports/messagebox-memleak-test-report/test.log).
-
-### Pool & Broker Usage
-
-Benchmark memory usage of a very simple `Pool` example.
-
-A single dispatcher process sends a `Start`, some `Work` and a
-`Stop` message to a `Pool` that spawns and dispatches the message
-
-Like the previous benchmark this is a rather long running test 
-executed with capped memory so that when space is leaked, it 
-will crash the benchmark.
-
-![Pool Memleak Test Heap Profiling Report](./generated-reports/pool-memleak-test-report/unliftio-pool-memleak-test.svg)
-
-The output is printed into [this log file](./generated-reports/pool-memleak-test-report/test.log).

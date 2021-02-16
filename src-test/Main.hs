@@ -1,6 +1,5 @@
 module Main (main) where
 
-import qualified BrokerTest
 import qualified CallIdTest
 import qualified CatchAllTest
 import qualified CommandTest
@@ -8,7 +7,6 @@ import qualified CornerCaseTests
 import qualified FreshTest
 import qualified LimitedMessageBoxTest
 import qualified MessageBoxClassTest
-import qualified PoolTest
 import System.Environment (setEnv)
 import Test.Tasty
   ( TestTree,
@@ -29,13 +27,11 @@ test :: TestTree
 test =
   testGroup
     "Tests"
-    [ BrokerTest.test,
-      CallIdTest.test,
+    [ CallIdTest.test,
       CatchAllTest.test,
       CornerCaseTests.test,
       CommandTest.test,
       MessageBoxClassTest.test,
-      PoolTest.test,
       LimitedMessageBoxTest.test,
       UnlimitedMessageBoxTest.test,
       FreshTest.test
