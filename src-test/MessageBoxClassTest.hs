@@ -127,11 +127,9 @@ commonFunctionality arg =
                       ( do
                           threadDelay 10_000
                           s1Ok <- deliver input m1
-                          s2Ok <- deliver input m2
+                          deliver_ input m2
                           return
-                            ( assertBool "delivering message 1 failed" s1Ok
-                                >> assertBool "delivering message 2 failed" s2Ok
-                            )
+                            ( assertBool "delivering message 1 failed" s1Ok )
                       )
                       ( do
                           r <- receiveAfter mbox 200_000
