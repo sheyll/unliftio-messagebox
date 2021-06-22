@@ -11,13 +11,10 @@ let
   sources = import ./sources.nix { };
   # Haskell.nix support  
   haskellDotNix = import sources."haskell.nix" { };
-  haskellDotNixNixpkgs = import haskellDotNix.sources.nixpkgs-2009;
+  haskellDotNixNixpkgs = import haskellDotNix.sources.nixpkgs;
   nixpkgsArgs =
     haskellDotNix.nixpkgsArgs //
     {
-      overlays =
-        haskellDotNix.nixpkgsArgs.overlays
-        ++ import ./overlay.nix sources;
       config =
         haskellDotNix.nixpkgsArgs.config
         // { allowUnfree = true; };
